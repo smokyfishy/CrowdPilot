@@ -25,6 +25,12 @@ import { ReactionBar, ReactionLayer } from '@/components/room/Reactions'
 import { SearchPanel } from '@/components/room/SearchPanel'
 import { SettingsDialog } from '@/components/room/SettingsDialog'
 import { HostPlayer } from '@/components/room/HostPlayer'
+import { useDjData } from '@/client/dj-hooks'
+import { DjPanel } from '@/components/dj/DjPanel'
+import { DjStatusLine } from '@/components/dj/DjStatusLine'
+import { TrackBadges } from '@/components/dj/TrackBadges'
+import { QueueDjActions } from '@/components/dj/QueueDjActions'
+import { audioKeyOf, type HostDj } from '@/dj/engine/host-dj'
 import { announcementFor, onlineMemberIds } from '@/components/room/view-model'
 
 function StateScreen({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -101,6 +107,8 @@ function useMediaQuery(query: string): boolean {
 function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
   const wide = useMediaQuery('(min-width: 1024px)')
   const data = useRoomData()
+  const djData = useDjData()
+  const [hostDj, setHostDj] = useState<HostDj | null>(null)
   const myVotes = useMyVotes(actor.memberId)
   const presence = usePresenceRoom(roomScope(roomId))
   const { error: toastError, info } = useToast()
@@ -191,8 +199,18 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
       playback={data.playback}
       items={data.nowPlaying ? [data.nowPlaying, ...data.upNext] : data.upNext}
       run={run}
+      dj={djData.dj}
+      onHostDj={setHostDj}
     />
   ) : undefined
+  const djStatus = <DjStatusLine dj={djData.dj} items={data.nowPlaying ? [data.nowPlaying, ...data.upNext] : data.upNext} />
+  const djPanel = isHost ? (
+    <DjPanel dj={djData.dj} hostDj={hostDj} nowPlaying={data.nowPlaying} upNext={data.upNext} features={djData.features} run={run} />
+  ) : null
+  const featureOf = (item: (typeof data.upNext)[number]) => {
+    const k = audioKeyOf(item)
+    return k ? djData.features.get(k) : undefined
+  }
   const nowPlaying = (
     <NowPlaying
       item={data.nowPlaying}
@@ -217,6 +235,8 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
       queueRevision={room.queueRevision}
       run={run}
       onFindSongs={() => setTab('search')}
+      renderMeta={(item) => <TrackBadges item={item} feature={featureOf(item)} />}
+      hostActions={(item) => <QueueDjActions item={item} run={run} />}
     />
   )
   const search = (
@@ -261,6 +281,8 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
       <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-0 px-[max(16px,env(safe-area-inset-left))] py-4">
         <section aria-label="Now playing" className="relative grid content-start gap-6 pr-8">
           {nowPlaying}
+          {djStatus}
+          {djPanel}
           <ReactionBar run={run} />
           <ReactionLayer reactions={data.reactions} />
         </section>
@@ -277,6 +299,8 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
         {tab === 'room' && (
           <div className="relative grid gap-6">
             {nowPlaying}
+            {djStatus}
+            {djPanel}
             <ReactionBar run={run} />
             <ReactionLayer reactions={data.reactions} />
             <div className="border-t border-border pt-5">{queue}</div>

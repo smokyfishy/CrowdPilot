@@ -21,6 +21,8 @@ interface AgentDeps {
   now: () => number
   send: (cmd: RoomCommand) => Promise<SendResult>
   blockedTimeoutMs?: number
+  /** Phase 2: maps an item to the controller key (waveform items → `audius:x#itemId`); default = YouTube video id. */
+  playKeyOf?: (item: QueueItem) => string | null
 }
 
 export function videoIdOf(trackKey: string): string {
@@ -61,7 +63,10 @@ export class HostPlaybackAgent {
       const item = items.find((i) => i.id === pb.currentItemId)
       if (!item) return
       this.loadedItemId = item.id
-      await this.deps.player.load(videoIdOf(item.trackKey), Math.floor(estimateProgressSec(pb, this.deps.now())))
+      const key = this.deps.playKeyOf?.(item) ?? videoIdOf(item.trackKey)
+      const pos = estimateProgressSec(pb, this.deps.now())
+      // Waveform decks seek sample-accurately; the YouTube player takes whole seconds (Phase 1 behaviour).
+      await this.deps.player.load(key, key.includes('#') ? pos : Math.floor(pos))
       if (this.lastPb !== pb) return // state moved on while loading; the newer sync handles it
       if (pb.state === 'playing') {
         this.deps.player.play()

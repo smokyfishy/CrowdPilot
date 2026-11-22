@@ -22,7 +22,7 @@ export const fifoSelector: NextTrackSelector = {
 export const LEASE_MS = 90_000
 export const RENEW_MS = 30_000
 export const MAX_CONSECUTIVE_FAILURES = 3
-export const UNAVAILABLE_ERROR_CODES = [2, 5, 100, 101, 150]
+export const UNAVAILABLE_ERROR_CODES = [2, 5, 100, 101, 150, 901, 902]
 
 export type AdvanceReason = 'ended' | 'skip' | 'error'
 
@@ -76,6 +76,10 @@ export function failureReasonFor(code: number | undefined): string {
     case 101:
     case 150:
       return 'The owner does not allow this video to be embedded.'
+    case 901:
+      return 'The authorized audio stream could not be loaded.'
+    case 902:
+      return 'This audio file could not be decoded.'
     default:
       return 'YouTube could not play this video.'
   }

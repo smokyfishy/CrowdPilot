@@ -5,9 +5,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MonitorSpeaker, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import { LEASE_MS, RENEW_MS } from '@/domain/playback'
-import type { PlaybackState, QueueItem } from '@/domain/types'
+import type { DjState, PlaybackState, QueueItem } from '@/domain/types'
 import { createYouTubeIframeController, loadYouTubeApi } from '@/providers/playback/youtube-iframe'
+import { authHeaders } from '@/client/api'
+import { HostDj, playKeyOf } from '@/dj/engine/host-dj'
+import { createRoutingController, type OutputKind } from '@/dj/engine/routing-controller'
 import type { RoomCommand } from '@/server/commands'
 import { useServerClock } from '@/client/hooks'
 import { HostPlaybackAgent } from './host-agent'
@@ -81,15 +85,20 @@ interface HostPlayerProps {
   playback?: PlaybackState
   items: QueueItem[]
   run: Run
+  /** Phase 2: AI DJ settings/state (undefined → Phase 1 behaviour only). */
+  dj?: DjState
+  onHostDj?: (h: HostDj | null) => void
 }
 
-export function HostPlayer({ roomId, playback, items, run }: HostPlayerProps) {
+export function HostPlayer({ roomId, playback, items, run, dj, onHostDj }: HostPlayerProps) {
   const { controllerId, isController, otherDeviceActive, claim } = useController(roomId, playback, run)
   const clock = useServerClock()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const agentRef = useRef<HostPlaybackAgent | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(80)
+  const [output, setOutput] = useState<OutputKind>('youtube')
+  const hostDjRef = useRef<HostDj | null>(null)
 
   useEffect(() => {
     if (!isController || !controllerId || !containerRef.current) return
@@ -103,20 +112,36 @@ export function HostPlayer({ roomId, playback, items, run }: HostPlayerProps) {
         throw e
       }
     })
-    const agent = new HostPlaybackAgent({ controllerId, player, now: clock.now, send: (cmd) => run(cmd, { silent: cmd.type === 'advance' }) })
+    const send = (cmd: RoomCommand) => run(cmd, { silent: cmd.type === 'advance' || cmd.type === 'djStatus' || cmd.type === 'saveAnalysis' })
+    // Phase 2: authorized waveform items play through the Web Audio DJ decks; YouTube stays on the official player.
+    const hostDj = new HostDj({
+      roomId,
+      controllerId,
+      send,
+      now: clock.now,
+      fetchCtx: { roomId, authHeaders: () => authHeaders(roomId) },
+      onChange: () => undefined,
+    })
+    hostDjRef.current = hostDj
+    onHostDj?.(hostDj)
+    const routed = createRoutingController(player, hostDj, setOutput)
+    const agent = new HostPlaybackAgent({ controllerId, player: routed, now: clock.now, send, playKeyOf })
     agentRef.current = agent
-    player.setVolume(volume)
+    routed.setVolume(volume)
     return () => {
       agent.dispose()
-      player.destroy()
+      routed.destroy()
       agentRef.current = null
+      hostDjRef.current = null
+      onHostDj?.(null)
       mount.remove()
     }
   }, [isController, controllerId, run, clock])
 
   useEffect(() => {
     if (playback && agentRef.current) void agentRef.current.sync(playback, items)
-  }, [playback, items, isController])
+    if (playback && dj && hostDjRef.current) hostDjRef.current.sync(playback, items, dj)
+  }, [playback, items, isController, dj])
 
   const setVol = (v: number) => {
     setVolume(v)
@@ -139,7 +164,20 @@ export function HostPlayer({ roomId, playback, items, run }: HostPlayerProps) {
 
   return (
     <div className="grid gap-3">
-      <div className="relative aspect-video min-h-[200px] w-full overflow-hidden rounded-lg border border-border bg-black">
+      {output === 'waveform' && (
+        <div className="grid min-h-[120px] w-full place-items-center rounded-lg border border-primary/40 bg-card p-4 text-center text-sm text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">AI DJ decks</span> are playing authorized audio on this device.
+          </p>
+          {playback?.state === 'blocked' && (
+            <Button size="lg" className="mt-3" onClick={() => void agentRef.current?.tapToStart()}>
+              Tap to start the music
+            </Button>
+          )}
+        </div>
+      )}
+      {/* The official YouTube player stays mounted (never re-created); it is only hidden while the DJ decks are the active output. */}
+      <div className={cn('relative aspect-video min-h-[200px] w-full overflow-hidden rounded-lg border border-border bg-black', output === 'waveform' && 'hidden')}>
         <div ref={containerRef} className="absolute inset-0 [&_iframe]:h-full [&_iframe]:w-full" />
         {playback?.state === 'blocked' && (
           <div className="absolute inset-0 grid place-items-center bg-black/70">

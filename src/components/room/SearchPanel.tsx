@@ -27,19 +27,21 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
   const [query, setQuery] = useState('')
   const [state, setState] = useState<SearchState>({ kind: 'idle' })
   const [pending, setPending] = useState<Record<string, string>>({})
+  const [source, setSource] = useState<'youtube' | 'audius' | 'jamendo'>('youtube')
   const abortRef = useRef<AbortController | null>(null)
   const lastQuery = useRef('')
   const locked = !isHost && !room.guestRequestsEnabled
 
   async function search(q: string) {
     const trimmed = q.trim()
-    if (trimmed.length < 2 || trimmed === lastQuery.current) return
-    lastQuery.current = trimmed
+    const tag = `${source}:${trimmed}`
+    if (trimmed.length < 2 || tag === lastQuery.current) return
+    lastQuery.current = tag
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
     setState({ kind: 'loading' })
-    const r = await roomApi.search(roomId, trimmed, controller.signal)
+    const r = await roomApi.search(roomId, trimmed, controller.signal, source)
     if (controller.signal.aborted) return
     setState(r.ok ? { kind: 'results', tracks: r.value } : { kind: 'error', error: r.error })
     if (!r.ok) lastQuery.current = ''
@@ -49,7 +51,7 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
   useEffect(() => {
     const id = setTimeout(() => void search(query), 450)
     return () => clearTimeout(id)
-  }, [query])
+  }, [query, source])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -94,6 +96,27 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
           The host has paused requests. You can still vote on songs already in the queue.
         </p>
       )}
+      <div role="radiogroup" aria-label="Song source" className="flex flex-wrap gap-1.5 text-xs">
+        {(
+          [
+            ['youtube', 'YouTube', 'Standard playback (embedded player)'],
+            ['audius', 'Audius · AI mix', 'Full audio: beat-matched AI mixing'],
+            ['jamendo', 'Jamendo · AI mix', 'Creative Commons full audio: AI mixing'],
+          ] as const
+        ).map(([id, label, hint]) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={source === id}
+            title={hint}
+            onClick={() => setSource(id)}
+            className={source === id ? 'rounded-full border border-primary px-3 py-1 font-semibold text-primary' : 'rounded-full border border-input px-3 py-1 text-muted-foreground hover:text-foreground'}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <form onSubmit={submit} role="search" className="relative">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <label htmlFor="song-search" className="sr-only">
@@ -112,7 +135,13 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
       </form>
 
       <div aria-live="polite" aria-busy={state.kind === 'loading'}>
-        {state.kind === 'idle' && <p className="text-sm text-muted-foreground">Results come from YouTube. Type at least two letters.</p>}
+        {state.kind === 'idle' && (
+          <p className="text-sm text-muted-foreground">
+            {source === 'youtube'
+              ? 'Results come from YouTube and play in its embedded player (no beat-matching). Type at least two letters.'
+              : 'Results stream full authorized audio, so the AI DJ can analyze and mix them. Type at least two letters.'}
+          </p>
+        )}
 
         {state.kind === 'loading' && (
           <ul className="grid gap-3" aria-label="Loading results">
@@ -149,7 +178,7 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
         )}
 
         {state.kind === 'results' && state.tracks.length === 0 && (
-          <p className="text-sm text-muted-foreground">No embeddable songs found for “{lastQuery.current}”. Try the artist and title together.</p>
+          <p className="text-sm text-muted-foreground">No playable songs found for “{query.trim()}”. Try the artist and title together.</p>
         )}
 
         {state.kind === 'results' && state.tracks.length > 0 && (
@@ -165,9 +194,16 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
                       {track.title}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {track.creatorLabel ? `on ${track.creatorLabel}` : 'YouTube'}
+                      {track.creatorLabel ? `${track.source === 'youtube' ? 'on ' : ''}${track.creatorLabel}` : 'YouTube'}
+                      {track.rights?.uploaderVerified ? ' ✓' : ''}
                       {track.durationMs ? ` · ${formatTime(track.durationMs / 1000)}` : ''}
                     </p>
+                    {track.source !== 'youtube' && (
+                      <p className="truncate text-[11px] text-muted-foreground" title={track.rights?.mixingNeedsReview ? 'Mixing rights under this licence need a human review; the host can disable it.' : undefined}>
+                        <span className="text-primary">AI mix</span> · {track.rights?.label ?? 'licence unknown'}
+                        {track.rights?.mixingNeedsReview ? ' · rights review' : ''}
+                      </p>
+                    )}
                     {failure && <p className="text-xs text-destructive">{failure}</p>}
                   </div>
                   {status === 'in-queue' ? (

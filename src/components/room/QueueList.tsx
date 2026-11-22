@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -17,6 +17,10 @@ interface QueueListProps {
   queueRevision: number
   run: (cmd: RoomCommand) => Promise<unknown>
   onFindSongs?: () => void
+  /** Phase 2: extra per-row line (playback tier, measured BPM/key). */
+  renderMeta?: (item: QueueItem) => ReactNode
+  /** Phase 2: extra host-only row actions (lock, timed slot). */
+  hostActions?: (item: QueueItem) => ReactNode
 }
 
 function VoteButton({ item, voted, run }: { item: QueueItem; voted: boolean; run: QueueListProps['run'] }) {
@@ -46,9 +50,11 @@ interface RowProps {
   run: QueueListProps['run']
   onMove: (item: QueueItem, dir: -1 | 1) => void
   sortable: boolean
+  renderMeta?: (item: QueueItem) => ReactNode
+  hostActions?: (item: QueueItem) => ReactNode
 }
 
-function Row({ item, index, bounds, actor, voted, run, onMove, sortable }: RowProps) {
+function Row({ item, index, bounds, actor, voted, run, onMove, sortable, renderMeta, hostActions }: RowProps) {
   const isHost = actor?.role === 'host'
   const s = useSortable({ id: item.id, disabled: !sortable })
   const style = { transform: CSS.Transform.toString(s.transform), transition: s.transition }
@@ -80,9 +86,11 @@ function Row({ item, index, bounds, actor, voted, run, onMove, sortable }: RowPr
           {mine ? 'you' : item.requestedByName}
           {item.durationMs ? ` · ${formatTime(item.durationMs / 1000)}` : ''}
         </p>
+        {renderMeta?.(item)}
       </div>
       <div className="flex items-center gap-1">
         <VoteButton item={item} voted={voted} run={run} />
+        {isHost && hostActions?.(item)}
         {isHost && item.pinnedAt === null && (
           <span className="hidden gap-1 sm:flex">
             <button type="button" aria-label={`Move ${item.title} up`} disabled={!bounds.canUp} onClick={() => onMove(item, -1)} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30">
@@ -113,7 +121,7 @@ function Row({ item, index, bounds, actor, voted, run, onMove, sortable }: RowPr
   )
 }
 
-export function QueueList({ items, history, actor, myVotes, queueRevision, run, onFindSongs }: QueueListProps) {
+export function QueueList({ items, history, actor, myVotes, queueRevision, run, onFindSongs, renderMeta, hostActions }: QueueListProps) {
   const [mineOnly, setMineOnly] = useState(false)
   const isHost = actor?.role === 'host'
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
@@ -188,6 +196,8 @@ export function QueueList({ items, history, actor, myVotes, queueRevision, run, 
                   run={run}
                   onMove={onMove}
                   sortable={canSort && item.pinnedAt === null}
+                  renderMeta={renderMeta}
+                  hostActions={hostActions}
                 />
               ))}
             </ol>
