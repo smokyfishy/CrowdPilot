@@ -83,7 +83,7 @@ export default function Landing() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   inputMode="text"
-                  className="h-12 w-[10.5ch] rounded-full border border-input bg-card px-4 text-[0.95rem] font-semibold tracking-[0.14em] text-foreground placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground"
+                  className="h-12 w-[12.5ch] rounded-full border border-input bg-card px-4 text-[0.95rem] font-semibold tracking-[0.14em] text-foreground placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground"
                 />
                 <button
                   type="submit"
