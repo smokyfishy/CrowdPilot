@@ -15,12 +15,29 @@ import { signGuestToken } from './guest-token'
 import { httpStatusFor, parseCommand } from './http'
 import { RoomRepo } from './repo'
 import { appScope, createRoomTools, isRoomId, roomScope } from './room-tools'
+import { createYouTubeProvider } from '../providers/catalog/youtube'
+import type { CatalogTrack } from '../providers/catalog/types'
 
 const MAX_BODY = 8 * 1024
 const GUEST_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const codeLookups = new TokenBucket(20, 20 / 60_000)
 const anonJoins = new TokenBucket(10, 10 / 60_000)
 const roomCreates = new TokenBucket(5, 5 / 60_000)
+const searches = new TokenBucket(20, 20 / 60_000)
+const SEARCH_TTL_MS = 60_000
+const searchCache = new Map<string, { at: number; tracks: CatalogTrack[] }>()
+
+function cachedSearch(q: string, now: number): CatalogTrack[] | undefined {
+  const hit = searchCache.get(q)
+  if (hit && now - hit.at < SEARCH_TTL_MS) return hit.tracks
+  if (hit) searchCache.delete(q)
+  return undefined
+}
+
+function rememberSearch(q: string, tracks: CatalogTrack[], now: number): void {
+  if (searchCache.size > 500) searchCache.delete(searchCache.keys().next().value as string)
+  searchCache.set(q, { at: now, tracks })
+}
 
 function clientIp(c: Context<AppContext>): string {
   return c.req.header('CF-Connecting-IP') ?? 'local'
@@ -48,6 +65,24 @@ const invalid = (message: string): DomainError => ({ code: 'INVALID', message })
 
 export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAuth): void {
   app.get('/api/time', (c) => c.json({ serverNow: Date.now() }))
+
+  app.get('/api/catalog/search', async (c) => {
+    const roomId = c.req.query('roomId') ?? ''
+    const q = (c.req.query('q') ?? '').replace(/\s+/g, ' ').trim()
+    if (!isRoomId(roomId)) return errorResponse(c, { code: 'NOT_FOUND', message: 'This room does not exist.' })
+    if (q.length < 2 || q.length > 100) return errorResponse(c, invalid('Search for 2–100 characters.'))
+    const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
+    if (!who.ok) return errorResponse(c, who.error)
+    const now = Date.now()
+    const key = q.toLowerCase()
+    const cached = cachedSearch(key, now)
+    if (cached) return c.json({ ok: true, value: cached })
+    const limited = searches.take(who.value.actor.memberId, now)
+    if (!limited.ok) return errorResponse(c, limited.error)
+    const r = await createYouTubeProvider(c.env.YOUTUBE_API_KEY).search(q, c.req.raw.signal)
+    if (r.ok) rememberSearch(key, r.value, now)
+    return respond(c, r)
+  })
 
   app.post('/api/rooms', async (c) => {
     const auth = await resolveAuth(c.req.raw, c.env)
