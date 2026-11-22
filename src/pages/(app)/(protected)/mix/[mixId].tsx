@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useR2Files, useUser } from 'deepspace'
 import { Button, Skeleton, useToast } from '@/components/ui'
 import { MixPlayer, fmtTime } from '@/components/mix/MixPlayer'
+import { MixSteps, stepFor } from '@/components/mix/MixSteps'
 import { authHeaders, fileUrl, liveJobs, mixApi, notify, type LiveJob } from '@/mixgen/browser/client'
 import { BrowserMixJob, type SelectionRow } from '@/mixgen/browser/job'
 import type { MixManifest } from '@/mixgen/manifest'
@@ -259,6 +260,7 @@ export default function MixPage() {
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-8 px-[max(16px,env(safe-area-inset-left))] py-8">
       <title>{`${d.title} · CrowdPilot`}</title>
+      <MixSteps current={stepFor(live?.running && live.stage === 'rendering' ? 'rendering' : d.status)} failed={d.status === 'failed' || !!live?.error} />
       <nav className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Link to="/mix" className="hover:text-foreground">← Your mixes</Link>
         {versions.length > 1 && (

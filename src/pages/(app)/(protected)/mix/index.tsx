@@ -9,6 +9,7 @@ import { Button, Skeleton, Textarea, useToast } from '@/components/ui'
 import { mixApi, type InterpretResult } from '@/mixgen/browser/client'
 import { ENERGY_CURVES, TRANSITION_STYLES, resolveSpec, type MixSpec } from '@/mixgen/spec'
 import { fmtTime } from '@/components/mix/MixPlayer'
+import { MixSteps } from '@/components/mix/MixSteps'
 
 const EXAMPLES = [
   'Create a 45-minute house and EDM mix with 12 popular tracks. I like John Summit, Dom Dolla, Fisher, Chris Lake, and similar artists. Start groovy, gradually increase the energy, include several big drops, and finish with a festival-style closing track. Make the transitions smooth, professional, and creative.',
@@ -124,6 +125,7 @@ export default function MixCreate() {
     <div className="mx-auto grid w-full max-w-3xl gap-10 px-[max(16px,env(safe-area-inset-left))] py-10">
       <title>Generate AI Mix · CrowdPilot</title>
       <section className="grid gap-4">
+        <MixSteps current={0} />
         <h1 className="font-display text-[clamp(2.4rem,6vw,4rem)] leading-[0.95] text-foreground">Describe your dream DJ set.</h1>
         <p className="max-w-[60ch] text-muted-foreground">CrowdPilot finds the music, gets audio from sources that allow mixing, analyzes every track, and renders one continuous mix with real beat-matched transitions.</p>
         <form onSubmit={interpret} className="grid gap-3">
