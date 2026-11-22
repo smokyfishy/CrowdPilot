@@ -161,9 +161,9 @@ export function DjPanel({ dj, hostDj, nowPlaying, upNext, features, run }: Props
           <Switch checked={dj.aiReorder} onCheckedChange={(v: boolean) => set({ aiReorder: v })} aria-label="AI reordering of unlocked requests" />
           AI picks next (unlocked only)
         </label>
-        <label className="flex items-center gap-1.5" title="Audius uploads that are not Creative Commons are streamed under the Open Music License; whether live mixing is covered needs a human rights review.">
-          <Switch checked={dj.allowOmlMixing} onCheckedChange={(v: boolean) => set({ allowOmlMixing: v })} aria-label="Mix OML-licensed Audius uploads" />
-          Mix OML-only Audius uploads
+        <label className="flex items-center gap-1.5" title="Covers Audius uploads streamed only under the Open Music License and Jamendo tracks with no-derivatives (ND) or unknown licences: whether live mixing is permitted needs a human rights review.">
+          <Switch checked={dj.allowOmlMixing} onCheckedChange={(v: boolean) => set({ allowOmlMixing: v })} aria-label="Mix tracks whose licence needs rights review" />
+          Mix tracks pending rights review
         </label>
       </div>
 

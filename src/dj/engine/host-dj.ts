@@ -312,13 +312,15 @@ export class HostDj implements PlaybackController {
   private planTrack(item: QueueItem): PlanTrack {
     const key = audioKeyOf(item)
     const a = key ? this.analyses.get(key) : undefined
-    const mixable = !!key && (a?.status === 'ready' || a?.status === 'low_confidence') && !!a.summary && this.mixingAllowed(key)
+    const mixable = !!key && (a?.status === 'ready' || a?.status === 'low_confidence') && !!a.summary && this.mixingAllowed(key, item)
     return { itemId: item.id, trackKey: key ?? item.trackKey, title: item.title, mixable, summary: mixable ? a?.summary : undefined, durationSec: a?.summary?.durationSec ?? (item.durationMs ?? 240_000) / 1000 }
   }
 
-  private mixingAllowed(audioKey: string): boolean {
-    // OML-only Audius uploads are mixable only while the host allows it (rights under review).
-    return !(audioKey.startsWith('audius:') && this.dj && !this.dj.allowOmlMixing)
+  private mixingAllowed(audioKey: string, item?: QueueItem): boolean {
+    // Sources whose licence needs a human rights review for live mixing (OML-only Audius uploads,
+    // Jamendo ND/unknown licences) are mixable only while the host allows it.
+    const needsReview = item?.rights ? item.rights.needsReview : audioKey.startsWith('audius:')
+    return !(needsReview && this.dj && !this.dj.allowOmlMixing)
   }
 
   private plannerOptions(): PlannerOptions {

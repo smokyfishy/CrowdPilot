@@ -21,6 +21,7 @@ export interface TrackRef {
   creatorLabel?: string
   thumbnailUrl?: string
   durationMs?: number
+  rights?: { basis: string; label?: string; needsReview: boolean }
 }
 
 export interface QueueItem extends TrackRef {
@@ -43,6 +44,8 @@ export interface QueueItem extends TrackRef {
   targetStartAt?: number
   /** Phase 2: host position lock against AI reordering. */
   locked?: boolean
+  /** Phase 2: licence basis of the waveform source (server-resolved at enqueue). */
+  rights?: { basis: string; label?: string; needsReview: boolean }
 }
 
 export type DjStatus = 'idle' | 'analyzing' | 'ready' | 'proposed' | 'committed' | 'mixing' | 'safe_fallback' | 'failed'

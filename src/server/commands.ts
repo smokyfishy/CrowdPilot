@@ -245,6 +245,7 @@ function validTrack(t: TrackRef, trustedThumbnail = false): Result<TrackRef> {
     creatorLabel: t.creatorLabel ? String(t.creatorLabel).trim().slice(0, 120) : undefined,
     thumbnailUrl: thumb,
     durationMs: duration,
+    rights: t.rights ? { basis: String(t.rights.basis).slice(0, 60), label: t.rights.label ? String(t.rights.label).slice(0, 80) : undefined, needsReview: !!t.rights.needsReview } : undefined,
   })
 }
 
@@ -341,7 +342,7 @@ async function enqueue(
   selector: NextTrackSelector,
   deps: CommandDeps,
 ): Promise<Result<{ itemId?: string }>> {
-  const track = validTrack(cmd.track)
+  const track = validTrack({ ...cmd.track, rights: undefined })
   if (!track.ok) return track
   const idemKey = `idem:${actor.memberId}:${String(cmd.idempotencyKey).slice(0, 64)}`
   const prior = await readClaim(tools, idemKey)
@@ -431,6 +432,7 @@ async function createQueuedItem(
       creatorLabel: meta.creatorLabel ?? '',
       thumbnailUrl: meta.thumbnailUrl ?? '',
       durationMs: meta.durationMs ?? null,
+      rights: meta.rights ?? null,
       requestedByMemberId: actor.memberId,
       requestedByName: actor.displayName,
       enqueueSeq: seq,

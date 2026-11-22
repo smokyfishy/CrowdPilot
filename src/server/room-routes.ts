@@ -245,7 +245,9 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
       const source = sourceOf(trackKey)
       if (!source) return { ok: false as const, error: invalid('Unknown song source.') }
       const r = await providerFor(c.env, source).resolve(trackKey.slice(source.length + 1))
-      return r.ok ? { ok: true as const, value: { ...r.value, trustedThumbnail: source !== 'youtube' } } : r
+      if (!r.ok) return r
+      const rights = r.value.rights ? { basis: r.value.rights.basis, label: r.value.rights.label, needsReview: !!r.value.rights.mixingNeedsReview } : undefined
+      return { ok: true as const, value: { ...r.value, rights, trustedThumbnail: source !== 'youtube' } }
     }
     const r = await executeCommand(who.value.tools, who.value.actor, cmd.value, Date.now(), { appTools, resolveTrack, findMixable })
     return respond(c, r)

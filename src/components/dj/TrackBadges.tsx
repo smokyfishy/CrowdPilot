@@ -35,6 +35,7 @@ export function TrackBadges({ item, feature }: { item: QueueItem; feature?: Feat
         {TIER_LABEL[tier]}
         {matched ? ' · Audius match' : ''}
       </span>
+      {item.rights && <span className="text-muted-foreground" title={item.rights.needsReview ? 'Live mixing under this licence needs a human rights review.' : undefined}>{item.rights.label ?? item.rights.basis}{item.rights.needsReview ? ' · review' : ''}</span>}
       {item.locked && <span className="text-muted-foreground">locked</span>}
       {item.targetStartAt && <span className="text-muted-foreground">at {new Date(item.targetStartAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
       {feature?.status === 'failed' && <span className="text-destructive">analysis failed</span>}

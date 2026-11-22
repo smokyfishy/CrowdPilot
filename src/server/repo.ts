@@ -66,6 +66,7 @@ export function toQueueItem(r: Row): QueueItem {
     mixMatch: d.mixMatch && typeof d.mixMatch === 'object' ? (d.mixMatch as QueueItem['mixMatch']) : undefined,
     targetStartAt: d.targetStartAt == null || d.targetStartAt === '' ? undefined : Number(d.targetStartAt),
     locked: d.locked === true || d.locked === 1,
+    rights: d.rights && typeof d.rights === 'object' ? (d.rights as QueueItem['rights']) : undefined,
   }
 }
 

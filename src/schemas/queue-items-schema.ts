@@ -31,6 +31,8 @@ export const queueItemsSchema: CollectionSchema = {
     num('targetStartAt'),
     /** Host position lock: AI reordering may not move this item. */
     bool('locked', { default: false }),
+    /** Licence basis of the audio source: { basis, label, needsReview } (server-resolved). */
+    json('rights'),
   ],
   uniqueOn: ['enqueueSeq'],
   permissions: readOnly(true),
