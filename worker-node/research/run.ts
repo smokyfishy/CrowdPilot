@@ -18,6 +18,8 @@ import { makeAnalyzer, readGrants, readSecrets } from '../mixgen/host'
 import { RESEARCH_COMMENT, researchYouTubeEnabled } from '../mixgen/research'
 import { cleanup, dir } from '../mixgen/storage'
 import { discoverResearch } from './discover'
+import type { MlOptions } from '../../src/mixgen/ml'
+import { nodeMlRuntime } from '../mixgen/ml-runtime'
 
 export interface Attempt {
   key: string
@@ -49,7 +51,7 @@ export interface ResearchResult {
   rejected: Array<{ title: string; uploader?: string; reason: string }>
 }
 
-export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: string; prompt: string; specSource: string; onProgress?: (e: ProgressEvent) => void }): Promise<ResearchResult> {
+export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: string; prompt: string; specSource: string; ml?: Partial<MlOptions>; onProgress?: (e: ProgressEvent) => void }): Promise<ResearchResult> {
   if (!researchYouTubeEnabled()) throw new Error('Research mode requires CP_RESEARCH_YOUTUBE=1 (local machine only).')
   const logPath = join(dir('logs'), `${o.jobId}.log`)
   const log = (m: string) => appendFileSync(logPath, `${new Date().toISOString()} ${m}\n`)
@@ -115,6 +117,7 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
     sink: { write: async () => {} },
     progress: (e) => o.onProgress?.(e),
     log,
+    ml: await nodeMlRuntime(o.repoRoot, o.ml),
   }
   const mp3Path = join(dir('exports', 'research'), `${o.jobId}.mp3`)
   const enc = createEncoder(mp3Path, 44100, { mp3Kbps: 320, metadata: { title: `CrowdPilot research mix ${o.jobId}`, comment: RESEARCH_COMMENT, copyright: 'Research only - not for distribution' } })

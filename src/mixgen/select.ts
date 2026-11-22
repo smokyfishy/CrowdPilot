@@ -184,12 +184,14 @@ export interface OrderOptions {
   maxTempoDeviation?: number
   /** Keep this exact order (no reordering requested). */
   fixedOrder?: string[]
+  /** Extra learned pair cost (e.g. MixGraph predicted transition severity), added to the rule pair cost. */
+  pairExtra?: (a: OrderTrack, b: OrderTrack) => number
 }
 
 export interface OrderResult {
   order: string[]
   cost: number
-  parts: { tempo: number; key: number; energy: number; pref: number; variety: number }
+  parts: { tempo: number; key: number; energy: number; pref: number; variety: number; learned: number }
   explored: number
 }
 
@@ -237,7 +239,7 @@ export function orderSet(tracks: OrderTrack[], spec: ResolvedSpec, opts: OrderOp
   }
   if (opts.fixedOrder) {
     const order = opts.fixedOrder.filter((k) => byKey.has(k)).slice(0, n)
-    return { order, ...scoreOrder(order.map((k) => byKey.get(k)!), maxDev, stepEnergy), explored: 1 }
+    return { order, ...scoreOrder(order.map((k) => byKey.get(k)!), maxDev, stepEnergy, opts.pairExtra), explored: 1 }
   }
   interface Node {
     seq: OrderTrack[]
@@ -258,7 +260,7 @@ export function orderSet(tracks: OrderTrack[], spec: ResolvedSpec, opts: OrderOp
         const prev = node.seq[node.seq.length - 1]
         if (prev) {
           const pc = pairCost(prev, t, maxDev)
-          c += pc.tempo + pc.key
+          c += pc.tempo + pc.key + (opts.pairExtra?.(prev, t) ?? 0)
           if (prev.artist === t.artist) c += 1.2 // same artist back-to-back
         }
         c += (node.artists.get(t.artist) ?? 0) * 0.5
@@ -283,11 +285,11 @@ export function orderSet(tracks: OrderTrack[], spec: ResolvedSpec, opts: OrderOp
   }
   const best = beam[0]
   const order = best ? best.seq.map((t) => t.key) : []
-  return { order, ...scoreOrder(best?.seq ?? [], maxDev, stepEnergy), explored }
+  return { order, ...scoreOrder(best?.seq ?? [], maxDev, stepEnergy, opts.pairExtra), explored }
 }
 
-function scoreOrder(seq: OrderTrack[], maxDev: number, stepEnergy: (t: OrderTrack, pos: number) => number) {
-  const parts = { tempo: 0, key: 0, energy: 0, pref: 0, variety: 0 }
+function scoreOrder(seq: OrderTrack[], maxDev: number, stepEnergy: (t: OrderTrack, pos: number) => number, pairExtra?: (a: OrderTrack, b: OrderTrack) => number) {
+  const parts = { tempo: 0, key: 0, energy: 0, pref: 0, variety: 0, learned: 0 }
   seq.forEach((t, i) => {
     parts.energy += stepEnergy(t, i)
     parts.pref -= t.pref
@@ -295,8 +297,9 @@ function scoreOrder(seq: OrderTrack[], maxDev: number, stepEnergy: (t: OrderTrac
       const pc = pairCost(seq[i - 1], t, maxDev)
       parts.tempo += pc.tempo
       parts.key += pc.key
+      parts.learned += pairExtra?.(seq[i - 1], t) ?? 0
       if (seq[i - 1].artist === t.artist) parts.variety += 1.2
     }
   })
-  return { cost: parts.tempo + parts.key + parts.energy + parts.pref + parts.variety, parts }
+  return { cost: parts.tempo + parts.key + parts.energy + parts.pref + parts.variety + parts.learned, parts }
 }

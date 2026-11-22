@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import type { MixManifest, ManifestTransition } from '@/mixgen/manifest'
 import { TransitionInspector } from './TransitionInspector'
+import { MlDiagnostics } from './MlDiagnostics'
 
 const SEG_COLORS = ['#c9842e', '#7f9c8a', '#b5654a', '#8a87b8', '#c2a35a', '#5f8fa8', '#a8708f', '#8fa35f']
 
@@ -341,6 +342,7 @@ export function MixPlayer({ manifest: m, audioSrc, downloadUrl }: { manifest: Mi
           ) : null}
           <span>{m.permissions.reason}</span>
         </div>
+        <MlDiagnostics m={m} />
         <details className="mt-2">
           <summary className="cursor-pointer text-foreground">Attribution</summary>
           <ul className="mt-2 grid gap-1">

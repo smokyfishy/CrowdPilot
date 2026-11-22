@@ -14,6 +14,8 @@ import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery }
 import { runPipeline, type PipelineHost, type PipelineResult, type RunOptions } from '../../src/mixgen/pipeline'
 import type { TrackCandidate } from '../../src/mixgen/types'
 import { unlinkSync } from 'node:fs'
+import type { MlOptions } from '../../src/mixgen/ml'
+import { nodeMlRuntime } from './ml-runtime'
 import type { AuthorizationGrant } from '../../src/mixgen/policy'
 import type { MixSpec } from '../../src/mixgen/spec'
 import { STAGES, type ProgressEvent } from '../../src/mixgen/types'
@@ -99,6 +101,8 @@ export interface NodeRunOptions extends RunOptions {
   mp3Path?: string
   /** Reuse a candidate pool from a previous phase (skips discovery). */
   previousPool?: TrackCandidate[]
+  /** Learned-DJ options (default: all models with weights; `mode: 'off'` = rules only). */
+  ml?: Partial<MlOptions>
   onProgress?: (ev: ProgressEvent) => void
 }
 
@@ -147,6 +151,7 @@ export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<Node
     log,
     concurrency: 3,
     previous: o.previousPool ? { pool: o.previousPool } : undefined,
+    ml: await nodeMlRuntime(o.repoRoot, o.ml),
   }
   try {
     const res = await runPipeline(spec, host, o)

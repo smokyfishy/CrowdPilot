@@ -13,7 +13,8 @@ import { discover, relevant, type DiscoveryProvider } from './discovery'
 import { orderSet, preselect, type OrderTrack, type ScoredCandidate } from './select'
 import { planMix, type MixPlan, type PlannedTrack } from './mixplan'
 import { renderMix, type AudioSink, type PcmTrack, type RenderResult } from './mix-render'
-import { beatmatchable } from '../dj/transitions'
+import { beatmatchable, candidateTransitions, DEFAULT_OPTIONS, type PlanTrack } from '../dj/transitions'
+import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, traceAutomation, type MlRuntime, type ScoredPlan } from './ml'
 import { buildManifest, type MixManifest } from './manifest'
 import { validateMix, type ValidationReport } from './validate'
 import { resolveSpec, type MixSpec, type ResolvedSpec } from './spec'
@@ -45,6 +46,8 @@ export interface PipelineHost {
   signal?: AbortSignal
   /** Reuse prior stage outputs (regeneration / resume). */
   previous?: { pool?: TrackCandidate[]; analyses?: Map<string, AnalyzedEntry> }
+  /** Learned-DJ runtime (src/mixgen/ml.ts). Absent = rules only (logged in the manifest). */
+  ml?: MlRuntime
   concurrency?: number
 }
 
@@ -224,7 +227,28 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const count = Math.min(spec.songCount, orderTracks.length)
   host.progress({ stage: 'selecting', done: 1, total: 1, detail: `${count} of ${orderTracks.length} analyzed recordings` })
   const fixed = opts.fixedOrder ?? (!spec.allowReordering && spec.songs.length ? undefined : undefined)
-  const ord = orderSet(orderTracks, spec, { count, fixedOrder: fixed })
+  // Learned pair compatibility (MixGraph) for the beam search, traced against the rule-only order.
+  const ml = host.ml
+  let pairExtra: ((a: OrderTrack, b: OrderTrack) => number) | undefined
+  if (ml?.on.ordering && !fixed) {
+    const summaries = new Map(usable.map((e) => [e.candidate.trackKey, summarize(e.analysis)]))
+    const pt = (s: ReturnType<typeof summarize>, k: string): PlanTrack => ({ itemId: k, trackKey: k, title: k, mixable: true, summary: s, durationSec: s.durationSec })
+    const sev = pairSeverity(ml, [...summaries.keys()], summaries, (sa, sb) => candidateTransitions(pt(sa, 'a'), pt(sb, 'b'), DEFAULT_OPTIONS))
+    if (sev.size) pairExtra = (a, b) => ml.options.orderWeight * (sev.get(`${a.key}|${b.key}`) ?? 0.05)
+  }
+  const ord = orderSet(orderTracks, spec, { count, fixedOrder: fixed, pairExtra })
+  if (ml && pairExtra) {
+    const rulesOnly = orderSet(orderTracks, spec, { count })
+    const changed = rulesOnly.order.join('|') !== ord.order.join('|')
+    const name = (k: string) => analyses.get(k)?.candidate.title ?? k
+    ml.trace.decisions.push({
+      stage: 'ordering',
+      model: 'mixgraph_quality',
+      inputs: { tracks: orderTracks.length, scoredPairs: ml.trace.counts.ordering_pairs ?? 0, weight: ml.options.orderWeight },
+      prediction: { learnedPairCost: Math.round(ord.parts.learned * 1000) / 1000, rulesOnlyCost: Math.round(rulesOnly.cost * 1000) / 1000 },
+      decision: changed ? `order changed by the model: ${ord.order.map(name).join(' → ')} (rules alone: ${rulesOnly.order.map(name).join(' → ')})` : 'same order as rules alone',
+    })
+  }
   host.progress({ stage: 'ordering', done: 1, total: 1, detail: `beam search explored ${ord.explored} states` })
   log(`ordering: cost ${ord.cost.toFixed(2)} parts ${JSON.stringify(ord.parts)}`)
 
@@ -232,9 +256,32 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const planned: PlannedTrack[] = ord.order.map((k) => {
     const e = analyses.get(k)!
     const s = summarize(e.analysis)
-    return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp) }
+    return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp), netBeats: e.analysis.netBeats }
   })
-  const plan = planMix(planned, spec)
+  const plan = planMix(planned, spec, ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {})
+  // DJCritic: choose among same-cue alternatives using rendered previews of the real audio.
+  if (ml?.on.critic && plan.transitions.length) {
+    const mono = new Map<string, Float32Array>()
+    const monoOf = async (k: string) => {
+      if (!mono.has(k)) {
+        const pcm = await host.decode(analyses.get(k)!.audio)
+        mono.set(k, monoAt(pcm.channels, pcm.rate, 16000))
+        if (mono.size > 3) mono.delete(mono.keys().next().value!)
+      }
+      return mono.get(k)!
+    }
+    const allow = (s: string) => !(s === 'filter_sweep' && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal'))
+    for (const [i, tr] of plan.transitions.entries()) {
+      host.progress({ stage: 'transitions', done: i, total: plan.transitions.length, detail: `DJCritic ${i + 1}/${plan.transitions.length}` })
+      const a = planned[i]
+      const b = planned[i + 1]
+      const alts = buildAlternatives(ml, tr.plan as ScoredPlan, a.summary, b.summary, allow)
+      if (!alts.length) continue
+      const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
+      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audio, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`)
+    }
+  }
+  if (ml) plan.transitions.forEach((tr, i) => traceAutomation(ml, tr.plan, `${i + 1}→${i + 2}`))
   host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, planned.length - 1), detail: plan.transitions.map((t) => t.plan.style).join(', ') })
   for (const n of plan.notes) log(`plan: ${n}`)
 
@@ -268,6 +315,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   // ── 10. validate ──
   const perms = mixPermissions(ord.order.map((k) => analyses.get(k)!.access))
   const manifest = buildManifest({ spec, plan, render, analyses, order: ord.order, unavailable, permissions: perms, acquisition, title: opts.title })
+  manifest.ml = ml?.trace ?? { mode: 'off', options: undefined, models: [], decisions: [], fallbacks: ['no ML runtime provided by this host: rule-based planner only'], timingsMs: {}, counts: {} }
   const validation = validateMix(manifest, render)
   host.progress({ stage: 'validating', done: 1, total: 1, detail: validation.ok ? 'passed' : validation.failures.join('; ') })
   manifest.validation = validation

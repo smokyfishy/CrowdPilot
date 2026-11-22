@@ -11,6 +11,7 @@ import type { AnalyzedEntry } from './pipeline'
 import type { ResolvedSpec } from './spec'
 import type { Unavailability } from './types'
 import type { ValidationReport } from './validate'
+import type { MlTrace, ScoredPlan } from './ml'
 
 export const MANIFEST_VERSION = 1
 
@@ -77,6 +78,8 @@ export interface ManifestTransition {
   reasons: string[]
   risks: string[]
   cost: number
+  /** Who controlled this transition's automation, and MixGraph's predicted severity (lower = better). */
+  control?: { automation: 'transitionnet' | 'rules'; mixgraphSeverity?: number }
 }
 
 export interface MixManifest {
@@ -111,6 +114,8 @@ export interface MixManifest {
   attribution: string[]
   planNotes: string[]
   validation?: ValidationReport
+  /** Learned-DJ inference trace (models, inputs, predictions, decisions, DSP params, fallbacks). */
+  ml?: Omit<MlTrace, 'options'> & { options?: MlTrace['options'] }
 }
 
 function curveSec(c: CurvePoint[] | undefined, beatSec: number): ManifestCurve | undefined {
@@ -240,6 +245,7 @@ export function buildManifest(input: {
       reasons: p.reasons,
       risks: p.risks,
       cost: Math.round(p.costs.total * 100) / 100,
+      control: { automation: (p as ScoredPlan).mlSource === 'transitionnet' ? 'transitionnet' : 'rules', mixgraphSeverity: (p as ScoredPlan).mlSeverity !== undefined ? Math.round((p as ScoredPlan).mlSeverity! * 10000) / 10000 : undefined },
     }
   })
   const bpms = tracks.map((t) => t.bpm).filter((b) => b > 0)

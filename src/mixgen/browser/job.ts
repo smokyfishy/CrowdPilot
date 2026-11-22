@@ -18,6 +18,8 @@ import type { MixSpec } from '../spec'
 import type { AcquiredAudio, ProgressEvent, Stage, TrackCandidate } from '../types'
 import type { RenderWorkerIn, RenderWorkerOut } from './render.worker'
 import type { RenderResult } from '../mix-render'
+import { createMlRuntime, type MlOptions, type MlRuntime } from '../ml'
+import { loadDjModels, type Registry } from '../../ml/dj-brain'
 
 export const RATE = 48000
 
@@ -173,9 +175,25 @@ export class BrowserMixJob {
     return res.arrayBuffer()
   }
 
-  private host(pool: TrackCandidate[], analyses?: Map<string, AnalyzedEntry>): PipelineHost {
+  private mlRuntime: Promise<MlRuntime> | null = null
+  /** Learned-DJ options for this job (default: every model with weights). */
+  mlOptions: Partial<MlOptions> = {}
+  private ml(): Promise<MlRuntime> {
+    this.mlRuntime ??= createMlRuntime(
+      (mode) => loadDjModels(mode, '/models/ml/'),
+      async () => (await (await fetch('/models/ml/registry.json')).json()) as Registry,
+      this.mlOptions,
+    )
+    return this.mlRuntime
+  }
+
+  private async host(pool: TrackCandidate[], analyses?: Map<string, AnalyzedEntry>): Promise<PipelineHost> {
     const job = this
+    const base = await this.ml()
+    // A fresh trace per pipeline run (prepare and render each record their own decisions).
+    const ml: MlRuntime = { ...base, trace: { ...base.trace, decisions: [], counts: {}, timingsMs: { load: base.trace.timingsMs.load ?? 0 }, fallbacks: [...base.trace.fallbacks] } }
     return {
+      ml,
       providers: [],
       policy: DEPLOYED_POLICY,
       previous: { pool, analyses },
@@ -287,7 +305,7 @@ export class BrowserMixJob {
       pool = body.pool.map(({ access: _a, ...c }) => c)
       this.progress({ stage: 'discovering', done: body.queries, total: body.queries, detail: `${pool.length} recordings (${Object.entries(body.bySource).map(([k, v]) => `${k} ${v}`).join(', ')})` })
     }
-    const out = await runPipeline(spec, this.host(pool, opts.analyses), { planOnly: true, exclude: opts.exclude, include: opts.include })
+    const out = await runPipeline(spec, await this.host(pool, opts.analyses), { planOnly: true, exclude: opts.exclude, include: opts.include })
     if (!('planOnly' in out)) throw new Error('unexpected render')
     const pos = new Map(out.order.map((k, i) => [k, i]))
     const selection: SelectionRow[] = out.acquisition.map((a) => {
@@ -317,7 +335,7 @@ export class BrowserMixJob {
   /** Steps 9–11: render the approved order, validate, upload privately, mark ready. */
   async render(spec: MixSpec, prepared: PreparedMix, order: string[], userId: string, title: string): Promise<MixManifest> {
     await this.patch({ status: 'rendering', stage: 'rendering' })
-    const res = await runPipeline(spec, this.host(prepared.pool, prepared.analyses), { fixedOrder: order, include: order, title })
+    const res = await runPipeline(spec, await this.host(prepared.pool, prepared.analyses), { fixedOrder: order, include: order, title })
     if ('planOnly' in res) throw new Error('unexpected plan-only result')
     const blobInfo = this.renderBlob
     if (!blobInfo) throw new Error('render produced no audio')

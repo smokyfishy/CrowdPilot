@@ -16,6 +16,7 @@
 import type { AnalysisSummary } from '../dsp/analyze'
 import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
 import { energyDirection } from './energy'
+import { refineWithLocalBeats } from '../dj/phase'
 import type { ResolvedSpec } from './spec'
 
 export interface PlannedTrack {
@@ -24,6 +25,8 @@ export interface PlannedTrack {
   summary: AnalysisSummary
   /** Loudness trim (dB) to the set's target level. */
   trimDb: number
+  /** Beat This! beat times (s) — used to refine cue points and tempo ratio locally. */
+  netBeats?: number[]
 }
 
 export interface TimelineTrack {
@@ -58,6 +61,8 @@ export interface MixPlan {
   targetDurationSec: number
   totalCost: number
   notes: string[]
+  /** Per-pair candidate lists as seen by the duration DP (after any learned ranking). */
+  candidates: TransitionPlan[][]
 }
 
 const MIN_SOLO_BARS = 8
@@ -192,7 +197,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   const n = tracks.length
   const K = opts.candidatesPerPair ?? 18
   const notes: string[] = []
-  if (n === 0) return { tracks: [], transitions: [], durationSec: 0, targetDurationSec: spec.targetDurationSec, totalCost: 0, notes: ['no tracks'] }
+  if (n === 0) return { tracks: [], transitions: [], durationSec: 0, targetDurationSec: spec.targetDurationSec, totalCost: 0, notes: ['no tracks'], candidates: [] }
   const pt = (t: PlannedTrack, s = t.summary): PlanTrack => ({ itemId: t.key, trackKey: t.key, title: t.title, mixable: true, summary: s, durationSec: s.durationSec })
 
   // Candidate edges per pair (default cues ∪ shortened variants), styled and diversified.
@@ -207,6 +212,16 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       ...candidateTransitions(pt(a, withEarlyOuts(a.summary)), pt(b, withLateIns(b.summary)), popt),
       ...candidateTransitions(pt(a, withLateOuts(a.summary)), pt(b), popt),
     ]
+    // Local refinement with the tracks' Beat This! beats (cue snap + local tempo ratio), as the
+    // learned models were trained on refined plans and it tightens beat alignment for everyone.
+    for (let k = 0; k < raw.length; k++) {
+      if (!BEATMATCHED.has(raw[k].style)) continue
+      const r = refineWithLocalBeats(raw[k], a.netBeats, b.netBeats)
+      if (r.localRefined) {
+        const { localRefined: _l, ...plan } = r
+        raw[k] = plan
+      }
+    }
     const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) }))
     scored.sort((x, y) => x.c - y.c)
     // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
@@ -218,7 +233,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       const k = `${p.style}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
       if (sig.has(k)) return
       sig.add(k)
-      keep.push({ ...p, costs: { ...p.costs, total: c } })
+      keep.push({ ...p, ruleCost: p.costs.total, costs: { ...p.costs, total: c } } as TransitionPlan)
     }
     const region = new Set<string>()
     for (const { p, c } of scored) {
@@ -363,7 +378,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       `Duration ${fmt(durationSec)} vs requested ${fmt(target)}: ${durationSec < target ? 'the selected recordings are not long enough even with long blends' : 'the shortest musically clean edits are still longer'}.`,
     )
   }
-  return { tracks: tl, transitions: tt, durationSec, targetDurationSec: target, totalCost: bestPick.total, notes }
+  return { tracks: tl, transitions: tt, durationSec, targetDurationSec: target, totalCost: bestPick.total, notes, candidates: options }
 }
 
 function fmt(s: number): string {

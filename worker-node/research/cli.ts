@@ -5,14 +5,20 @@
 import { heuristicSpec, INTERPRET_SYSTEM, extractJson, parseSpec, type MixSpec } from '../../src/mixgen/spec'
 import { researchYouTubeEnabled } from '../mixgen/research'
 import { runResearch } from './run'
+import type { MlOptions } from '../../src/mixgen/ml'
 
 function args(argv: string[]) {
-  const out: { prompt?: string; songs?: number; minutes?: number; job?: string } = {}
+  const out: { prompt?: string; songs?: number; minutes?: number; job?: string; ml: Partial<MlOptions> } = { ml: {} }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--songs') out.songs = Number(argv[++i])
     else if (a === '--minutes') out.minutes = Number(argv[++i])
     else if (a === '--job') out.job = argv[++i]
+    else if (a === '--ml') out.ml.mode = argv[++i] as MlOptions['mode'] // off | promoted | experimental
+    else if (a === '--no-mixgraph') out.ml.mixgraph = false
+    else if (a === '--no-transitionnet') out.ml.transitionNet = false
+    else if (a === '--no-critic') out.ml.critic = false
+    else if (a === '--no-ml-ordering') out.ml.ordering = false
     else if (!a.startsWith('--')) out.prompt = out.prompt ? `${out.prompt} ${a}` : a
   }
   return out
@@ -53,12 +59,20 @@ export async function cli(argv = process.argv.slice(2)): Promise<void> {
   console.log(`\nCrowdPilot RESEARCH MODE (local only, not for distribution) — job ${jobId}`)
   console.log(`interpretation: ${source}\n${JSON.stringify(spec)}\n`)
   const t0 = Date.now()
-  const r = await runResearch(spec, { jobId, repoRoot: process.cwd(), prompt: a.prompt, specSource: source, onProgress: (e) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s] ${e.stage.padEnd(12)} ${e.done}/${e.total} ${e.detail ?? ''}`) })
+  const r = await runResearch(spec, { jobId, repoRoot: process.cwd(), prompt: a.prompt, specSource: source, ml: a.ml, onProgress: (e) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s] ${e.stage.padEnd(12)} ${e.done}/${e.total} ${e.detail ?? ''}`) })
   const m = r.result.manifest
   console.log('\nAcquisition (actual results):')
   for (const s of r.songs) {
     const att = s.attempts.map((t) => `${t.key}${t.uploader ? ` [${t.uploader}]` : ''}: ${t.outcome}${t.outcome === 'failed' ? ` (${t.reason})` : ''}`).join('; ')
     console.log(`  ${s.selected ? String((s.position ?? 0) + 1).padStart(2) : ' -'} ${s.status.padEnd(13)} ${s.artist} – ${s.title}${s.bpm ? `  ${s.bpm} BPM ${s.key}` : ''}\n       ${att}`)
+  }
+  const ml = m.ml
+  if (ml) {
+    console.log(`\nML (${ml.mode}): ${ml.models.map((x) => `${x.name}${x.used ? ' [used]' : x.loaded ? ' [loaded, unused]' : ' [not loaded]'}`).join(', ')}`)
+    console.log(`  counts ${JSON.stringify(ml.counts)}  timings(ms) ${JSON.stringify(Object.fromEntries(Object.entries(ml.timingsMs).map(([k, v]) => [k, Math.round(v)])))}`)
+    for (const d of ml.decisions.filter((x) => x.stage !== 'automation')) console.log(`  [${d.stage}] ${d.model}${d.pair ? ` ${d.pair}` : ''}: ${d.decision}`)
+    for (const f of ml.fallbacks) console.log(`  fallback: ${f}`)
+    console.log(`  automation per transition: ${m.transitions.map((t) => (t.control?.automation === 'transitionnet' ? 'TransitionNet' : 'template')).join(', ')}`)
   }
   console.log(`\nDuration ${(m.durationSec / 60).toFixed(2)} min (target ${(m.targetDurationSec / 60).toFixed(0)}), ${m.tracks.length} tracks, transitions: ${m.transitions.map((t) => t.label).join(', ')}`)
   console.log('Validation:')
