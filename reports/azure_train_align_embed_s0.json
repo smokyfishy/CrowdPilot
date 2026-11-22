@@ -1,0 +1,257 @@
+{
+ "model": "AlignEmbed v1",
+ "params": 245088,
+ "train_mixes": 1619,
+ "val_mixes": 85,
+ "steps": 4000,
+ "batch": 512,
+ "seed": 0,
+ "prep_seconds": 293,
+ "train_seconds": 13832,
+ "checkpoint_sha256": "f3107fca9913719f9e1ba8bf1b9f16349d5b6ad619a29b955c2a51713f4ce4c1",
+ "checkpoint": "/home/cp/data/models/align_embed/align_embed_s0.pt",
+ "log": [
+  {
+   "step": 100,
+   "loss": 2.6275,
+   "val_top1_of_1024": 0.4727,
+   "elapsed_s": 804
+  },
+  {
+   "step": 200,
+   "loss": 2.0782,
+   "val_top1_of_1024": 0.5322,
+   "elapsed_s": 1395
+  },
+  {
+   "step": 300,
+   "loss": 1.8235,
+   "val_top1_of_1024": 0.5703,
+   "elapsed_s": 1784
+  },
+  {
+   "step": 400,
+   "loss": 1.8453,
+   "val_top1_of_1024": 0.5908,
+   "elapsed_s": 2123
+  },
+  {
+   "step": 500,
+   "loss": 1.548,
+   "val_top1_of_1024": 0.6143,
+   "elapsed_s": 2461
+  },
+  {
+   "step": 600,
+   "loss": 1.3778,
+   "val_top1_of_1024": 0.6357,
+   "elapsed_s": 2793
+  },
+  {
+   "step": 700,
+   "loss": 1.2791,
+   "val_top1_of_1024": 0.6426,
+   "elapsed_s": 3120
+  },
+  {
+   "step": 800,
+   "loss": 1.168,
+   "val_top1_of_1024": 0.6406,
+   "elapsed_s": 3459
+  },
+  {
+   "step": 900,
+   "loss": 1.0598,
+   "val_top1_of_1024": 0.6533,
+   "elapsed_s": 3793
+  },
+  {
+   "step": 1000,
+   "loss": 1.2234,
+   "val_top1_of_1024": 0.6572,
+   "elapsed_s": 4129
+  },
+  {
+   "step": 1100,
+   "loss": 1.1302,
+   "val_top1_of_1024": 0.6738,
+   "elapsed_s": 4466
+  },
+  {
+   "step": 1200,
+   "loss": 1.0128,
+   "val_top1_of_1024": 0.6826,
+   "elapsed_s": 4801
+  },
+  {
+   "step": 1300,
+   "loss": 1.0438,
+   "val_top1_of_1024": 0.6992,
+   "elapsed_s": 5137
+  },
+  {
+   "step": 1400,
+   "loss": 0.84,
+   "val_top1_of_1024": 0.6924,
+   "elapsed_s": 5465
+  },
+  {
+   "step": 1500,
+   "loss": 0.6756,
+   "val_top1_of_1024": 0.7021,
+   "elapsed_s": 5798
+  },
+  {
+   "step": 1600,
+   "loss": 0.8753,
+   "val_top1_of_1024": 0.7061,
+   "elapsed_s": 6133
+  },
+  {
+   "step": 1700,
+   "loss": 0.8065,
+   "val_top1_of_1024": 0.7227,
+   "elapsed_s": 6472
+  },
+  {
+   "step": 1800,
+   "loss": 0.7651,
+   "val_top1_of_1024": 0.7119,
+   "elapsed_s": 6808
+  },
+  {
+   "step": 1900,
+   "loss": 0.7289,
+   "val_top1_of_1024": 0.7236,
+   "elapsed_s": 7139
+  },
+  {
+   "step": 2000,
+   "loss": 0.663,
+   "val_top1_of_1024": 0.7119,
+   "elapsed_s": 7472
+  },
+  {
+   "step": 2100,
+   "loss": 0.6036,
+   "val_top1_of_1024": 0.7334,
+   "elapsed_s": 7807
+  },
+  {
+   "step": 2200,
+   "loss": 0.592,
+   "val_top1_of_1024": 0.7383,
+   "elapsed_s": 8143
+  },
+  {
+   "step": 2300,
+   "loss": 0.5573,
+   "val_top1_of_1024": 0.7432,
+   "elapsed_s": 8479
+  },
+  {
+   "step": 2400,
+   "loss": 0.676,
+   "val_top1_of_1024": 0.749,
+   "elapsed_s": 8813
+  },
+  {
+   "step": 2500,
+   "loss": 0.7606,
+   "val_top1_of_1024": 0.7383,
+   "elapsed_s": 9149
+  },
+  {
+   "step": 2600,
+   "loss": 0.6246,
+   "val_top1_of_1024": 0.748,
+   "elapsed_s": 9484
+  },
+  {
+   "step": 2700,
+   "loss": 0.5445,
+   "val_top1_of_1024": 0.7471,
+   "elapsed_s": 9817
+  },
+  {
+   "step": 2800,
+   "loss": 0.5584,
+   "val_top1_of_1024": 0.752,
+   "elapsed_s": 10150
+  },
+  {
+   "step": 2900,
+   "loss": 0.5552,
+   "val_top1_of_1024": 0.7539,
+   "elapsed_s": 10484
+  },
+  {
+   "step": 3000,
+   "loss": 0.5266,
+   "val_top1_of_1024": 0.7695,
+   "elapsed_s": 10821
+  },
+  {
+   "step": 3100,
+   "loss": 0.5014,
+   "val_top1_of_1024": 0.7676,
+   "elapsed_s": 11158
+  },
+  {
+   "step": 3200,
+   "loss": 0.5129,
+   "val_top1_of_1024": 0.7607,
+   "elapsed_s": 11495
+  },
+  {
+   "step": 3300,
+   "loss": 0.555,
+   "val_top1_of_1024": 0.7617,
+   "elapsed_s": 11834
+  },
+  {
+   "step": 3400,
+   "loss": 0.4718,
+   "val_top1_of_1024": 0.7754,
+   "elapsed_s": 12165
+  },
+  {
+   "step": 3500,
+   "loss": 0.4426,
+   "val_top1_of_1024": 0.7812,
+   "elapsed_s": 12497
+  },
+  {
+   "step": 3600,
+   "loss": 0.4523,
+   "val_top1_of_1024": 0.7861,
+   "elapsed_s": 12832
+  },
+  {
+   "step": 3700,
+   "loss": 0.4415,
+   "val_top1_of_1024": 0.7891,
+   "elapsed_s": 13164
+  },
+  {
+   "step": 3800,
+   "loss": 0.3488,
+   "val_top1_of_1024": 0.7861,
+   "elapsed_s": 13497
+  },
+  {
+   "step": 3900,
+   "loss": 0.4672,
+   "val_top1_of_1024": 0.7861,
+   "elapsed_s": 13829
+  },
+  {
+   "step": 4000,
+   "loss": 0.4879,
+   "val_top1_of_1024": 0.7871,
+   "elapsed_s": 14125
+  }
+ ],
+ "hardware": "64 vCPU (Azure Standard_D64as_v5 westus2)",
+ "data_domain": "synthetic_reference (UnmixDB train sets; held-out sets excluded)"
+}

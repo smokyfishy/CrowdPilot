@@ -1,0 +1,29 @@
+{
+ "features": "full",
+ "heldout_sets": [
+  "mixotic-set275-excerpts",
+  "mixotic-set123-excerpts"
+ ],
+ "n_mixes": 60,
+ "seconds": 224,
+ "by_timescale": {
+  "none": {
+   "tracks": 78,
+   "start_within_50ms_pct": 66.66666666666666,
+   "gain_corr_median": 0.9141557173441113,
+   "mixes_validated_pct": 57.692307692307686
+  },
+  "resample": {
+   "tracks": 39,
+   "start_within_50ms_pct": 43.58974358974359,
+   "gain_corr_median": 0.618370728518682,
+   "mixes_validated_pct": 0.0
+  },
+  "stretch": {
+   "tracks": 63,
+   "start_within_50ms_pct": 63.49206349206349,
+   "gain_corr_median": 0.8284786213036072,
+   "mixes_validated_pct": 38.095238095238095
+  }
+ }
+}
