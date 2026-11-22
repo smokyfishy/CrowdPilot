@@ -2,10 +2,13 @@
 
 | Model | Implemented | Trained checkpoint | Used in the live app | Evaluation |
 |---|---|---|---|---|
-| DSP analyzer `cp-dsp-1.0.0` (deterministic) | yes | n/a (no learned weights) | **yes** | Synthetic ground truth: tempo within 0.05 BPM, beat phase within 15 ms, downbeat exact, key within 1 Camelot step, breakdown found (3 synthetic tracks). Real audio: 2 Audius tracks measured 128.00 / 124.00 BPM (Audius-declared 128 / 124; a weak reference, n = 2). No held-out real benchmark yet. |
+| **Beat This! small0** (CPJKU, MIT, pretrained, not fine-tuned) | yes (ONNX Runtime Web) | official checkpoint exported to ONNX (sha256 a7b9d494…) | **yes** (grid source; DSP fallback) | ONNX≈PyTorch (3e-5); TS vs Python beat F1 0.99 / downbeat 0.94 on 30 real tracks; vs final0 reference 0.96 / 0.83. See docs/AUDIO_QUALITY_REPORT.md |
+| DSP analyzer `cp-dsp-1.0.0` (deterministic) | yes | n/a (no learned weights) | fallback only | Synthetic ground truth: tempo within 0.05 BPM, beat phase within 15 ms, downbeat exact, key within 1 Camelot step, breakdown found (3 synthetic tracks). Real audio: 2 Audius tracks measured 128.00 / 124.00 BPM (Audius-declared 128 / 124; a weak reference, n = 2). No held-out real benchmark yet. |
 | MixGraph deterministic planner | yes | n/a | **yes** | Constraint tests and exact agreement with brute force on toy queues. No listening study yet. |
 | WSOLA time-stretch | yes | n/a | **yes** | Pitch held within 3 Hz at +5%; beats land within 12 ms. |
 | Inverse fader estimator (NNLS, magnitude STFT) | yes (`ml/dsp/unmix.py`) | n/a | research only | UnmixDB benchmark: see `reports/unmixdb_three_way_benchmark.json`. |
+| AlignEmbed v1 (contrastive alignment embedding, UnmixDB train sets) | yes | **training in progress on Azure** (D64as_v5) | no (offline research) | held-out eval pending |
+| Downbeat LR / LightGBM (ircambeat weak labels) | yes | local only | no (superseded by Beat This!) | held-out phase agreement LR 43.2% vs heuristic 42.1%; LightGBM 50.5% (n = 95) |
 | CuePointNet | **no** | **none** | no | — |
 | Transition ranker | **no** | **none** | no | — |
 | MixGraph-GAT | **no** | **none** | no | — |
