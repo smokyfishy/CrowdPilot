@@ -7,7 +7,7 @@ import { Artwork } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { Actor, QueueItem } from '@/domain/types'
 import type { RoomCommand } from '@/server/commands'
-import { formatTime, showRemove } from './view-model'
+import { formatTime, moveBounds, showRemove } from './view-model'
 
 interface QueueListProps {
   items: QueueItem[]
@@ -40,7 +40,7 @@ function VoteButton({ item, voted, run }: { item: QueueItem; voted: boolean; run
 interface RowProps {
   item: QueueItem
   index: number
-  total: number
+  bounds: { canUp: boolean; canDown: boolean }
   actor?: Actor
   voted: boolean
   run: QueueListProps['run']
@@ -48,7 +48,7 @@ interface RowProps {
   sortable: boolean
 }
 
-function Row({ item, index, total, actor, voted, run, onMove, sortable }: RowProps) {
+function Row({ item, index, bounds, actor, voted, run, onMove, sortable }: RowProps) {
   const isHost = actor?.role === 'host'
   const s = useSortable({ id: item.id, disabled: !sortable })
   const style = { transform: CSS.Transform.toString(s.transform), transition: s.transition }
@@ -85,10 +85,10 @@ function Row({ item, index, total, actor, voted, run, onMove, sortable }: RowPro
         <VoteButton item={item} voted={voted} run={run} />
         {isHost && item.pinnedAt === null && (
           <span className="hidden gap-1 sm:flex">
-            <button type="button" aria-label={`Move ${item.title} up`} disabled={index === 0} onClick={() => onMove(item, -1)} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30">
+            <button type="button" aria-label={`Move ${item.title} up`} disabled={!bounds.canUp} onClick={() => onMove(item, -1)} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30">
               <ArrowUp className="size-4" aria-hidden />
             </button>
-            <button type="button" aria-label={`Move ${item.title} down`} disabled={index === total - 1} onClick={() => onMove(item, 1)} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30">
+            <button type="button" aria-label={`Move ${item.title} down`} disabled={!bounds.canDown} onClick={() => onMove(item, 1)} className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30">
               <ArrowDown className="size-4" aria-hidden />
             </button>
           </span>
@@ -182,7 +182,7 @@ export function QueueList({ items, history, actor, myVotes, queueRevision, run, 
                   key={item.id}
                   item={item}
                   index={index}
-                  total={visible.length}
+                  bounds={moveBounds(item.id, unpinned)}
                   actor={actor}
                   voted={myVotes.has(item.id)}
                   run={run}

@@ -5,7 +5,7 @@ import { roomApi } from '@/client/api'
 import type { CatalogTrack } from '@/providers/catalog/types'
 import type { DomainError, RoomState } from '@/domain/types'
 import type { RoomCommand } from '@/server/commands'
-import { addButtonState, formatTime } from './view-model'
+import { addButtonState, enqueueKey, formatTime } from './view-model'
 
 interface SearchPanelProps {
   roomId: string
@@ -64,7 +64,7 @@ export function SearchPanel({ roomId, room, isHost, activeKeys, run, onVoteExist
     const r = await run(
       {
         type: 'enqueue',
-        idempotencyKey: `${track.trackKey}:${Math.floor(Date.now() / 10_000)}`,
+        idempotencyKey: enqueueKey(track.trackKey),
         track: {
           trackKey: track.trackKey,
           title: track.title,

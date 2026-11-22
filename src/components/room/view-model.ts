@@ -74,3 +74,21 @@ export function onlineMemberIds(
   if (selfMemberId) online.add(selfMemberId)
   return online
 }
+
+/** Up/down availability for host keyboard reordering, by position among unpinned items. */
+export function moveBounds(itemId: string, unpinned: Array<{ id: string }>): { canUp: boolean; canDown: boolean } {
+  const i = unpinned.findIndex((u) => u.id === itemId)
+  if (i < 0) return { canUp: false, canDown: false }
+  return { canUp: i > 0, canDown: i < unpinned.length - 1 }
+}
+
+/** Idempotency key for one add attempt: retries of the same attempt dedupe; a new click is a new request. */
+export function enqueueKey(trackKey: string): string {
+  const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+  return `${trackKey.slice(0, 20)}:${rand}`.slice(0, 64)
+}
+
+/** Drop reaction floaters whose time is up. */
+export function pruneFloating<T extends { expiresAt: number }>(list: T[], now: number): T[] {
+  return list.filter((r) => r.expiresAt > now)
+}

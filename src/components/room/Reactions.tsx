@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Reaction } from '@/domain/types'
 import { REACTION_EMOJI } from '@/domain/reactions'
 import type { RoomCommand } from '@/server/commands'
+import { pruneFloating } from './view-model'
 
 export function ReactionBar({ run, disabled }: { run: (cmd: RoomCommand) => Promise<unknown>; disabled?: boolean }) {
   return (
@@ -26,17 +27,23 @@ export function ReactionBar({ run, disabled }: { run: (cmd: RoomCommand) => Prom
 export function ReactionLayer({ reactions }: { reactions: Reaction[] }) {
   const mountedAt = useRef(Date.now() - 2_000)
   const seen = useRef(new Set<string>())
-  const [floating, setFloating] = useState<Array<Reaction & { left: number }>>([])
+  const [floating, setFloating] = useState<Array<Reaction & { left: number; expiresAt: number }>>([])
 
   useEffect(() => {
     const fresh = reactions.filter((r) => !seen.current.has(r.id) && r.createdAt >= mountedAt.current)
     for (const r of reactions) seen.current.add(r.id)
     if (fresh.length === 0) return
-    setFloating((f) => [...f, ...fresh.map((r) => ({ ...r, left: 10 + Math.random() * 80 }))].slice(-12))
-    const ids = new Set(fresh.map((r) => r.id))
-    const t = setTimeout(() => setFloating((f) => f.filter((r) => !ids.has(r.id))), 2_600)
-    return () => clearTimeout(t)
+    const now = Date.now()
+    setFloating((f) => [...f, ...fresh.map((r) => ({ ...r, left: 10 + Math.random() * 80, expiresAt: now + 2_600 }))].slice(-12))
   }, [reactions])
+
+  // One independent sweep, so re-renders can never cancel a floater's removal.
+  const active = floating.length > 0
+  useEffect(() => {
+    if (!active) return
+    const id = setInterval(() => setFloating((f) => pruneFloating(f, Date.now())), 500)
+    return () => clearInterval(id)
+  }, [active])
 
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">

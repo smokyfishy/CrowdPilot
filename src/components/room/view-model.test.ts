@@ -81,3 +81,24 @@ describe('onlineMemberIds', () => {
     expect([...onlineMemberIds(members, peers, 'm3')].sort()).toEqual(['m1', 'm2', 'm3'])
   })
 })
+
+describe('final-review UI fixes', () => {
+  it('moveBounds uses the position among unpinned items', async () => {
+    const { moveBounds } = await import('./view-model')
+    const unpinned = [item({ id: 'u1' }), item({ id: 'u2' })]
+    expect(moveBounds('u1', unpinned)).toEqual({ canUp: false, canDown: true })
+    expect(moveBounds('u2', unpinned)).toEqual({ canUp: true, canDown: false })
+    expect(moveBounds('pinned', unpinned)).toEqual({ canUp: false, canDown: false })
+  })
+
+  it('enqueueKey is unique per add attempt so remove-then-re-add works', async () => {
+    const { enqueueKey } = await import('./view-model')
+    expect(enqueueKey('youtube:x')).not.toBe(enqueueKey('youtube:x'))
+  })
+
+  it('pruneFloating removes expired reaction floaters regardless of re-renders', async () => {
+    const { pruneFloating } = await import('./view-model')
+    const list = [{ id: 'a', expiresAt: 100 }, { id: 'b', expiresAt: 300 }]
+    expect(pruneFloating(list, 200).map((r) => r.id)).toEqual(['b'])
+  })
+})
