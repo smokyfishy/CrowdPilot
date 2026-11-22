@@ -64,11 +64,17 @@ npx deepspace logs --follow --json
 
 ## Status of verification
 
+Live at **https://crowdpilot.app.space** (release `rel_01M80X7E9SKQ6070B0HKPBEBW3`, deployed 2026-11-21 from `main`).
+
 | Area | Status |
 |---|---|
-| Domain rules, playback state machine, claims/concurrency (in-memory DO double), guest tokens, YouTube normalizer, IFrame adapter, host agent, client API, maintenance | 118 unit tests passing (14 files) |
-| Type-check and lint | clean |
-| Build, dev server, multi-browser E2E, live YouTube search/playback, deploy | **pending** — blocked on DeepSpace login/registration (the build refuses to run without a registered app id) |
+| Unit tests (domain, claims/concurrency, guest tokens, YouTube adapter, host agent, client) | 141 passing |
+| Browser tests (smoke, API, collab, multi-user room flow, raw-HTTP permissions, responsive, phone host) | 19 passing (run from a clone outside OneDrive — see below) |
+| Platform checks on real Durable Objects | duplicate adds atomic under 8-way concurrency; live room-scope sync; anonymous presence |
+| Production check | real YouTube search; 10 s clip played to its end, server advanced exactly once, guest phone updated |
+| Final code review | independent reviewer: no critical issues; all important findings fixed with regression tests |
+
+**OneDrive note:** OneDrive "files on demand" turns project files into cloud placeholders that Playwright skips during discovery. Keep the repo outside OneDrive (or run browser tests from a clone elsewhere).
 
 ## Known limitations
 
