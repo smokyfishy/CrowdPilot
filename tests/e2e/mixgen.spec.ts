@@ -42,14 +42,13 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(page.getByText('continuous audio (no silence > 1 s)')).toBeVisible()
 
   // Playback actually advances, seeking and track navigation move the playhead.
+  const now = () => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime ?? 0)
+  await expect.poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.readyState ?? 0), { timeout: 120_000 }).toBeGreaterThanOrEqual(1)
   await page.getByTestId('mix-play').click()
-  await page.waitForTimeout(2500)
-  const t1 = await page.getByTestId('mix-time').textContent()
-  expect(t1).not.toMatch(/^0:00 \//)
+  await expect.poll(now, { timeout: 60_000 }).toBeGreaterThan(1)
+  await expect(page.getByTestId('mix-time')).not.toHaveText(/^0:00 \//)
   await page.getByTestId('track-seek-5').click()
-  await page.waitForTimeout(800)
-  const audioTime = await page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement).currentTime)
-  expect(audioTime).toBeGreaterThan(60)
+  await expect.poll(now, { timeout: 30_000 }).toBeGreaterThan(60)
   const dur = await page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement).duration)
   expect(dur).toBeGreaterThan(30 * 60)
   // Transition inspector shows the renderer's manifest values.
