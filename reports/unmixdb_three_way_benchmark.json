@@ -1,0 +1,68 @@
+{
+ "benchmark": "UnmixDB v1 (synthetic reference mixes; NOT professional DJ performances)",
+ "by_group": {
+  "none": {
+   "tracks": 102,
+   "mixes": 34,
+   "start_err_ms_median": 25.180044052723005,
+   "start_within_50ms_pct": 67.64705882352942,
+   "start_err_codec_corrected_ms_median": 0.5768694984131205,
+   "speed_err_median": 0.0,
+   "gain_corr_median": 0.914721318164518,
+   "gain_mae_fades_median": 0.18659298866987228,
+   "spectral_convergence_median": 0.2627338618040085,
+   "lsd_db_median": 5.137606143951416,
+   "time_domain_snr_db_median": 8.771880626678467,
+   "mixes_validated_pct": 70.58823529411765
+  },
+  "resample": {
+   "tracks": 48,
+   "mixes": 16,
+   "start_err_ms_median": 7530.758816596386,
+   "start_within_50ms_pct": 37.5,
+   "start_err_codec_corrected_ms_median": 7530.758816596386,
+   "speed_err_median": 0.00013113369499995198,
+   "gain_corr_median": 0.5081679365991643,
+   "gain_mae_fades_median": 0.3311986178159714,
+   "spectral_convergence_median": 0.47592593729496,
+   "lsd_db_median": 10.455671787261963,
+   "time_domain_snr_db_median": 2.3670828342437744,
+   "mixes_validated_pct": 12.5
+  },
+  "stretch": {
+   "tracks": 48,
+   "mixes": 16,
+   "start_err_ms_median": 10446.868409895244,
+   "start_within_50ms_pct": 29.166666666666668,
+   "start_err_codec_corrected_ms_median": 10446.868409895244,
+   "speed_err_median": 0.00013445029000003217,
+   "gain_corr_median": 0.6298522560519848,
+   "gain_mae_fades_median": 0.35363689064979553,
+   "spectral_convergence_median": 0.44153447449207306,
+   "lsd_db_median": 9.827575206756592,
+   "time_domain_snr_db_median": null,
+   "mixes_validated_pct": 0.0
+  },
+  "effect=bass": {
+   "tracks": 90,
+   "start_within_50ms_pct": 52.22222222222223,
+   "gain_corr_median": 0.8838902344732318
+  },
+  "effect=compressor": {
+   "tracks": 36,
+   "start_within_50ms_pct": 50.0,
+   "gain_corr_median": 0.7824761935779099
+  },
+  "effect=distortion": {
+   "tracks": 36,
+   "start_within_50ms_pct": 52.77777777777778,
+   "gain_corr_median": 0.5935327783230222
+  },
+  "effect=none": {
+   "tracks": 36,
+   "start_within_50ms_pct": 47.22222222222222,
+   "gain_corr_median": 0.8813286589542969
+  }
+ },
+ "note": "start_err includes a constant 25.06 ms MP3 encoder delay between mix and source files; codec-corrected values subtract it."
+}

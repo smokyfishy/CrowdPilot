@@ -1,0 +1,22 @@
+{
+ "summary": {
+  "professional_dj_performance": {
+   "metadata_candidates": null,
+   "triplets_registered": 0,
+   "audio_complete": 0,
+   "alignment_verified": 0,
+   "human_dj_triplets_trainable": 0
+  },
+  "synthetic_reference_unmixdb": {
+   "triplets_registered": 3480,
+   "audio_complete": 2976,
+   "alignment_verified": 28,
+   "trainable": 0,
+   "status_counts": {
+    "RIGHTS_REVIEW": 3480
+   }
+  }
+ },
+ "policy": "licence-policy:v1 (default deny; per-use; human review for training/adaptation under NC/ND)",
+ "assets_with_records": 1921
+}

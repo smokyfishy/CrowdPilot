@@ -101,8 +101,36 @@ def rights_store() -> RightsStore:
     return RightsStore(PRIVATE / "rights.json")
 
 
+def verify_mixotic() -> None:
+    """Rights records for the six human DJ mixes, from the label's own info.txt (Wayback)."""
+    import re
+
+    src = SOURCES["mixotic"]
+    meta = get_json(src["api"])
+    (SNAP / "mixotic_archive_item.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    md5s = {f["name"]: (f.get("md5"), int(f.get("size", 0))) for f in meta.get("files", [])}
+    store = rights_store()
+    for set_no, fname in src["sets"].items():
+        info = SNAP / f"mixotic_{set_no}_info.txt"
+        text = info.read_text(encoding="utf-8", errors="replace") if info.exists() else ""
+        m = re.search(r"creativecommons\.org/licenses/([a-z-]+)/([0-9.]+)", text)
+        a = AssetRights(asset_id=f"mixotic/{fname}", role="dj_reference", platform_terms="Internet Archive community mirror; label's official info.txt via Wayback Machine")
+        a.composition_rights = "underlying tracks: individual netlabel CC licences (see playlist) — each source track needs its own record"
+        if m:
+            lic = f"cc-{m.group(1)}-{m.group(2)}"
+            evidence = [str(info), f"https://web.archive.org/web/2023/https://www.mixotic.net/mixes/{set_no}_/info.txt", "https://archive.org/details/mixotic.net_202209", f"https://creativecommons.org/licenses/{m.group(1)}/{m.group(2)}/"]
+            apply_cc_policy(a, lic, evidence[-1], evidence)
+        store.put(a, "licence policy from official info.txt" if m else "no licence evidence found — denied")
+        log("verify-source", source="mixotic", set=set_no, licence=a.licence or None, mirror_md5=md5s.get(fname, (None,))[0], tracks=len(re.findall(r"^\s*\d{2} - ", text, re.M)))
+    store.save()
+    store.save_redacted(REPO / "ml" / "data" / "registry" / "rights_redacted.json")
+
+
 def verify_source(args: argparse.Namespace) -> None:
     sid = args.source
+    if sid == "mixotic":
+        verify_mixotic()
+        return
     if sid != "unmixdb":
         log("verify-source", source=sid, result="metadata-only: no audio distributed by this source, no rights records created")
         return
@@ -202,8 +230,26 @@ def safe_extract(zip_path: Path, target: Path) -> int:
     return n
 
 
+def fetch_mixotic(args: argparse.Namespace) -> None:
+    store = rights_store()
+    meta = json.loads((SNAP / "mixotic_archive_item.json").read_text(encoding="utf-8"))
+    files = {f["name"]: f for f in meta["files"]}
+    for set_no, fname in SOURCES["mixotic"]["sets"].items():
+        if args.only and set_no not in args.only:
+            continue
+        a = store.assets.get(f"mixotic/{fname}")
+        if not a or not a.allows(Use.WAVEFORM_ANALYZE):
+            log("fetch-skip", file=fname, reason="waveform_analyze not approved")
+            continue
+        f = files[fname]
+        download(f"https://archive.org/download/mixotic.net_202209/{fname}", ROOT / "raw" / "mixotic" / "mixes" / fname, int(f["size"]), f.get("md5"), int(args.max_gb * 1e9))
+
+
 def fetch_approved(args: argparse.Namespace) -> None:
     sid = args.source
+    if sid == "mixotic":
+        fetch_mixotic(args)
+        return
     if sid != "unmixdb":
         raise SystemExit(f"{sid}: no approved downloadable audio (metadata-only source)")
     store = rights_store()

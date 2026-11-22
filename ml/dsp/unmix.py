@@ -138,8 +138,17 @@ def align_full(mix: np.ndarray, src: np.ndarray, timescale: str, mix_env: np.nda
         return al, None
     n_out = int(round(len(src) / al.speed))
     x = np.interp(np.arange(n_out) * al.speed, np.arange(len(src)), src).astype(np.float32) if al.speed != 1.0 else src
-    lags, r = ncc(mix.astype(np.float64), x.astype(np.float64), min_overlap=int(0.6 * min(len(mix), len(x))))
-    # restrict to ±2 s of the envelope estimate (guards against spurious far peaks), then take the max
+    # Waveform stage on a mix SEGMENT around the envelope estimate (±3 s): sample-exact and
+    # memory-bounded for hour-long mixes. The segment still covers the whole placed track,
+    # so bar-repetition ambiguity is resolved by the full-length overlap.
+    pad = int(3 * SR)
+    a = max(0, int(al.start * SR) - pad)
+    b = min(len(mix), int(al.start * SR) + len(x) + pad)
+    seg = mix[a:b].astype(np.float64)
+    if len(seg) < SR:
+        return al, None
+    lags, r = ncc(seg, x.astype(np.float64), min_overlap=int(0.6 * min(len(seg), len(x))))
+    lags = lags + a
     near = np.abs(lags / SR - al.start) <= 2.0
     r2 = np.where(near, r, -np.inf)
     k = int(np.argmax(r2))

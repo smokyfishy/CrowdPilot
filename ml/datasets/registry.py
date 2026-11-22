@@ -60,5 +60,16 @@ SOURCES: dict[str, dict] = {
     "cue-detr": {"title": "CUE-DETR", "official": "https://github.com/ETH-DISCO/cue-detr", "api": "https://api.github.com/repos/ETH-DISCO/cue-detr", "kind": "model", "audio_available": "none", "labels": "pretrained cue detector (weights licence to verify)", "licence_hint": "check repo", "quality_tier": "model"},
     "beat-this": {"title": "Beat This!", "official": "https://github.com/CPJKU/beat_this", "api": "https://api.github.com/repos/CPJKU/beat_this", "kind": "model", "audio_available": "none", "labels": "pretrained beat/downbeat tracker", "licence_hint": "check repo", "quality_tier": "model"},
     "dj-mix-evaluation-dataset": {"title": "DJ mix evaluation dataset", "official": "https://github.com/werthen/dj-mix-evaluation-dataset", "api": "https://api.github.com/repos/werthen/dj-mix-evaluation-dataset", "kind": "unknown", "audio_available": "unknown — inspect", "labels": "unknown", "licence_hint": "check repo", "quality_tier": "unknown"},
+    "mixotic": {
+        "title": "Mixotic netlabel DJ sets (the human-performed mixes behind UnmixDB / Sonnleitner et al. 2016)",
+        "official": "https://www.mixotic.net (archived: web.archive.org); mirror: https://archive.org/details/mixotic.net_202209",
+        "api": "https://archive.org/metadata/mixotic.net_202209",
+        "kind": "professional_dj_performance",
+        "audio_available": "full DJ mixes (mirror) + per-mix official info.txt with ordered playlist and CC licence",
+        "labels": "ordered tracklist only (no timestamps) — transitions must be aligned",
+        "licence_hint": "per-mix CC BY-NC-ND 2.0/3.0 stated in the label's official info.txt",
+        "quality_tier": "human_performance_weak_labels",
+        "sets": {"044": "Mixotic_044_-_Cotumo_-_Pentagonik_Labelmix_2006-06-27.mp3", "123": "Mixotic_123_-_Jemset_-_Antiritmo_Label_Mix.mp3", "222": "Mixotic_222_-_echtZEIT_-_Finale_GRANDE.mp3", "230": "Mixotic_230_-_Plug_-_Drowning_Souls.mp3", "275": "Mixotic_275_-_Wout_-_Drama_Queen.mp3", "281": "Mixotic_281_-_EE7A_-_Schadenfreude.mp3"},
+    },
     "mixxx": {"title": "Mixxx DJ software (capture platform)", "official": "https://manual.mixxx.org/", "api": "https://api.github.com/repos/mixxxdj/mixxx", "kind": "capture_platform", "audio_available": "n/a", "labels": "n/a", "licence_hint": "GPL-2.0 (local tool only)", "quality_tier": "tool"},
 }
