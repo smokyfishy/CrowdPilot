@@ -85,3 +85,21 @@ operator's own machine; the operator has accepted responsibility for this local 
   distribution"), `renders\research\<job>.manifest.json` (`mode: 'research'`) and `<job>.report.json`.
 * Viewer: `/research/<job>` in `deepspace dev` only, data from the localhost-only Vite middleware `/__research/*`;
   the page renders "Not found" in builds and the Worker answers 404 for `/__research/*`.
+
+## Learned DJ models in the generator
+
+Weights: `public/models/ml/*.json` (+ `registry.json`, sha256-pinned, v1, none promoted). Runtimes: `src/ml/*`
+(owned by the ML work). Integration: `src/mixgen/ml.ts`, used by the browser job, the Node worker and the research CLI.
+
+| Model | What it is | Integration point | What it decides |
+|---|---|---|---|
+| Beat This! small0 | ONNX beat/downbeat network | analysis (browser worker / onnxruntime-node) | beat grid, downbeats; its beats also refine cue points and tempo ratio locally (`refineWithLocalBeats` in `planMix`) |
+| `mixgraph_quality` | LightGBM, predicted render severity | `pairSeverity` → `orderSet({ pairExtra })`; `rankCandidatesWith` → `planMix({ rankCandidates })` | track order (pair compatibility), which cue/technique/overlap candidates the duration DP prefers (alpha 4) |
+| `mixgraph_human_cue` | LightGBM human cue prior | loaded, weight 0 | nothing (it hurt held-out severity) |
+| `transitionnet` | MLP | `rankCandidatesWith` (+ critic alternatives) | fader/EQ/filter/echo trajectories for blends, technique parameters for creative styles; validated by `constrainTrajectories` + `validPlan` before the renderer executes them |
+| `critic_quality` + `critic_artifact` | LightGBM on rendered 16 kHz previews | `criticSelect` in `runPipeline` after planning | picks among same-cue alternatives (other techniques, TransitionNet vs template); artifact > 0.8 rejected |
+
+Options (`MlOptions`): `mode` off / promoted / experimental (default experimental = every model with weights) and
+per-component switches; CLI: `--ml off|promoted|experimental`, `--no-mixgraph`, `--no-transitionnet`, `--no-critic`,
+`--no-ml-ordering`. Every decision (model → inputs → prediction → decision → DSP parameters) and every fallback is stored in
+`manifest.ml` and shown in the player under "Technical diagnostics". Ablation: `evaluation/mixgen.ablation.eval.ts`.
