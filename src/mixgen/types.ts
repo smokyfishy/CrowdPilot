@@ -72,6 +72,8 @@ export interface AccessDecision {
   method: 'jamendo_api' | 'audius_stream' | 'yt_dlp_authorized' | 'none'
   reason: string
   policyVersion: string
+  /** Why acquisition is allowed for YouTube: an operator grant, or a CC BY licence from the official channel. */
+  basis?: 'grant' | 'official-cc-by'
 }
 
 export type AcquisitionStatus = 'pending' | 'acquired' | 'cached' | 'unavailable' | 'failed' | 'not_permitted'

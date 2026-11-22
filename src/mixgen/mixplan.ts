@@ -171,6 +171,12 @@ export interface PlanMixOptions {
   planner?: Partial<PlannerOptions>
   /** Tolerance (fraction of target) with no duration penalty. */
   durationTolerance?: number
+  /**
+   * Learned-model hook (src/ml): receives the pair's styled candidates (best first, `costs.total`
+   * already includes style/energy terms) and returns them re-ranked and/or with learned automation
+   * applied. The returned order and `costs.total` feed the duration DP. Must be pure and fast.
+   */
+  rankCandidates?: (cands: TransitionPlan[], a: AnalysisSummary, b: AnalysisSummary, pairIndex: number) => TransitionPlan[]
 }
 
 export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMixOptions = {}): MixPlan {
@@ -204,8 +210,8 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       keep.push({ ...p, costs: { ...p.costs, total: c } })
       if (keep.length >= K) break
     }
-    options.push(keep)
-    if (keep[0]) recent.unshift(keep[0].style)
+    options.push(opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep)
+    if (options[i][0]) recent.unshift(options[i][0].style)
   }
 
   // DP over pairs: state = chosen candidate of the previous pair; value tracks duration buckets.

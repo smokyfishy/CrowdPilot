@@ -12,6 +12,8 @@ import { runBeatNet, type BeatNetRunner, type MelBank } from '../../src/dsp/beat
 import { resample, toMono } from '../../src/dsp/resample'
 import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery } from '../../src/mixgen/discovery'
 import { runPipeline, type PipelineHost, type PipelineResult, type RunOptions } from '../../src/mixgen/pipeline'
+import type { TrackCandidate } from '../../src/mixgen/types'
+import { unlinkSync } from 'node:fs'
 import type { AuthorizationGrant } from '../../src/mixgen/policy'
 import type { MixSpec } from '../../src/mixgen/spec'
 import { STAGES, type ProgressEvent } from '../../src/mixgen/types'
@@ -72,10 +74,18 @@ export interface NodeRunOptions extends RunOptions {
   allowAudiusSession?: boolean
   /** Write a WAV master in addition to the MP3 export. */
   wav?: boolean
+  /** Output MP3 path (default exports/<jobId>.mp3). */
+  mp3Path?: string
+  /** Reuse a candidate pool from a previous phase (skips discovery). */
+  previousPool?: TrackCandidate[]
   onProgress?: (ev: ProgressEvent) => void
 }
 
-export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<PipelineResult> {
+export type NodeJobResult = Awaited<ReturnType<typeof runPipeline>>
+
+export async function runNodeJob(spec: MixSpec, o: NodeRunOptions & { planOnly: true }): Promise<Extract<NodeJobResult, { planOnly: true }>>
+export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<PipelineResult>
+export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<NodeJobResult> {
   const jobPath = join(dir('jobs'), `${o.jobId}.json`)
   const logPath = join(dir('logs'), `${o.jobId}.log`)
   const job: JobFile = { id: o.jobId, prompt: o.prompt, spec, status: 'running', stages: {}, startedAt: new Date().toISOString() }
@@ -91,7 +101,7 @@ export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<Pipe
     want.has('audius') ? createAudiusDiscovery() : null,
     want.has('youtube') ? createYouTubeDiscovery(secrets.youtube) : null,
   ].filter((p): p is NonNullable<typeof p> => !!p)
-  const mp3Path = join(dir('exports'), `${o.jobId}.mp3`)
+  const mp3Path = o.mp3Path ?? join(dir('exports'), `${o.jobId}.mp3`)
   const encoders = [createEncoder(mp3Path, 44100, { mp3Kbps: 320, metadata: { title: o.title ?? 'CrowdPilot AI mix', comment: 'Rendered by CrowdPilot (noncommercial research). Track licences in the manifest.' } })]
   if (o.wav) encoders.push(createEncoder(join(dir('renders'), `${o.jobId}.wav`), 44100))
   const host: PipelineHost = {
@@ -131,10 +141,22 @@ export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<Pipe
     },
     log,
     concurrency: 3,
+    previous: o.previousPool ? { pool: o.previousPool } : undefined,
   }
   try {
     const res = await runPipeline(spec, host, o)
-    if ('planOnly' in res) throw new Error('planOnly not supported by runNodeJob')
+    if ('planOnly' in res) {
+      for (const e of encoders) await e.close().catch(() => {})
+      try {
+        unlinkSync(mp3Path)
+      } catch {
+        /* nothing written */
+      }
+      job.status = 'done'
+      job.finishedAt = new Date().toISOString()
+      save()
+      return res
+    }
     for (const e of encoders) await e.close()
     const manifestPath = join(dir('renders'), `${o.jobId}.manifest.json`)
     writeFileSync(manifestPath, JSON.stringify(res.manifest))

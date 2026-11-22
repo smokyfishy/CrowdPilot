@@ -27,6 +27,8 @@ export interface DiscoveryQuery {
   vocals?: 'vocal' | 'instrumental'
   limit: number
   offset?: number
+  /** YouTube: only Creative Commons (CC BY) licensed videos. */
+  ccOnly?: boolean
   why: string
 }
 
@@ -300,6 +302,7 @@ export function createYouTubeDiscovery(apiKey: string | undefined, fetchImpl: ty
       try {
         const sp = new URLSearchParams({ part: 'snippet', type: 'video', videoCategoryId: '10', maxResults: String(Math.min(25, q.limit)), q: text, key: apiKey })
         if (q.popular) sp.set('order', 'viewCount')
+        if (q.ccOnly) sp.set('videoLicense', 'creativeCommon')
         const sr = await fetchImpl(`${API}/search?${sp.toString()}`, { signal })
         if (!sr.ok) {
           await sr.body?.cancel().catch(() => undefined)
@@ -336,6 +339,7 @@ export function queryPlan(spec: ResolvedSpec): Array<{ provider: SourceId | '*';
   }
   for (const a of spec.artists.slice(0, 8)) {
     plan.push({ provider: 'youtube', q: { artist: a, popular, limit: 10, why: `artist:${a}` } })
+    plan.push({ provider: 'youtube', q: { artist: a, ccOnly: true, limit: 10, why: `artist:${a}` } })
     plan.push({ provider: 'audius', q: { text: a, limit: 15, why: `artist:${a}` } })
     plan.push({ provider: 'jamendo', q: { artist: a, limit: 15, why: `artist:${a}` } })
   }
@@ -347,6 +351,8 @@ export function queryPlan(spec: ResolvedSpec): Array<{ provider: SourceId | '*';
     plan.push({ provider: 'jamendo', q: { text: g, vocals, limit: 100, why: `genre:${g}` } })
     plan.push({ provider: 'audius', q: { genres: [g], limit: 30, why: `genre:${g}` } })
   }
+  // Creative Commons uploads on YouTube (acquirable only from the artist's official channel).
+  for (const g of genres.slice(0, 2)) plan.push({ provider: 'youtube', q: { genres: [g], ccOnly: true, limit: 25, why: `genre:${g}` } })
   if (spec.moods.length) plan.push({ provider: 'jamendo', q: { text: spec.moods.join(' '), genres, limit: 30, why: `mood:${spec.moods.join('+')}` } })
   if (spec.artists.length && spec.artistMatching !== 'only_these') {
     // "similar artists": genre-scoped search on YouTube to surface the scene, popular-first.

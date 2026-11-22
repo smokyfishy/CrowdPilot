@@ -258,7 +258,7 @@ export function createNodeSources(env: { jamendoClientId?: string; youtubeApiKey
 
 function runYtDlp(args: string[]): Promise<{ code: number; out: string; err: string }> {
   return new Promise((resolve, reject) => {
-    const p = spawn('python', ['-m', 'yt_dlp', ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const p = spawn(process.env.PYTHON ?? 'python', ['-m', 'yt_dlp', ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''
     let err = ''
     p.stdout.on('data', (d) => (out += d.toString()))
@@ -282,6 +282,8 @@ export function parseYouTubeId(input: string): string | null {
 
 interface YtInfo {
   id: string
+  license?: string
+  channel?: string
   availability?: string
   age_limit?: number
   is_live?: boolean
@@ -310,6 +312,8 @@ async function ytDlpAcquire(c: TrackCandidate, access: AccessDecision): Promise<
   if (info.availability && info.availability !== 'public' && info.availability !== 'unlisted') throw new AcquisitionError(`video availability "${info.availability}" — access-restricted content is never acquired`, 'not_permitted')
   if ((info.age_limit ?? 0) > 0) throw new AcquisitionError('age-restricted video (requires sign-in) — not acquired', 'not_permitted')
   if (info.is_live) throw new AcquisitionError('live stream — not a recording', 'unavailable')
+  // CC-based permission must hold on the video itself, not just in search metadata.
+  if (access.basis === 'official-cc-by' && !/creative commons/i.test(info.license ?? '')) throw new AcquisitionError(`video is not Creative Commons licensed (${info.license ?? 'standard licence'})`, 'not_permitted')
   const fmt = chooseAudioFormat(info)
   if (!fmt) throw new AcquisitionError('no DRM-free audio-only format available', 'not_permitted')
   const outPath = join(dir('acquired', 'youtube'), `${id}.${fmt.ext}`)

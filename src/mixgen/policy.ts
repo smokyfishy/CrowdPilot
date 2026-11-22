@@ -14,12 +14,14 @@
  *    permit downloading unless YouTube provides a download feature or the rights holders
  *    have given permission, so a public, viewable video is NOT treated as downloadable.
  *    `yt-dlp` acquisition is allowed only for videos/channels with an explicit
- *    authorization grant recorded by the operator (default: none). DRM-protected or
+ *    authorization grant recorded by the operator, or for videos the artist's OFFICIAL channel
+ *    licensed Creative Commons (CC BY — the rights holder's own reuse permission, re-verified on
+ *    the video page at download time). DRM-protected or
  *    access-restricted streams are never acquired, with or without a grant.
  */
 import type { AccessDecision, TrackCandidate } from './types'
 
-export const POLICY_VERSION = 'cp-access-2026-11-22'
+export const POLICY_VERSION = 'cp-access-2026-11-22b'
 
 export interface AuthorizationGrant {
   /** What the grant covers. */
@@ -104,6 +106,22 @@ export function decideAccess(c: TrackCandidate, ctx: PolicyContext): AccessDecis
     }
     case 'youtube': {
       const g = liveGrant(ctx, c)
+      if (!g && c.license.basis === 'youtube-cc-by' && c.official) {
+        if (!ctx.ytDlpAvailable) return DENY('CC BY video from the official channel, but this environment has no download worker.')
+        return {
+          acquire: true,
+          analyze: true,
+          mix: true,
+          persistRender: true,
+          export: true,
+          cacheAudio: true,
+          attributionRequired: true,
+          method: 'yt_dlp_authorized',
+          reason: `Licensed CC BY by the official channel "${c.uploader ?? c.artist}" (reuse with attribution).`,
+          policyVersion: POLICY_VERSION,
+          basis: 'official-cc-by',
+        }
+      }
       if (!g) return DENY('YouTube video: no download authorization from the rights holder (YouTube Terms of Service). Discovery and identity only.')
       if (!ctx.ytDlpAvailable) return DENY('Authorized YouTube source, but this environment has no download worker; the research worker can acquire it.')
       return {
@@ -117,6 +135,7 @@ export function decideAccess(c: TrackCandidate, ctx: PolicyContext): AccessDecis
         method: 'yt_dlp_authorized',
         reason: `Authorized by ${g.grantor} (${g.evidence}).`,
         policyVersion: POLICY_VERSION,
+        basis: 'grant',
       }
     }
   }
