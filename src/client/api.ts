@@ -61,6 +61,19 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<Res
   return fail('UPSTREAM', res.ok ? 'Unexpected response from CrowdPilot.' : `CrowdPilot is having trouble (HTTP ${res.status}). Try again shortly.`)
 }
 
+/** Identity headers for non-JSON requests (e.g. the host's Jamendo audio pass-through). */
+export async function authHeaders(roomId: string): Promise<Record<string, string>> {
+  let token: string | null = null
+  try {
+    token = await getAuthToken()
+  } catch {
+    token = null
+  }
+  if (token) return { Authorization: `Bearer ${token}` }
+  const guest = getGuestToken(roomId)
+  return guest ? { 'X-Guest-Token': guest } : {}
+}
+
 export interface RoomPreview {
   roomId: string
   name: string
@@ -81,7 +94,7 @@ export const roomApi = {
   me: (roomId: string) => apiFetch<Actor>(`/api/rooms/${roomId}/me`, { roomId }),
   command: (roomId: string, cmd: RoomCommand) =>
     apiFetch<{ serverNow: number; itemId?: string }>(`/api/rooms/${roomId}/commands`, { body: cmd, roomId }),
-  search: (roomId: string, q: string, signal?: AbortSignal) =>
-    apiFetch<CatalogTrack[]>(`/api/catalog/search?roomId=${roomId}&q=${encodeURIComponent(q)}`, { roomId, signal }),
+  search: (roomId: string, q: string, signal?: AbortSignal, source: 'youtube' | 'audius' | 'jamendo' = 'youtube') =>
+    apiFetch<CatalogTrack[]>(`/api/catalog/search?roomId=${roomId}&q=${encodeURIComponent(q)}&source=${source}`, { roomId, signal }),
   time: () => fetch('/api/time').then((r) => r.json() as Promise<{ serverNow: number }>),
 }
