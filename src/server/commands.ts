@@ -28,6 +28,7 @@ import type { ClaimRow } from './claims'
 import { RoomRepo } from './repo'
 
 import { REACTION_EMOJI } from '../domain/reactions'
+import { DJ_COMMAND_TYPES, executeDjCommand, type DjCommand } from './dj-commands'
 
 export { REACTION_EMOJI }
 
@@ -39,7 +40,15 @@ export type RoomCommand =
   | { type: 'play'; expectedRevision: number; controllerId?: string; positionSec?: number }
   | { type: 'pause'; expectedRevision: number; positionSec: number; controllerId?: string }
   | { type: 'blocked'; expectedRevision: number; controllerId: string }
-  | { type: 'advance'; reason: AdvanceReason; expectedRevision: number; controllerId?: string; errorCode?: number }
+  | {
+      type: 'advance'
+      reason: AdvanceReason
+      expectedRevision: number
+      controllerId?: string
+      errorCode?: number
+      nextItemId?: string
+      startPositionSec?: number
+    }
   | { type: 'claimController'; controllerId: string; takeover: boolean }
   | { type: 'renewLease'; controllerId: string }
   | {
@@ -48,6 +57,7 @@ export type RoomCommand =
     }
   | { type: 'kick'; memberId: string }
   | { type: 'closeRoom' }
+  | DjCommand
 
 export type CommandResult = Result<{ serverNow: number; itemId?: string }>
 
@@ -72,7 +82,12 @@ export interface CommandDeps {
    * Resolves a trackKey to authoritative, playable metadata (the route wires YouTube
    * videos.list). When provided, client-sent title/duration are ignored. Unit tests may omit it.
    */
-  resolveTrack?: (trackKey: string) => Promise<Result<TrackRef>>
+  resolveTrack?: (trackKey: string) => Promise<Result<TrackRef & { trustedThumbnail?: boolean }>>
+  /**
+   * Phase 2: find an authorized mixable version of a YouTube request (conservative metadata
+   * match). Best effort; failures never block the enqueue.
+   */
+  findMixable?: (track: TrackRef) => Promise<{ trackKey: string; confidence: number; reasons: string[] } | null>
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -216,10 +231,13 @@ export async function loadActor(tools: ActionTools, memberId: string): Promise<R
 
 // ───────────────────────────── commands ─────────────────────────────
 
-function validTrack(t: TrackRef): Result<TrackRef> {
+function validTrack(t: TrackRef, trustedThumbnail = false): Result<TrackRef> {
   const title = String(t.title ?? '').trim().slice(0, 200)
   if (!title) return fail('INVALID', 'That track has no title.')
-  const thumb = t.thumbnailUrl && /^https:\/\/[a-z0-9.-]+\.(ytimg|ggpht|googleusercontent)\.com\//i.test(t.thumbnailUrl) ? t.thumbnailUrl.slice(0, 500) : undefined
+  // Client-sent thumbnails must be YouTube image hosts; server-resolved provider artwork
+  // (Audius uses decentralized content nodes) is accepted when it is https.
+  const thumbOk = t.thumbnailUrl && (/^https:\/\/[a-z0-9.-]+\.(ytimg|ggpht|googleusercontent)\.com\//i.test(t.thumbnailUrl) || (trustedThumbnail && /^https:\/\/[a-z0-9.-]+\//i.test(t.thumbnailUrl)))
+  const thumb = thumbOk && t.thumbnailUrl ? t.thumbnailUrl.slice(0, 500) : undefined
   const duration = typeof t.durationMs === 'number' && t.durationMs >= 0 && t.durationMs <= 86_400_000 ? Math.round(t.durationMs) : undefined
   return ok({
     trackKey: String(t.trackKey),
@@ -342,7 +360,7 @@ async function enqueue(
   if (deps.resolveTrack) {
     const resolved = await deps.resolveTrack(track.value.trackKey)
     if (!resolved.ok) return resolved
-    const checked = validTrack({ ...resolved.value, trackKey: track.value.trackKey })
+    const checked = validTrack({ ...resolved.value, trackKey: track.value.trackKey }, !!resolved.value.trustedThumbnail)
     if (!checked.ok) return checked
     meta = checked.value
   }
@@ -370,12 +388,26 @@ async function enqueue(
   }
 
   try {
-    return await createQueuedItem(tools, actor, room, meta, items, activeKey, idemKey, now, selector)
+    const created = await createQueuedItem(tools, actor, room, meta, items, activeKey, idemKey, now, selector)
+    if (created.ok && created.value.itemId && deps.findMixable && meta.trackKey.startsWith('youtube:')) {
+      await attachMixableMatch(tools, created.value.itemId, meta, deps.findMixable)
+    }
+    return created
   } catch (e) {
     // Anything after the claims failed: release both so the song is never blocked forever.
     await Promise.all([release(tools, activeKey), release(tools, idemKey)]).catch(() => undefined)
     console.error('[enqueue] failed after claim, released', e)
     return fail('UPSTREAM', "Couldn't add that song. Try again.")
+  }
+}
+
+/** Best effort: never fails the enqueue. */
+async function attachMixableMatch(tools: ActionTools, itemId: string, meta: TrackRef, find: NonNullable<CommandDeps['findMixable']>): Promise<void> {
+  try {
+    const m = await Promise.race([find(meta), new Promise<null>((r) => setTimeout(() => r(null), 2500))])
+    if (m) await tools.update(C.queue, itemId, { mixTrackKey: m.trackKey, mixMatch: { confidence: m.confidence, reasons: m.reasons.slice(0, 4), status: 'auto' } })
+  } catch (e) {
+    console.warn('[enqueue] mixable match skipped', e)
   }
 }
 
@@ -658,6 +690,11 @@ export async function executeCommand(
     }
 
     default:
+      if (DJ_COMMAND_TYPES.has((cmd as { type: string }).type)) {
+        result = await executeDjCommand(tools, actor, cmd as DjCommand, now)
+        if (result.ok && (cmd.type === 'djSettings')) await logEvent(tools, 'dj', actor.displayName, now, { payload: cmd.patch })
+        break
+      }
       return fail('INVALID', 'Unknown command.')
   }
 

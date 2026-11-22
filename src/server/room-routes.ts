@@ -16,7 +16,12 @@ import { httpStatusFor, parseCommand } from './http'
 import { RoomRepo } from './repo'
 import { appScope, createRoomTools, isRoomId, roomScope } from './room-tools'
 import { createYouTubeProvider } from '../providers/catalog/youtube'
-import type { CatalogTrack } from '../providers/catalog/types'
+import { createAudiusProvider } from '../providers/catalog/audius'
+import { createJamendoProvider, jamendoAudioUpstream } from '../providers/catalog/jamendo'
+import { bestMixableMatch, parseYouTubeTitle } from '../providers/catalog/match'
+import { sourceOf } from '../providers/catalog/types'
+import type { CatalogTrack, MusicCatalogProvider, TrackSource } from '../providers/catalog/types'
+import type { TrackRef } from '../domain/types'
 
 const MAX_BODY = 8 * 1024
 const GUEST_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -26,6 +31,24 @@ const roomCreates = new TokenBucket(5, 5 / 60_000)
 const searches = new TokenBucket(20, 20 / 60_000)
 const SEARCH_TTL_MS = 60_000
 const searchCache = new Map<string, { at: number; tracks: CatalogTrack[] }>()
+
+function providerFor(env: Env, source: TrackSource): MusicCatalogProvider {
+  if (source === 'audius') return createAudiusProvider()
+  if (source === 'jamendo') return createJamendoProvider(env.JAMENDO_CLIENT_ID)
+  return createYouTubeProvider(env.YOUTUBE_API_KEY)
+}
+
+/** Conservative YouTube → Audius (verified artist) match; Jamendo is independent-only and not searched. */
+async function findMixable(track: TrackRef) {
+  const parsed = parseYouTubeTitle(track.title, track.creatorLabel)
+  if (!parsed.artist) return null
+  const r = await createAudiusProvider().search(`${parsed.artist} ${parsed.title}`.slice(0, 100))
+  if (!r.ok) return null
+  const m = bestMixableMatch(track, r.value)
+  return m ? { trackKey: m.candidate.trackKey, confidence: m.confidence, reasons: m.reasons } : null
+}
+
+const audioProxyLimit = new TokenBucket(30, 30 / 60_000)
 
 function cachedSearch(q: string, now: number): CatalogTrack[] | undefined {
   const hit = searchCache.get(q)
@@ -69,6 +92,8 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
   app.get('/api/catalog/search', async (c) => {
     const roomId = c.req.query('roomId') ?? ''
     const q = (c.req.query('q') ?? '').replace(/\s+/g, ' ').trim()
+    const sourceParam = c.req.query('source') ?? 'youtube'
+    const source: TrackSource = sourceParam === 'audius' || sourceParam === 'jamendo' ? sourceParam : 'youtube'
     if (!isRoomId(roomId)) return errorResponse(c, { code: 'NOT_FOUND', message: 'This room does not exist.' })
     if (q.length < 2 || q.length > 100) return errorResponse(c, invalid('Search for 2–100 characters.'))
     const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
@@ -76,14 +101,42 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
     const roomState = await new RoomRepo(who.value.tools).roomState()
     if (!roomState || roomState.status !== 'open') return errorResponse(c, { code: 'ROOM_CLOSED', message: 'This room has ended.' })
     const now = Date.now()
-    const key = q.toLowerCase()
+    const key = `${source}:${q.toLowerCase()}`
     const cached = cachedSearch(key, now)
     if (cached) return c.json({ ok: true, value: cached })
     const limited = searches.take(who.value.actor.memberId, now)
     if (!limited.ok) return errorResponse(c, limited.error)
-    const r = await createYouTubeProvider(c.env.YOUTUBE_API_KEY).search(q, c.req.raw.signal)
+    const r = await providerFor(c.env, source).search(q, c.req.raw.signal)
     if (r.ok) rememberSearch(key, r.value, now)
     return respond(c, r)
+  })
+
+  /**
+   * Jamendo audio pass-through for the HOST device only (Jamendo storage sends no CORS
+   * headers). Streams bytes with Range support; never stores them (Jamendo API Terms §3.3).
+   * Allowlisted to numeric Jamendo track ids on Jamendo's storage host.
+   */
+  app.get('/api/audio/jamendo/:trackId', async (c) => {
+    const roomId = c.req.query('roomId') ?? ''
+    const trackId = c.req.param('trackId')
+    if (!isRoomId(roomId) || !/^\d{1,12}$/.test(trackId)) return errorResponse(c, invalid('Bad audio request.'))
+    const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
+    if (!who.ok) return errorResponse(c, who.error)
+    if (who.value.actor.role !== 'host') return errorResponse(c, { code: 'FORBIDDEN', message: 'Only the host device loads mix audio.' })
+    const limited = audioProxyLimit.take(who.value.actor.memberId, Date.now())
+    if (!limited.ok) return errorResponse(c, limited.error)
+    const headers: Record<string, string> = {}
+    const range = c.req.header('Range')
+    if (range && /^bytes=\d*-\d*$/.test(range)) headers.Range = range
+    const upstream = await fetch(jamendoAudioUpstream(trackId), { headers, redirect: 'follow' })
+    if (!upstream.ok && upstream.status !== 206) return errorResponse(c, { code: 'UPSTREAM', message: 'Jamendo audio is unavailable.' })
+    const out = new Headers()
+    for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+      const v = upstream.headers.get(h)
+      if (v) out.set(h, v)
+    }
+    out.set('cache-control', 'no-store')
+    return new Response(upstream.body, { status: upstream.status, headers: out })
   })
 
   app.post('/api/rooms', async (c) => {
@@ -187,13 +240,14 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
     const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
     if (!who.ok) return errorResponse(c, who.error)
     const appTools = createRoomTools(c.env, appScope(c.env), c.env.OWNER_USER_ID)
-    const provider = createYouTubeProvider(c.env.YOUTUBE_API_KEY)
-    // Enqueue never trusts client metadata: resolve the video id server-side (1 quota unit).
+    // Enqueue never trusts client metadata: resolve the id server-side with its own provider.
     const resolveTrack = async (trackKey: string) => {
-      const r = await provider.resolve(trackKey.replace(/^youtube:/, ''))
-      return r.ok ? { ok: true as const, value: r.value } : r
+      const source = sourceOf(trackKey)
+      if (!source) return { ok: false as const, error: invalid('Unknown song source.') }
+      const r = await providerFor(c.env, source).resolve(trackKey.slice(source.length + 1))
+      return r.ok ? { ok: true as const, value: { ...r.value, trustedThumbnail: source !== 'youtube' } } : r
     }
-    const r = await executeCommand(who.value.tools, who.value.actor, cmd.value, Date.now(), { appTools, resolveTrack })
+    const r = await executeCommand(who.value.tools, who.value.actor, cmd.value, Date.now(), { appTools, resolveTrack, findMixable })
     return respond(c, r)
   })
 }

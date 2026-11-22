@@ -41,6 +41,52 @@ const track = z.object({
   durationMs: z.number().min(0).max(86_400_000).optional(),
 })
 
+const finite = z.number().finite()
+const secs = z.number().min(0).max(7200)
+const trackKey = z.string().regex(/^(youtube|audius|jamendo):[A-Za-z0-9_-]{1,40}$/)
+const summary = z.object({
+  v: z.string().max(40),
+  bpm: z.number().min(0).max(300),
+  bpmConf: z.number().min(0).max(1),
+  firstBeat: secs,
+  downbeatPhase: z.number().int().min(0).max(3),
+  downbeatConf: z.number().min(0).max(1),
+  stable: z.boolean(),
+  key: z.string().max(20),
+  camelot: z.string().max(4),
+  keyConf: z.number().min(0).max(1),
+  lufs: z.number().min(-100).max(10),
+  truePeak: z.number().min(-100).max(20),
+  durationSec: secs,
+  phrasesSec: z.array(secs).max(48),
+  cueIn: z.array(secs).max(4),
+  cueOut: z.array(secs).max(4),
+  introBars: z.number().int().min(0).max(512),
+  outroBars: z.number().int().min(0).max(512),
+  barSec: z.number().min(0).max(10),
+  vocalIn: z.number().min(0).max(1),
+  vocalOut: z.number().min(0).max(1),
+  energyIn: z.number().min(-200).max(50),
+  energyOut: z.number().min(-200).max(50),
+  energyMean: z.number().min(-200).max(50),
+  flags: z.array(z.string().max(80)).max(8),
+})
+const transition = z.object({
+  fromItemId: id,
+  toItemId: id,
+  style: z.string().max(24),
+  outCueSec: secs,
+  inCueSec: secs,
+  overlapBars: z.number().int().min(0).max(64),
+  tempoRatio: z.number().min(0.9).max(1.1),
+  startsAt: z.number().int().optional(),
+  cost: finite.optional(),
+  costs: z.record(z.string().max(16), finite).optional(),
+  risks: z.array(z.string().max(80)).max(6).optional(),
+  reasons: z.array(z.string().max(80)).max(6).optional(),
+  alternatives: z.array(z.object({ style: z.string().max(24), cost: finite })).max(4).optional(),
+})
+
 const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('enqueue'), track, idempotencyKey: z.string().min(1).max(64) }),
   z.object({ type: z.literal('vote'), itemId: id }),
@@ -75,6 +121,8 @@ const commandSchema = z.discriminatedUnion('type', [
     expectedRevision: rev,
     controllerId: controllerId.optional(),
     errorCode: z.number().int().optional(),
+    nextItemId: id.optional(),
+    startPositionSec: z.number().min(0).max(3600).optional(),
   }),
   z.object({ type: z.literal('claimController'), controllerId, takeover: z.boolean() }),
   z.object({ type: z.literal('renewLease'), controllerId }),
@@ -89,6 +137,48 @@ const commandSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('kick'), memberId: id }),
   z.object({ type: z.literal('closeRoom') }),
+  // ── Phase 2 AI DJ ──
+  z.object({
+    type: z.literal('djSettings'),
+    patch: z.object({
+      autopilot: z.boolean().optional(),
+      aiReorder: z.boolean().optional(),
+      maxTempoPct: z.number().min(0).max(6).optional(),
+      style: z.enum(['balanced', 'smooth', 'energetic', 'creative']).optional(),
+      allowOmlMixing: z.boolean().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal('djStatus'),
+    status: z.enum(['idle', 'analyzing', 'ready', 'proposed', 'committed', 'mixing', 'safe_fallback', 'failed']),
+    note: z.string().max(200).optional(),
+    transition: transition.nullable().optional(),
+    expectedPlaybackRevision: rev,
+    controllerId,
+  }),
+  z.object({
+    type: z.literal('saveAnalysis'),
+    trackKey,
+    status: z.enum(['ready', 'low_confidence', 'cannot_mix', 'failed']),
+    analyzerVersion: z.string().min(1).max(40),
+    summary: summary.optional(),
+    failure: z.string().max(200).optional(),
+  }),
+  z.object({
+    type: z.literal('correctAnalysis'),
+    trackKey,
+    corrections: z
+      .object({
+        bpm: z.number().min(40).max(250).optional(),
+        firstBeat: secs.optional(),
+        downbeatPhase: z.number().int().min(0).max(3).optional(),
+        note: z.string().max(120).optional(),
+      })
+      .nullable(),
+  }),
+  z.object({ type: z.literal('setMixSource'), itemId: id, action: z.enum(['accept', 'reject']) }),
+  z.object({ type: z.literal('scheduleItem'), itemId: id, targetStartAt: z.number().int().nullable() }),
+  z.object({ type: z.literal('lockItem'), itemId: id, locked: z.boolean() }),
 ])
 
 /** Strict parse; unknown keys are stripped so callers can't smuggle identity fields. */

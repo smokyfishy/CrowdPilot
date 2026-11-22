@@ -1,6 +1,7 @@
 /** Typed reads over ActionTools records, mapping envelopes → domain objects. */
 import type { ActionTools } from 'deepspace/worker'
-import type { Member, PlaybackState, QueueItem, RoomState } from '../domain/types'
+import { DEFAULT_DJ_STATE } from '../domain/types'
+import type { DjState, Member, PlaybackState, QueueItem, RoomState } from '../domain/types'
 import { C, STATE_ID } from '../schemas/names'
 
 type Row = { recordId: string; data: Record<string, unknown> }
@@ -61,6 +62,27 @@ export function toQueueItem(r: Row): QueueItem {
     createdAt: numOr(d.createdAt, 0),
     finishedAt: d.finishedAt == null || d.finishedAt === '' ? undefined : Number(d.finishedAt),
     failureReason: d.failureReason ? String(d.failureReason) : undefined,
+    mixTrackKey: d.mixTrackKey ? String(d.mixTrackKey) : undefined,
+    mixMatch: d.mixMatch && typeof d.mixMatch === 'object' ? (d.mixMatch as QueueItem['mixMatch']) : undefined,
+    targetStartAt: d.targetStartAt == null || d.targetStartAt === '' ? undefined : Number(d.targetStartAt),
+    locked: d.locked === true || d.locked === 1,
+  }
+}
+
+export function toDjState(d: Record<string, unknown> | undefined): DjState {
+  if (!d) return { ...DEFAULT_DJ_STATE }
+  return {
+    autopilot: d.autopilot === true || d.autopilot === 1,
+    aiReorder: d.aiReorder === true || d.aiReorder === 1,
+    maxTempoPct: Math.max(0, Math.min(6, numOr(d.maxTempoPct, 6))),
+    style: (['balanced', 'smooth', 'energetic', 'creative'].includes(String(d.style)) ? d.style : 'balanced') as DjState['style'],
+    allowOmlMixing: d.allowOmlMixing === undefined || d.allowOmlMixing === null ? true : d.allowOmlMixing === true || d.allowOmlMixing === 1,
+    status: (d.status as DjState['status']) || 'idle',
+    statusNote: String(d.statusNote ?? ''),
+    transition: d.transition && typeof d.transition === 'object' ? (d.transition as DjState['transition']) : null,
+    planRevision: numOr(d.planRevision, 0),
+    basedOnPlaybackRevision: numOrNull(d.basedOnPlaybackRevision),
+    updatedAt: numOr(d.updatedAt, 0),
   }
 }
 
@@ -88,6 +110,20 @@ export class RoomRepo {
   async playback(): Promise<PlaybackState | null> {
     const r = await this.tools.get(C.playback, STATE_ID)
     return r.success ? toPlayback(r.data.record.data) : null
+  }
+
+  async djState(): Promise<DjState> {
+    const r = await this.tools.get(C.dj, STATE_ID)
+    return toDjState(r.success ? r.data.record.data : undefined)
+  }
+
+  async djStateExists(): Promise<boolean> {
+    return (await this.tools.get(C.dj, STATE_ID)).success
+  }
+
+  async features(trackKey: string): Promise<{ recordId: string; data: Record<string, unknown> } | undefined> {
+    const r = await this.tools.query(C.features, { where: { trackKey }, limit: 1 })
+    return r.success ? r.data.records[0] : undefined
   }
 
   async item(id: string): Promise<QueueItem | undefined> {

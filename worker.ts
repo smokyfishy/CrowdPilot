@@ -123,6 +123,8 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   YOUTUBE_API_KEY?: string
   /** HMAC secret for anonymous guest tokens (deepspace secrets). Guest join is disabled when absent. */
   GUEST_TOKEN_SECRET?: string
+  /** Phase 2: free non-commercial Jamendo API client id (enables Jamendo search). */
+  JAMENDO_CLIENT_ID?: string
 }
 
 export type AppContext = { Bindings: Env }

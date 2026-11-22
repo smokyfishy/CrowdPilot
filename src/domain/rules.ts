@@ -2,7 +2,8 @@ import { ACTIVE } from './queue'
 import { fail, ok, okVoid } from './types'
 import type { Actor, QueueItem, Result, RoomState } from './types'
 
-const TRACK_KEY = /^youtube:[A-Za-z0-9_-]{1,64}$/
+// Phase 2 adds authorized waveform sources (Audius ids are alphanumeric, Jamendo ids numeric).
+const TRACK_KEY = /^(youtube:[A-Za-z0-9_-]{1,64}|audius:[A-Za-z0-9]{1,24}|jamendo:\d{1,12})$/
 
 export function checkRoomOpen(room: RoomState): Result<void> {
   if (room.status !== 'open') return fail('ROOM_CLOSED', 'This room has ended.')

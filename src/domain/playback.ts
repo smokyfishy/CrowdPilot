@@ -31,6 +31,13 @@ export interface AdvanceInput {
   expectedRevision: number
   controllerId?: string
   errorCode?: number
+  /**
+   * Phase 2 mix handoff: the host's DJ engine already started this queued item under a
+   * committed transition. Only honoured for reason 'ended' from the controller.
+   */
+  nextItemId?: string
+  /** Position (s) the incoming item has already played when the handoff is reported. */
+  startPositionSec?: number
 }
 
 export interface AdvancePlan {
@@ -79,8 +86,11 @@ function startOrIdle(
   items: QueueItem[],
   selector: NextTrackSelector,
   now: number,
+  handoff?: { itemId: string; positionSec: number },
 ): { startItemId: string | null; next: PlaybackState } {
-  const nextItem = selector.select(items)
+  const forced = handoff ? items.find((i) => i.id === handoff.itemId && i.status === 'queued') : undefined
+  const nextItem = forced ?? selector.select(items)
+  const startedAt = forced && handoff ? now - Math.max(0, Math.min(handoff.positionSec, 3600)) * 1000 : now
   const common = { playbackRevision: base.playbackRevision + 1, updatedAt: now, pausedAtSec: null }
   if (!nextItem) {
     return {
@@ -90,7 +100,7 @@ function startOrIdle(
   }
   return {
     startItemId: nextItem.id,
-    next: { ...base, ...common, currentItemId: nextItem.id, state: 'playing', startedAt: now, errorReason: null },
+    next: { ...base, ...common, currentItemId: nextItem.id, state: 'playing', startedAt, errorReason: null },
   }
 }
 
@@ -145,7 +155,9 @@ export function planAdvance(
     })
   }
 
-  const { startItemId, next } = startOrIdle({ ...s, consecutiveFailures: failures }, remaining, selector, now)
+  const handoff =
+    input.reason === 'ended' && input.nextItemId ? { itemId: input.nextItemId, positionSec: input.startPositionSec ?? 0 } : undefined
+  const { startItemId, next } = startOrIdle({ ...s, consecutiveFailures: failures }, remaining, selector, now, handoff)
   return ok({ finished, startItemId, next })
 }
 
