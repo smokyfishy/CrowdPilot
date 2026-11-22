@@ -12,7 +12,8 @@ export function readWav(path: string): { channels: Float32Array[]; rate: number 
     if (id === 'data') {
       const n = Math.floor(size / (fmt.bits / 8) / fmt.ch)
       const chans = Array.from({ length: fmt.ch }, () => new Float32Array(n))
-      for (let i = 0; i < n; i++) for (let c = 0; c < fmt.ch; c++) chans[c][i] = dv.getFloat32(p + 8 + (i * fmt.ch + c) * 4, true)
+      if (fmt.bits === 16) for (let i = 0; i < n; i++) for (let c = 0; c < fmt.ch; c++) chans[c][i] = dv.getInt16(p + 8 + (i * fmt.ch + c) * 2, true) / 32768
+      else for (let i = 0; i < n; i++) for (let c = 0; c < fmt.ch; c++) chans[c][i] = dv.getFloat32(p + 8 + (i * fmt.ch + c) * 4, true)
       return { channels: chans, rate: fmt.rate }
     }
     p += 8 + size + (size % 2)

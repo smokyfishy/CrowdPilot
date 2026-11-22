@@ -209340,7 +209340,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "inverse_reconstruct": {
@@ -209352,7 +209352,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "retain_derived_artifacts": {
@@ -209364,7 +209364,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "render_private_mix": {
@@ -209376,7 +209376,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "train_model": {
@@ -209388,7 +209388,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "redistribute_audio": {
@@ -209400,7 +209400,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "publish_demo": {
@@ -209412,7 +209412,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     },
     "commercialize": {
@@ -209424,7 +209424,7 @@
       "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
      ],
      "decided_by": "licence-policy:v1",
-     "decided_at": "2026-11-22T08:28:26+00:00",
+     "decided_at": "2026-11-22T15:37:00+00:00",
      "expires": null
     }
    }
@@ -212531,7 +212531,4715 @@
      "expires": null
     }
    }
+  },
+  "jamendo/1214935": {
+   "asset_id": "jamendo/1214935",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1214935",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:34:56+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1342712": {
+   "asset_id": "jamendo/1342712",
+   "role": "eval_track",
+   "licence": "cc-by-nc-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1342712",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:03+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1465314": {
+   "asset_id": "jamendo/1465314",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1465314",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:10+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1099703": {
+   "asset_id": "jamendo/1099703",
+   "role": "eval_track",
+   "licence": "cc-by-nc-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1099703",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:22+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1258976": {
+   "asset_id": "jamendo/1258976",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1258976",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:30+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1342479": {
+   "asset_id": "jamendo/1342479",
+   "role": "eval_track",
+   "licence": "cc-by-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1342479",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:38+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1466090": {
+   "asset_id": "jamendo/1466090",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1466090",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:46+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1135319": {
+   "asset_id": "jamendo/1135319",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1135319",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:35:56+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/523108": {
+   "asset_id": "jamendo/523108",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/523108",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:04+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1087437": {
+   "asset_id": "jamendo/1087437",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1087437",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:15+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/210601": {
+   "asset_id": "jamendo/210601",
+   "role": "eval_track",
+   "licence": "cc-by-nc-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/210601",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:26+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1209516": {
+   "asset_id": "jamendo/1209516",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1209516",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:39+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1167098": {
+   "asset_id": "jamendo/1167098",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-2.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-2.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-2.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-2.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-2.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-2.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-2.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-2.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-2.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1167098",
+      "http://creativecommons.org/licenses/by-nc-sa/2.0/fr/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:36:46+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1831809": {
+   "asset_id": "jamendo/1831809",
+   "role": "eval_track",
+   "licence": "cc-by-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1831809",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:06+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1430812": {
+   "asset_id": "jamendo/1430812",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1430812",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:13+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1119969": {
+   "asset_id": "jamendo/1119969",
+   "role": "eval_track",
+   "licence": "cc-by-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1119969",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:20+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/945196": {
+   "asset_id": "jamendo/945196",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/945196",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:28+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1283297": {
+   "asset_id": "jamendo/1283297",
+   "role": "eval_track",
+   "licence": "cc-by-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1283297",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:37+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1059819": {
+   "asset_id": "jamendo/1059819",
+   "role": "eval_track",
+   "licence": "cc-by-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1059819",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:43+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/23560": {
+   "asset_id": "jamendo/23560",
+   "role": "eval_track",
+   "licence": "cc-by-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/23560",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:37:52+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1199532": {
+   "asset_id": "jamendo/1199532",
+   "role": "eval_track",
+   "licence": "cc-by-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1199532",
+      "http://creativecommons.org/licenses/by/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:01+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1051378": {
+   "asset_id": "jamendo/1051378",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1051378",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:08+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1439107": {
+   "asset_id": "jamendo/1439107",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1439107",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:14+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1247238": {
+   "asset_id": "jamendo/1247238",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1247238",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:22+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/171574": {
+   "asset_id": "jamendo/171574",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/171574",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:31+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/35106": {
+   "asset_id": "jamendo/35106",
+   "role": "eval_track",
+   "licence": "cc-by-nc-2.5",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/2.5/it/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-2.5: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/35106",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:43+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1453204": {
+   "asset_id": "jamendo/1453204",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1453204",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:38:52+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/246502": {
+   "asset_id": "jamendo/246502",
+   "role": "eval_track",
+   "licence": "cc-by-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/246502",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:00+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1099699": {
+   "asset_id": "jamendo/1099699",
+   "role": "eval_track",
+   "licence": "cc-by-nc-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1099699",
+      "http://creativecommons.org/licenses/by-nc/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:12+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/121094": {
+   "asset_id": "jamendo/121094",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/121094",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:24+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1125421": {
+   "asset_id": "jamendo/1125421",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1125421",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:32+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1247234": {
+   "asset_id": "jamendo/1247234",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1247234",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:40+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1593515": {
+   "asset_id": "jamendo/1593515",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1593515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:47+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1270179": {
+   "asset_id": "jamendo/1270179",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1270179",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:39:55+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/945192": {
+   "asset_id": "jamendo/945192",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/945192",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:03+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/35110": {
+   "asset_id": "jamendo/35110",
+   "role": "eval_track",
+   "licence": "cc-by-nc-2.5",
+   "licence_url": "http://creativecommons.org/licenses/by-nc/2.5/it/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-2.5: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-2.5: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-2.5: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/35110",
+      "http://creativecommons.org/licenses/by-nc/2.5/it/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:12+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/457515": {
+   "asset_id": "jamendo/457515",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/457515",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:24+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/945200": {
+   "asset_id": "jamendo/945200",
+   "role": "eval_track",
+   "licence": "cc-by-nc-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-nc-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/945200",
+      "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:30+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1894241": {
+   "asset_id": "jamendo/1894241",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1894241",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:37+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1845787": {
+   "asset_id": "jamendo/1845787",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1845787",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:44+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1528163": {
+   "asset_id": "jamendo/1528163",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1528163",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:51+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1368688": {
+   "asset_id": "jamendo/1368688",
+   "role": "eval_track",
+   "licence": "cc-by-sa-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "approved",
+     "basis": "cc-by-sa-3.0: adaptation permitted (private)",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review before any release",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "rights_review",
+     "basis": "cc-by-sa-3.0: permitted with attribution \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-sa-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1368688",
+      "http://creativecommons.org/licenses/by-sa/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:40:58+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/154038": {
+   "asset_id": "jamendo/154038",
+   "role": "eval_track",
+   "licence": "cc-by-nc-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/154038",
+      "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:09+00:00",
+     "expires": null
+    }
+   }
+  },
+  "jamendo/1269404": {
+   "asset_id": "jamendo/1269404",
+   "role": "eval_track",
+   "licence": "cc-by-nd-3.0",
+   "licence_url": "http://creativecommons.org/licenses/by-nd/3.0/",
+   "platform_terms": "Jamendo API Terms \u00a73.3 (non-commercial); artist enabled downloads",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private reproduction for analysis",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nd-3.0: derived features retained privately",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nd-3.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: no public demo of adapted audio",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nd-3.0: project is noncommercial",
+     "evidence": [
+      "https://www.jamendo.com/track/1269404",
+      "http://creativecommons.org/licenses/by-nd/3.0/",
+      "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T15:41:20+00:00",
+     "expires": null
+    }
+   }
   }
  },
- "audit_entries": 3871
+ "audit_entries": 3916
 }
