@@ -26,7 +26,9 @@ import { C, STATE_ID } from '../schemas/names'
 import { claim, isDuplicateError, readClaim, release, setClaimRef } from './claims'
 import { RoomRepo } from './repo'
 
-export const REACTION_EMOJI = ['🔥', '❤️', '🙌', '😂', '🎉', '👏'] as const
+import { REACTION_EMOJI } from '../domain/reactions'
+
+export { REACTION_EMOJI }
 
 export type RoomCommand =
   | { type: 'enqueue'; track: TrackRef; idempotencyKey: string }
@@ -123,6 +125,7 @@ export async function createRoom(
     C.roomState,
     {
       roomId,
+      code,
       name,
       hostUserId: host.userId,
       hostName: displayName,

@@ -22,7 +22,7 @@ import { RecordProvider, RecordScope, AgentTools } from 'deepspace'
 import Navigation from '../../components/Navigation'
 import { useToast } from '@/components/ui'
 import { APP_NAME, SCOPE_ID } from '../../constants'
-import { schemas } from '../../schemas'
+import { appSchemas } from '../../schemas'
 
 export default function AppLayout() {
   return (
@@ -72,7 +72,7 @@ function AuthBoot({ children }: { children: ReactNode }) {
         e.kind === 'permission' ? warning(e.title, e.detail) : error(e.title, e.detail)
       }
     >
-      <RecordScope roomId={SCOPE_ID} schemas={schemas}>
+      <RecordScope roomId={SCOPE_ID} schemas={appSchemas}>
         <AgentTools />
         {children}
       </RecordScope>

@@ -40,6 +40,7 @@ export interface QueueItem extends TrackRef {
 
 export interface RoomState {
   roomId: string
+  code?: string
   name: string
   hostUserId: string
   hostName: string

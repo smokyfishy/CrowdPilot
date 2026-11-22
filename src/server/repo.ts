@@ -13,6 +13,7 @@ const strOrNull = (v: unknown) => (v === null || v === undefined || v === '' ? n
 export function toRoomState(d: Record<string, unknown>): RoomState {
   return {
     roomId: String(d.roomId),
+    code: d.code ? String(d.code) : undefined,
     name: String(d.name ?? ''),
     hostUserId: String(d.hostUserId ?? ''),
     hostName: String(d.hostName ?? ''),

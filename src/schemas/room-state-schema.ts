@@ -7,6 +7,7 @@ export const roomStateSchema: CollectionSchema = {
   name: C.roomState,
   columns: [
     text('roomId', { required: true }),
+    text('code', { maxLength: 6 }),
     text('name', { required: true, maxLength: 60 }),
     text('hostUserId', { required: true }),
     text('hostName', { maxLength: 64 }),

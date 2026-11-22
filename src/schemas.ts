@@ -21,6 +21,22 @@ import { roomEventsSchema } from './schemas/room-events-schema'
 import { reactionsSchema } from './schemas/reactions-schema'
 import { commandReceiptsSchema } from './schemas/command-receipts-schema'
 
+/** Collections that live in the app scope (`app:<APP_ID>`). */
+export const appSchemas: CollectionSchema[] = [usersSchema, settingsSchema, roomsSchema]
+
+/** Collections that live in each room's scope (`room:<roomId>`). */
+export const roomSchemas: CollectionSchema[] = [
+  roomStateSchema,
+  roomMembersSchema,
+  queueItemsSchema,
+  votesSchema,
+  playbackSchema,
+  roomEventsSchema,
+  reactionsSchema,
+  commandReceiptsSchema,
+]
+
+/** Every RecordRoom DO registers all schemas; clients register per scope (avoids name collisions). */
 export const schemas: CollectionSchema[] = [
   usersSchema,
   settingsSchema,
