@@ -63,7 +63,6 @@ export function checkCanJoin(room: RoomState, signedIn: boolean, kicked: boolean
 }
 
 export function sanitizeDisplayName(raw: string): Result<string> {
-  // eslint-disable-next-line no-control-regex
   const cleaned = raw.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim()
   if (cleaned.length < 1 || cleaned.length > 32) {
     return fail('INVALID', 'Display names must be 1–32 characters.')
