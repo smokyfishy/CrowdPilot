@@ -105,7 +105,9 @@ async function sha256(buf: ArrayBuffer): Promise<string> {
 }
 
 export class BrowserMixJob {
-  private analysisWorker: Worker | null = null
+  /** Pool of analysis workers (each runs its own Beat This! session; WASM is single-threaded without isolation). */
+  private analysisWorkers: Worker[] = []
+  private busy: number[] = []
   private reqId = 0
   private readonly pendingAnalysis = new Map<number, (r: WorkerResponse) => void>()
   private readonly bytes = new Map<string, ArrayBuffer>()
@@ -143,16 +145,24 @@ export class BrowserMixJob {
     }, 1500)
   }
 
-  private analysis(): Worker {
-    if (!this.analysisWorker) {
-      this.analysisWorker = new Worker(new URL('../../dj/engine/analysis.worker.ts', import.meta.url), { type: 'module' })
-      this.analysisWorker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
-        const cb = this.pendingAnalysis.get(ev.data.id)
-        this.pendingAnalysis.delete(ev.data.id)
-        cb?.(ev.data)
+  private analysis(): { w: Worker; release: () => void } {
+    const size = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1))
+    if (!this.analysisWorkers.length) {
+      for (let i = 0; i < size; i++) {
+        const w = new Worker(new URL('../../dj/engine/analysis.worker.ts', import.meta.url), { type: 'module' })
+        w.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+          const cb = this.pendingAnalysis.get(ev.data.id)
+          this.pendingAnalysis.delete(ev.data.id)
+          cb?.(ev.data)
+        }
+        this.analysisWorkers.push(w)
+        this.busy.push(0)
       }
     }
-    return this.analysisWorker
+    let k = 0
+    for (let i = 1; i < this.busy.length; i++) if (this.busy[i] < this.busy[k]) k = i
+    this.busy[k]++
+    return { w: this.analysisWorkers[k], release: () => void (this.busy[k] = Math.max(0, this.busy[k] - 1)) }
   }
 
   private async fetchAudio(c: { trackKey: string }): Promise<ArrayBuffer> {
@@ -216,11 +226,12 @@ export class BrowserMixJob {
         const mono = (await off.startRendering()).getChannelData(0).slice()
         const channels = pcm.channels.map((c) => c.slice())
         const id = ++job.reqId
+        const slot = job.analysis()
         const res = await new Promise<WorkerResponse>((resolve) => {
           job.pendingAnalysis.set(id, resolve)
           const msg: WorkerRequest = { type: 'analyze', id, channels, sampleRate: pcm.rate, analysisMono: mono }
-          job.analysis().postMessage(msg, [...channels.map((c) => c.buffer), mono.buffer])
-        })
+          slot.w.postMessage(msg, [...channels.map((c) => c.buffer), mono.buffer])
+        }).finally(slot.release)
         if (res.type !== 'analysis' || !res.analysis) throw new Error(`analysis failed: ${'error' in res ? res.error : 'unknown'}`)
         await cachePut(ck, res.analysis)
         return res.analysis
@@ -346,7 +357,8 @@ export class BrowserMixJob {
   }
 
   dispose(): void {
-    this.analysisWorker?.terminate()
+    this.analysisWorkers.forEach((w) => w.terminate())
+    this.analysisWorkers = []
     this.bytes.clear()
   }
 }
