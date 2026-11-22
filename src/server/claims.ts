@@ -18,11 +18,26 @@ export async function claim(tools: ActionTools, key: string, ref = '', now = Dat
   throw new Error(`claim ${key} failed: ${r.error}`)
 }
 
-export async function readClaim(tools: ActionTools, key: string): Promise<{ recordId: string; ref: string } | null> {
-  const r = await tools.query<{ key: string; ref?: string }>(C.receipts, { where: { key }, limit: 1 })
+export interface ClaimRow {
+  recordId: string
+  ref: string
+  createdAt: number
+}
+
+export async function readClaim(tools: ActionTools, key: string): Promise<ClaimRow | null> {
+  const r = await tools.query<{ key: string; ref?: string; createdAt?: number }>(C.receipts, { where: { key }, limit: 1 })
   if (!r.success || r.data.records.length === 0) return null
   const row = r.data.records[0]
-  return { recordId: row.recordId, ref: String(row.data.ref ?? '') }
+  return { recordId: row.recordId, ref: String(row.data.ref ?? ''), createdAt: Number(row.data.createdAt ?? 0) }
+}
+
+/** An active claim whose winner never recorded its item (crash between claim and create). */
+export const ABANDONED_CLAIM_MS = 30_000
+
+/** Throwing update: every write that follows a claim must succeed or the claim is released. */
+export async function mustUpdate(tools: ActionTools, collection: string, recordId: string, data: Record<string, unknown>): Promise<void> {
+  const r = await tools.update(collection, recordId, data)
+  if (!r.success) throw new Error(`update ${collection}/${recordId} failed: ${r.error}`)
 }
 
 export async function setClaimRef(tools: ActionTools, key: string, ref: string): Promise<void> {

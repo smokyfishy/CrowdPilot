@@ -27,9 +27,9 @@ test('host and two guests share a live queue', async ({ users, browser, baseURL 
   await expect(host.page.getByText('Bob', { exact: true })).toBeVisible({ timeout: 20_000 })
 
   // Simultaneous adds from two guests show up everywhere without a reload.
-  await Promise.all([addFromSearch(ann.page, 'Nightcall', true), addFromSearch(bob.page, 'Midnight City', false)])
+  await Promise.all([addFromSearch(ann.page, 'One More Time', true), addFromSearch(bob.page, 'Midnight City', false)])
   for (const page of [host.page, ann.page]) {
-    await expect(queueRow(page, 'Nightcall')).toBeVisible({ timeout: 20_000 })
+    await expect(queueRow(page, 'One More Time')).toBeVisible({ timeout: 20_000 })
     await expect(queueRow(page, 'Midnight City')).toBeVisible({ timeout: 20_000 })
   }
 
@@ -37,9 +37,9 @@ test('host and two guests share a live queue', async ({ users, browser, baseURL 
   await bob.page.getByLabel('Search YouTube for a song').fill('again')
   await expect(bob.page.getByText('In queue').first()).toBeVisible({ timeout: 10_000 })
   await bob.page.getByRole('button', { name: 'Queue', exact: true }).click()
-  const vote = bob.page.getByRole('button', { name: /Vote for Nightcall/ })
+  const vote = bob.page.getByRole('button', { name: /Vote for .*One More Time/ })
   await vote.click()
-  await expect(host.page.getByRole('button', { name: /Nightcall, 1 vote/ })).toBeVisible({ timeout: 15_000 })
+  await expect(host.page.getByRole('button', { name: /One More Time.*, 1 vote/ })).toBeVisible({ timeout: 15_000 })
 
   // Host pins Midnight City to play next.
   await host.page.getByRole('button', { name: 'Play Midnight City next' }).click()
@@ -52,8 +52,8 @@ test('host and two guests share a live queue', async ({ users, browser, baseURL 
   await expect(ann.page.getByText('The host has paused requests', { exact: false })).toBeVisible({ timeout: 15_000 })
 
   // Host removes a song; it disappears for everyone.
-  await host.page.getByRole('button', { name: 'Remove Nightcall' }).click()
-  await expect(queueRow(ann.page, 'Nightcall')).toHaveCount(0, { timeout: 15_000 })
+  await host.page.getByRole('button', { name: /Remove .*One More Time/ }).click()
+  await expect(queueRow(ann.page, 'One More Time')).toHaveCount(0, { timeout: 15_000 })
 
   // Refresh keeps the queue.
   await host.page.reload()

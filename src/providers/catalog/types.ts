@@ -19,4 +19,6 @@ export interface CatalogTrack {
 
 export interface MusicCatalogProvider {
   search(query: string, signal?: AbortSignal): Promise<Result<CatalogTrack[]>>
+  /** Authoritative metadata for one id; rejects ids that are missing or not playable here. */
+  resolve(sourceId: string, signal?: AbortSignal): Promise<Result<CatalogTrack>>
 }

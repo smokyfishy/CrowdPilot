@@ -11,49 +11,64 @@ import { createYouTubeIframeController, loadYouTubeApi } from '@/providers/playb
 import type { RoomCommand } from '@/server/commands'
 import { useServerClock } from '@/client/hooks'
 import { HostPlaybackAgent } from './host-agent'
+import { acquireControllerId, type LockManagerLike } from './controller-id'
 
 type Run = (cmd: RoomCommand, opts?: { silent?: boolean }) => Promise<{ ok: boolean; error?: { code: string; message: string } }>
 
-function useControllerId(roomId: string): string {
-  const [id] = useState(() => {
-    const key = `crowdpilot:controller:${roomId}`
-    try {
-      const existing = sessionStorage.getItem(key)
-      if (existing) return existing
-      const fresh = crypto.randomUUID()
-      sessionStorage.setItem(key, fresh)
-      return fresh
-    } catch {
-      return crypto.randomUUID()
+/** Per-tab controller id, guarded by a Web Lock so a duplicated tab never shares it (see controller-id.ts). */
+function useControllerId(roomId: string): string | null {
+  const [id, setId] = useState<string | null>(null)
+  useEffect(() => {
+    let release: (() => void) | null = null
+    let cancelled = false
+    const storage = (() => {
+      try {
+        return sessionStorage
+      } catch {
+        return undefined
+      }
+    })()
+    const locks = typeof navigator !== 'undefined' && 'locks' in navigator ? (navigator.locks as unknown as LockManagerLike) : undefined
+    void acquireControllerId(roomId, { storage, locks, newId: () => crypto.randomUUID() }).then((r) => {
+      if (cancelled) return r.release()
+      release = r.release
+      setId(r.id)
+    })
+    return () => {
+      cancelled = true
+      release?.()
     }
-  })
+  }, [roomId])
   return id
 }
+
+const CLAIM_RETRY_MS = 5_000
 
 export function useController(roomId: string, playback: PlaybackState | undefined, run: Run) {
   const controllerId = useControllerId(roomId)
   const clock = useServerClock()
   const leaseLive = !!playback?.controllerLeaseUntil && playback.controllerLeaseUntil > clock.now()
-  const isController = playback?.controllerId === controllerId && leaseLive
+  const isController = !!controllerId && playback?.controllerId === controllerId && leaseLive
   const free = !playback?.controllerId || !leaseLive
-  const claimedOnce = useRef(false)
+  const lastClaimAt = useRef(0)
 
   const claim = useCallback(
-    (takeover: boolean) => run({ type: 'claimController', controllerId, takeover }, { silent: !takeover }),
+    async (takeover: boolean) => {
+      if (!controllerId) return { ok: false as const }
+      lastClaimAt.current = Date.now()
+      return run({ type: 'claimController', controllerId, takeover }, { silent: !takeover })
+    },
     [run, controllerId],
   )
 
-  // Auto-claim when nobody is playing for this room.
+  // Auto-claim whenever nobody is playing for this room (not just once per mount).
   useEffect(() => {
-    if (playback && free && !claimedOnce.current) {
-      claimedOnce.current = true
-      void claim(false)
-    }
-  }, [playback, free, claim])
+    if (playback && free && controllerId && Date.now() - lastClaimAt.current > CLAIM_RETRY_MS) void claim(false)
+  }, [playback, free, controllerId, claim])
 
   // Keep the lease alive while this tab is the player.
   useEffect(() => {
-    if (playback?.controllerId !== controllerId) return
+    if (!controllerId || playback?.controllerId !== controllerId) return
     const id = setInterval(() => void run({ type: 'renewLease', controllerId }, { silent: true }), RENEW_MS)
     return () => clearInterval(id)
   }, [playback?.controllerId, controllerId, run])
@@ -77,7 +92,7 @@ export function HostPlayer({ roomId, playback, items, run }: HostPlayerProps) {
   const [volume, setVolume] = useState(80)
 
   useEffect(() => {
-    if (!isController || !containerRef.current) return
+    if (!isController || !controllerId || !containerRef.current) return
     const mount = document.createElement('div')
     containerRef.current.appendChild(mount)
     const player = createYouTubeIframeController(mount, async () => {
@@ -114,11 +129,9 @@ export function HostPlayer({ roomId, playback, items, run }: HostPlayerProps) {
         <div className="grid justify-items-center gap-3">
           <MonitorSpeaker className="size-6 text-muted-foreground" aria-hidden />
           <p className="text-foreground">{otherDeviceActive ? 'Music is playing on another of your devices.' : 'Connecting the player…'}</p>
-          {otherDeviceActive && (
-            <Button variant="outline" size="sm" onClick={() => claim(true)}>
-              Play here instead
-            </Button>
-          )}
+          <Button variant="outline" size="sm" disabled={!controllerId} onClick={() => void claim(true)}>
+            {otherDeviceActive ? 'Play here instead' : 'Use this device as the player'}
+          </Button>
         </div>
       </div>
     )

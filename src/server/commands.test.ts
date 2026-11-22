@@ -271,3 +271,111 @@ describe('reactions and activity', () => {
     expect(types).toContain('enqueue')
   })
 })
+
+// ───────────── review fixes (final review, Important #3, #4 and the takeover race) ─────────────
+
+type Hooks = {
+  create?: (collection: string, data: Record<string, unknown>) => Promise<{ success: false; error: string } | void>
+  update?: (collection: string, id: string, data: Record<string, unknown>) => Promise<{ success: false; error: string } | void>
+}
+
+function withHooks(base: MemoryTools, hooks: Hooks): MemoryTools {
+  return {
+    ...base,
+    create: async (collection, data, recordId) => {
+      const r = await hooks.create?.(collection, data as Record<string, unknown>)
+      if (r) return r
+      return base.create(collection, data, recordId)
+    },
+    update: async (collection, id, data) => {
+      const r = await hooks.update?.(collection, id, data as Record<string, unknown>)
+      if (r) return r
+      return base.update(collection, id, data)
+    },
+  } as MemoryTools
+}
+
+describe('claim hygiene', () => {
+  it('releases claims when creating the item fails, so the song can be added again', async () => {
+    let failNext = true
+    const flaky = withHooks(room, {
+      create: async (collection) => {
+        if (collection === C.queue && failNext) {
+          failNext = false
+          return { success: false, error: 'Durable Object reset' }
+        }
+      },
+    })
+    const first = await executeCommand(flaky, ann, { type: 'enqueue', track: track('flaky'), idempotencyKey: 'f1' }, T0, deps)
+    expect(code(first)).toBe('UPSTREAM')
+    const second = await executeCommand(flaky, ann, { type: 'enqueue', track: track('flaky'), idempotencyKey: 'f2' }, T0, deps)
+    expect(code(second)).toBe('OK')
+    expect(queue().filter((q) => q.trackKey === 'youtube:flaky')).toHaveLength(1)
+  })
+
+  it('treats an empty active claim older than 30s as abandoned', async () => {
+    await room.create(C.receipts, { key: 'active:youtube:orphan', ref: '', createdAt: T0 - 60_000 })
+    expect(code(await run(ann, { type: 'enqueue', track: track('orphan'), idempotencyKey: 'o1' }))).toBe('OK')
+  })
+
+  it('releases the playback claim when the playback write fails', async () => {
+    await run(ann, { type: 'enqueue', track: track('w1'), idempotencyKey: 'w1' })
+    await run(bob, { type: 'enqueue', track: track('w2'), idempotencyKey: 'w2' })
+    await run(host, { type: 'claimController', controllerId: 'tabA-0000', takeover: false })
+    await run(host, { type: 'play', expectedRevision: 0, controllerId: 'tabA-0000' })
+    let failNext = true
+    const flaky = withHooks(room, {
+      update: async (collection) => {
+        if (collection === C.playback && failNext) {
+          failNext = false
+          return { success: false, error: 'write failed' }
+        }
+      },
+    })
+    const cmd: RoomCommand = { type: 'advance', reason: 'ended', expectedRevision: 1, controllerId: 'tabA-0000' }
+    expect(code(await executeCommand(flaky, host, cmd, T0 + 1000, deps))).toBe('UPSTREAM')
+    expect(code(await executeCommand(flaky, host, cmd, T0 + 2000, deps))).toBe('OK')
+    expect(playback().playbackRevision).toBe(2)
+  })
+
+  it('does not undo a controller takeover that lands while an advance is writing', async () => {
+    await run(ann, { type: 'enqueue', track: track('t1'), idempotencyKey: 't1' })
+    await run(bob, { type: 'enqueue', track: track('t2'), idempotencyKey: 't2' })
+    await run(host, { type: 'claimController', controllerId: 'tabA-0000', takeover: false })
+    await run(host, { type: 'play', expectedRevision: 0, controllerId: 'tabA-0000' })
+    const racing = withHooks(room, {
+      create: async (collection, data) => {
+        if (collection === C.receipts && data.key === 'playback:1') {
+          await room.update(C.playback, STATE_ID, { controllerId: 'tabB-0000', controllerLeaseUntil: T0 + 999_999 })
+        }
+      },
+    })
+    const r = await executeCommand(racing, host, { type: 'advance', reason: 'skip', expectedRevision: 1 }, T0 + 1000, deps)
+    expect(code(r)).toBe('OK')
+    expect(playback().controllerId).toBe('tabB-0000')
+  })
+})
+
+describe('server-resolved track metadata', () => {
+  it('stores the metadata the server resolved, not what the client sent', async () => {
+    const resolveTrack = async (trackKey: string) =>
+      ({ ok: true, value: { trackKey, title: 'Real Title', creatorLabel: 'Real Channel', durationMs: 200_000 } }) as const
+    const r = await executeCommand(
+      room,
+      ann,
+      { type: 'enqueue', track: { trackKey: 'youtube:spoofed1', title: 'Happy Birthday', durationMs: 1 }, idempotencyKey: 's1' },
+      T0,
+      { ...deps, resolveTrack },
+    )
+    expect(code(r)).toBe('OK')
+    expect(queue()[0]).toMatchObject({ title: 'Real Title', creatorLabel: 'Real Channel', durationMs: 200_000 })
+  })
+
+  it('rejects a track the server cannot resolve as playable', async () => {
+    const resolveTrack = async () => ({ ok: false, error: { code: 'INVALID', message: 'That video cannot be embedded.' } }) as const
+    const r = await executeCommand(room, ann, { type: 'enqueue', track: track('blocked'), idempotencyKey: 'b1' }, T0, { ...deps, resolveTrack })
+    expect(code(r)).toBe('INVALID')
+    expect(queue()).toHaveLength(0)
+    expect(code(await executeCommand(room, ann, { type: 'enqueue', track: track('blocked'), idempotencyKey: 'b2' }, T0, deps))).toBe('OK')
+  })
+})

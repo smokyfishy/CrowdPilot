@@ -40,7 +40,8 @@ describe('pruneRoom', () => {
     for (let i = 0; i < 205; i++) await room.create(C.events, { type: 'join', actorName: 'x', createdAt: NOW - i * 1000 })
     await room.create(C.reactions, { memberId: 'm', emoji: '🔥', createdAt: NOW - 120_000 })
     await room.create(C.reactions, { memberId: 'm', emoji: '🔥', createdAt: NOW - 5_000 })
-    await room.create(C.receipts, { key: 'active:youtube:abc', ref: 'i1', createdAt: NOW - 10 * 3_600_000 })
+    const live = await room.create(C.queue, { trackKey: 'youtube:abc', title: 'Abc', status: 'queued', enqueueSeq: 1, sortKey: 'a0', requestedByMemberId: 'm' })
+    await room.create(C.receipts, { key: 'active:youtube:abc', ref: live.success ? live.data.recordId : '', createdAt: NOW - 10 * 3_600_000 })
     await room.create(C.receipts, { key: 'playback:3', ref: '', createdAt: NOW - 10 * 3_600_000 })
     await room.create(C.receipts, { key: 'playback:4', ref: '', createdAt: NOW - 60_000 })
 
@@ -51,5 +52,18 @@ describe('pruneRoom', () => {
     expect(Math.min(...events.map((e) => Number(e.data.createdAt)))).toBe(NOW - 199_000)
     expect(room.dump(C.reactions)).toHaveLength(1)
     expect(room.dump(C.receipts).map((r) => r.data.key).sort()).toEqual(['active:youtube:abc', 'playback:4'])
+  })
+})
+
+describe('pruneRoom active claims', () => {
+  it('drops abandoned or finished active claims and keeps live ones', async () => {
+    const room = createMemoryTools()
+    const live = await room.create(C.queue, { trackKey: 'youtube:live', title: 'Live', status: 'queued', enqueueSeq: 1, sortKey: 'a0', requestedByMemberId: 'm' })
+    const done = await room.create(C.queue, { trackKey: 'youtube:done', title: 'Done', status: 'played', enqueueSeq: 2, sortKey: 'a1', requestedByMemberId: 'm' })
+    await room.create(C.receipts, { key: 'active:youtube:live', ref: live.success ? live.data.recordId : '', createdAt: NOW - 5 * 3_600_000 })
+    await room.create(C.receipts, { key: 'active:youtube:done', ref: done.success ? done.data.recordId : '', createdAt: NOW - 5 * 3_600_000 })
+    await room.create(C.receipts, { key: 'active:youtube:orphan', ref: '', createdAt: NOW - 5 * 3_600_000 })
+    await pruneRoom(room, NOW)
+    expect(room.dump(C.receipts).map((r) => r.data.key)).toEqual(['active:youtube:live'])
   })
 })

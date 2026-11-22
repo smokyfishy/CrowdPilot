@@ -23,7 +23,8 @@ import { checkCanJoin, checkEnqueue, checkHost, checkRemove, checkRoomOpen, chec
 import { fail, ok } from '../domain/types'
 import type { Actor, PlaybackState, QueueItem, Result, RoomEventType, RoomState, TrackRef } from '../domain/types'
 import { C, STATE_ID } from '../schemas/names'
-import { claim, isDuplicateError, readClaim, release, setClaimRef } from './claims'
+import { ABANDONED_CLAIM_MS, claim, isDuplicateError, mustUpdate, readClaim, release, setClaimRef } from './claims'
+import type { ClaimRow } from './claims'
 import { RoomRepo } from './repo'
 
 import { REACTION_EMOJI } from '../domain/reactions'
@@ -67,6 +68,11 @@ export interface CommandDeps {
   appTools?: ActionTools
   limits?: Limits
   selector?: NextTrackSelector
+  /**
+   * Resolves a trackKey to authoritative, playable metadata (the route wires YouTube
+   * videos.list). When provided, client-sent title/duration are ignored. Unit tests may omit it.
+   */
+  resolveTrack?: (trackKey: string) => Promise<Result<TrackRef>>
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -224,8 +230,27 @@ function validTrack(t: TrackRef): Result<TrackRef> {
   })
 }
 
+/**
+ * Writes the playback fields a plan owns. Controller fields are deliberately excluded:
+ * only claim/renew write them, so a racing takeover is never overwritten by a stale snapshot.
+ */
 async function writePlayback(tools: ActionTools, next: PlaybackState): Promise<void> {
-  await tools.update(C.playback, STATE_ID, { ...next })
+  const owned: Record<string, unknown> = { ...next }
+  delete owned.controllerId
+  delete owned.controllerLeaseUntil
+  await mustUpdate(tools, C.playback, STATE_ID, owned)
+}
+
+/** Run the writes that follow a playback claim; on failure release the claim so the revision stays usable. */
+async function afterPlaybackClaim(tools: ActionTools, revision: number, writes: () => Promise<void>): Promise<Result<void>> {
+  try {
+    await writes()
+    return ok(undefined)
+  } catch (e) {
+    await release(tools, `playback:${revision}`).catch(() => undefined)
+    console.error('[playback] write failed, claim released', e)
+    return fail('UPSTREAM', 'Playback could not be updated. Try again.')
+  }
 }
 
 async function finishItem(
@@ -257,9 +282,13 @@ async function doAdvance(
   // Exactly one racer wins this revision; a duplicate ENDED is a harmless no-op.
   if (!(await claim(tools, `playback:${pb.playbackRevision}`, '', now))) return ok(undefined)
   const { finished, startItemId, next } = plan.value
-  if (finished) await finishItem(tools, finished.itemId, finishedStatusOverride ?? finished.status, now, finished.failureReason)
-  if (startItemId) await tools.update(C.queue, startItemId, { status: 'playing' })
-  await writePlayback(tools, next)
+  const written = await afterPlaybackClaim(tools, pb.playbackRevision, async () => {
+    // Playback first: if it fails nothing else has changed and the claim is released.
+    await writePlayback(tools, next)
+    if (finished) await finishItem(tools, finished.itemId, finishedStatusOverride ?? finished.status, now, finished.failureReason)
+    if (startItemId) await mustUpdate(tools, C.queue, startItemId, { status: 'playing' })
+  })
+  if (!written.ok) return written
   if (input.reason === 'skip') await logEvent(tools, 'skip', actor.displayName, now, { queueItemId: finished?.itemId })
   if (startItemId) await logEvent(tools, 'now_playing', actor.displayName, now, { queueItemId: startItemId })
   return ok(undefined)
@@ -275,9 +304,13 @@ async function startIfIdle(tools: ActionTools, now: number, selector: NextTrackS
   const plan = planPlay(pb, await repo.activeItems(), system, { expectedRevision: pb.playbackRevision }, now, selector)
   if (!plan.ok || !plan.value.startItemId) return
   if (!(await claim(tools, `playback:${pb.playbackRevision}`, '', now))) return
-  await tools.update(C.queue, plan.value.startItemId, { status: 'playing' })
-  await writePlayback(tools, plan.value.next)
-  await logEvent(tools, 'now_playing', 'CrowdPilot', now, { queueItemId: plan.value.startItemId })
+  const startId = plan.value.startItemId
+  const next = plan.value.next
+  const written = await afterPlaybackClaim(tools, pb.playbackRevision, async () => {
+    await writePlayback(tools, next)
+    await mustUpdate(tools, C.queue, startId, { status: 'playing' })
+  })
+  if (written.ok) await logEvent(tools, 'now_playing', 'CrowdPilot', now, { queueItemId: startId })
 }
 
 async function enqueue(
@@ -288,6 +321,7 @@ async function enqueue(
   now: number,
   limits: Limits,
   selector: NextTrackSelector,
+  deps: CommandDeps,
 ): Promise<Result<{ itemId?: string }>> {
   const track = validTrack(cmd.track)
   if (!track.ok) return track
@@ -303,17 +337,29 @@ async function enqueue(
   const allowed = checkEnqueue(actor, room, items, track.value.trackKey)
   if (!allowed.ok) return allowed
 
-  const activeKey = `active:${track.value.trackKey}`
+  // Never trust client-sent metadata: resolve the id server-side (also rejects unplayable videos).
+  let meta = track.value
+  if (deps.resolveTrack) {
+    const resolved = await deps.resolveTrack(track.value.trackKey)
+    if (!resolved.ok) return resolved
+    const checked = validTrack({ ...resolved.value, trackKey: track.value.trackKey })
+    if (!checked.ok) return checked
+    meta = checked.value
+  }
+
+  const activeKey = `active:${meta.trackKey}`
   if (!(await claim(tools, activeKey, '', now))) {
-    // Someone holds this track. If their item has since left the queue, the claim is stale.
-    const holder = await readHolder(tools, activeKey)
+    // Someone holds this track. The claim is stale if its item left the queue, or if its
+    // winner never recorded an item (crashed between claim and create).
+    const holder = await readHolder(tools, activeKey, now)
     const holderItem = holder?.ref ? await repo.item(holder.ref) : undefined
-    if (holderItem && !ACTIVE.has(holderItem.status)) {
+    const abandoned = !!holder && !holder.ref && now - holder.createdAt > ABANDONED_CLAIM_MS
+    if (abandoned || (!!holder?.ref && (!holderItem || !ACTIVE.has(holderItem.status)))) {
       await release(tools, activeKey)
       if (!(await claim(tools, activeKey, '', now))) return fail('DUPLICATE', 'That song was just added — vote for it instead.')
     } else {
       return fail('DUPLICATE', 'That song is already in the queue — vote for it instead.', {
-        existingItemId: holder?.ref || items.find((i) => i.trackKey === track.value.trackKey)?.id,
+        existingItemId: holder?.ref || items.find((i) => i.trackKey === meta.trackKey)?.id,
       })
     }
   }
@@ -323,14 +369,36 @@ async function enqueue(
     return ok({ itemId: again?.ref || undefined })
   }
 
+  try {
+    return await createQueuedItem(tools, actor, room, meta, items, activeKey, idemKey, now, selector)
+  } catch (e) {
+    // Anything after the claims failed: release both so the song is never blocked forever.
+    await Promise.all([release(tools, activeKey), release(tools, idemKey)]).catch(() => undefined)
+    console.error('[enqueue] failed after claim, released', e)
+    return fail('UPSTREAM', "Couldn't add that song. Try again.")
+  }
+}
+
+async function createQueuedItem(
+  tools: ActionTools,
+  actor: Actor,
+  room: RoomState,
+  meta: TrackRef,
+  items: QueueItem[],
+  activeKey: string,
+  idemKey: string,
+  now: number,
+  selector: NextTrackSelector,
+): Promise<Result<{ itemId?: string }>> {
+  const repo = new RoomRepo(tools)
   let seq = Math.max(room.nextEnqueueSeq, (await repo.maxEnqueueSeq()) + 1)
   let itemId = ''
   for (let attempt = 0; attempt < 8 && !itemId; attempt++) {
     const r = await tools.create(C.queue, {
-      ...track.value,
-      creatorLabel: track.value.creatorLabel ?? '',
-      thumbnailUrl: track.value.thumbnailUrl ?? '',
-      durationMs: track.value.durationMs ?? null,
+      ...meta,
+      creatorLabel: meta.creatorLabel ?? '',
+      thumbnailUrl: meta.thumbnailUrl ?? '',
+      durationMs: meta.durationMs ?? null,
       requestedByMemberId: actor.memberId,
       requestedByName: actor.displayName,
       enqueueSeq: seq,
@@ -352,16 +420,16 @@ async function enqueue(
   await tools.update(C.roomState, STATE_ID, { nextEnqueueSeq: seq + 1 })
   await setClaimRef(tools, activeKey, itemId)
   await setClaimRef(tools, idemKey, itemId)
-  await logEvent(tools, 'enqueue', actor.displayName, now, { queueItemId: itemId, payload: { title: track.value.title } })
+  await logEvent(tools, 'enqueue', actor.displayName, now, { queueItemId: itemId, payload: { title: meta.title } })
   await startIfIdle(tools, now, selector)
   return ok({ itemId })
 }
 
 /** The winner sets the claim's ref right after creating its item; give it a moment. */
-async function readHolder(tools: ActionTools, key: string): Promise<{ recordId: string; ref: string } | null> {
+async function readHolder(tools: ActionTools, key: string, now: number): Promise<ClaimRow | null> {
   for (let attempt = 0; attempt < 6; attempt++) {
     const holder = await readClaim(tools, key)
-    if (!holder || holder.ref) return holder
+    if (!holder || holder.ref || now - holder.createdAt > ABANDONED_CLAIM_MS) return holder
     await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)))
   }
   return readClaim(tools, key)
@@ -419,7 +487,7 @@ export async function executeCommand(
 
   switch (cmd.type) {
     case 'enqueue':
-      result = await enqueue(tools, actor, room, cmd, now, limits, selector)
+      result = await enqueue(tools, actor, room, cmd, now, limits, selector, deps)
       break
 
     case 'vote': {
@@ -509,8 +577,13 @@ export async function executeCommand(
       const plan = planPlay(pb, items, actor, cmd, now, selector)
       if (!plan.ok) return plan
       if (!(await claim(tools, `playback:${pb.playbackRevision}`, '', now))) return fail('STALE_REVISION', 'Playback changed — refreshing.')
-      if (plan.value.startItemId) await tools.update(C.queue, plan.value.startItemId, { status: 'playing' })
-      await writePlayback(tools, plan.value.next)
+      const startId = plan.value.startItemId
+      const nextPb = plan.value.next
+      const written = await afterPlaybackClaim(tools, pb.playbackRevision, async () => {
+        await writePlayback(tools, nextPb)
+        if (startId) await mustUpdate(tools, C.queue, startId, { status: 'playing' })
+      })
+      if (!written.ok) return written
       if (plan.value.startItemId) await logEvent(tools, 'now_playing', actor.displayName, now, { queueItemId: plan.value.startItemId })
       result = ok(undefined)
       break
@@ -523,8 +596,8 @@ export async function executeCommand(
       const plan = cmd.type === 'pause' ? planPause(pb, actor, cmd, now) : planBlocked(pb, actor, cmd, now)
       if (!plan.ok) return plan
       if (!(await claim(tools, `playback:${pb.playbackRevision}`, '', now))) return fail('STALE_REVISION', 'Playback changed — refreshing.')
-      await writePlayback(tools, plan.value)
-      result = ok(undefined)
+      const nextPb = plan.value
+      result = await afterPlaybackClaim(tools, pb.playbackRevision, () => writePlayback(tools, nextPb))
       break
     }
 

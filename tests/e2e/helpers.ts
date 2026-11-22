@@ -1,10 +1,13 @@
 import { expect, type Browser, type Page, type Route } from '@playwright/test'
 
-/** Fake catalog results — used ONLY in tests so specs never spend YouTube quota. */
+/**
+ * Search results are mocked in tests (no 100-unit search calls), but they use REAL public
+ * video ids because the server re-resolves every enqueue against YouTube (1 unit each) and
+ * stores the authoritative title. Assert on title fragments, not the mocked titles.
+ */
 export const FAKE_TRACKS = [
-  { source: 'youtube', sourceId: 'e2eTrackAAA', trackKey: 'youtube:e2eTrackAAA', title: 'Nightcall', creatorLabel: 'Kavinsky', durationMs: 258_000, playable: true },
-  { source: 'youtube', sourceId: 'e2eTrackBBB', trackKey: 'youtube:e2eTrackBBB', title: 'Midnight City', creatorLabel: 'M83', durationMs: 244_000, playable: true },
-  { source: 'youtube', sourceId: 'e2eTrackCCC', trackKey: 'youtube:e2eTrackCCC', title: 'Genesis', creatorLabel: 'Justice', durationMs: 233_000, playable: true },
+  { source: 'youtube', sourceId: 'FGBhQbmPwH8', trackKey: 'youtube:FGBhQbmPwH8', title: 'One More Time', creatorLabel: 'Daft Punk', durationMs: 322_000, playable: true },
+  { source: 'youtube', sourceId: '7ID-1jzek4Y', trackKey: 'youtube:7ID-1jzek4Y', title: 'Midnight City', creatorLabel: 'M83 - Topic', durationMs: 244_000, playable: true },
 ]
 
 export async function mockSearch(page: Page) {
@@ -46,6 +49,6 @@ export async function addFromSearch(page: Page, title: string, wide: boolean) {
   await page.getByRole('button', { name: `Add ${title} to the queue` }).click()
 }
 
-export function queueRow(page: Page, title: string) {
-  return page.locator('#queue-heading').locator('xpath=ancestor::section[1]').getByText(title, { exact: true })
+export function queueRow(page: Page, titleFragment: string) {
+  return page.locator('section[aria-labelledby="queue-heading"] li').filter({ hasText: titleFragment })
 }

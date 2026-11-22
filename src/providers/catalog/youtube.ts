@@ -16,8 +16,9 @@ interface SearchItem {
 }
 interface VideoItem {
   id?: string
+  snippet?: { title?: string; channelTitle?: string; thumbnails?: Thumbs }
   contentDetails?: { duration?: string }
-  status?: { embeddable?: boolean }
+  status?: { embeddable?: boolean; privacyStatus?: string }
 }
 
 export function parseIsoDuration(iso: string): number | undefined {
@@ -54,6 +55,35 @@ async function upstreamError(res: Response): Promise<Result<never>> {
 
 export function createYouTubeProvider(apiKey: string | undefined, fetchImpl: typeof fetch = fetch): MusicCatalogProvider {
   return {
+    async resolve(sourceId, signal) {
+      if (!apiKey) return fail('PROVIDER_NOT_CONFIGURED', 'Song search is not set up yet. The host needs to add a YouTube API key.')
+      try {
+        const url = new URL(`${API}/videos`)
+        url.search = new URLSearchParams({ part: 'snippet,contentDetails,status', id: sourceId, key: apiKey }).toString()
+        const res = await fetchImpl(url.toString(), { signal })
+        if (!res.ok) return upstreamError(res)
+        const body = (await res.json()) as { items?: VideoItem[] }
+        const v = body.items?.[0]
+        if (!v || v.id !== sourceId) return fail('INVALID', "That video isn't available on YouTube.")
+        if (v.status?.embeddable === false) return fail('INVALID', "The owner doesn't allow this video to be played here.")
+        if (v.status?.privacyStatus === 'private') return fail('INVALID', 'That video is private.')
+        const thumbs = v.snippet?.thumbnails ?? {}
+        return ok({
+          source: 'youtube',
+          sourceId,
+          trackKey: `youtube:${sourceId}`,
+          title: decodeEntities(v.snippet?.title ?? 'Untitled'),
+          creatorLabel: v.snippet?.channelTitle ? decodeEntities(v.snippet.channelTitle) : undefined,
+          thumbnailUrl: thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url,
+          durationMs: v.contentDetails?.duration ? parseIsoDuration(v.contentDetails.duration) : undefined,
+          canonicalUrl: `https://www.youtube.com/watch?v=${sourceId}`,
+          playable: v.status?.embeddable === true ? true : 'unknown',
+        })
+      } catch {
+        return fail('UPSTREAM', 'YouTube is unavailable right now. Try again in a moment.')
+      }
+    },
+
     async search(query, signal) {
       if (!apiKey) return fail('PROVIDER_NOT_CONFIGURED', 'Song search is not set up yet. The host needs to add a YouTube API key.')
       try {

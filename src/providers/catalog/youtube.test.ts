@@ -113,3 +113,36 @@ describe('parseIsoDuration', () => {
     expect(parseIsoDuration('garbage')).toBeUndefined()
   })
 })
+
+describe('YouTube resolve (server-side enqueue validation)', () => {
+  const video = (embeddable: boolean) => ({
+    items: [
+      {
+        id: 'aaaaaaaaaaa',
+        snippet: { title: 'Real &amp; True', channelTitle: 'Chan', thumbnails: { high: { url: 'https://i.ytimg.com/vi/a/hq.jpg' } } },
+        contentDetails: { duration: 'PT3M' },
+        status: { embeddable, privacyStatus: 'public' },
+      },
+    ],
+  })
+
+  it('returns authoritative metadata for an embeddable video in one videos.list call', async () => {
+    const fetchImpl = vi.fn(async (_url: string) => jsonResponse(video(true)))
+    const r = await createYouTubeProvider('KEY', fetchImpl as unknown as typeof fetch).resolve('aaaaaaaaaaa')
+    expect(r.ok && r.value).toMatchObject({ trackKey: 'youtube:aaaaaaaaaaa', title: 'Real & True', creatorLabel: 'Chan', durationMs: 180_000 })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(String(fetchImpl.mock.calls[0][0])).toContain('part=snippet%2CcontentDetails%2Cstatus')
+  })
+
+  it('rejects videos that cannot be embedded or do not exist', async () => {
+    const blocked = await createYouTubeProvider('KEY', (async () => jsonResponse(video(false))) as unknown as typeof fetch).resolve('aaaaaaaaaaa')
+    expect(!blocked.ok && blocked.error.code).toBe('INVALID')
+    const missing = await createYouTubeProvider('KEY', (async () => jsonResponse({ items: [] })) as unknown as typeof fetch).resolve('aaaaaaaaaaa')
+    expect(!missing.ok && missing.error.code).toBe('INVALID')
+  })
+
+  it('reports PROVIDER_NOT_CONFIGURED without a key', async () => {
+    const r = await createYouTubeProvider(undefined).resolve('aaaaaaaaaaa')
+    expect(!r.ok && r.error.code).toBe('PROVIDER_NOT_CONFIGURED')
+  })
+})

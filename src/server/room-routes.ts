@@ -73,6 +73,8 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
     if (q.length < 2 || q.length > 100) return errorResponse(c, invalid('Search for 2–100 characters.'))
     const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
     if (!who.ok) return errorResponse(c, who.error)
+    const roomState = await new RoomRepo(who.value.tools).roomState()
+    if (!roomState || roomState.status !== 'open') return errorResponse(c, { code: 'ROOM_CLOSED', message: 'This room has ended.' })
     const now = Date.now()
     const key = q.toLowerCase()
     const cached = cachedSearch(key, now)
@@ -185,7 +187,13 @@ export function registerRoomRoutes(app: Hono<AppContext>, resolveAuth: ResolveAu
     const who = await resolveActor(c.env, c.req.raw, roomId, resolveAuth)
     if (!who.ok) return errorResponse(c, who.error)
     const appTools = createRoomTools(c.env, appScope(c.env), c.env.OWNER_USER_ID)
-    const r = await executeCommand(who.value.tools, who.value.actor, cmd.value, Date.now(), { appTools })
+    const provider = createYouTubeProvider(c.env.YOUTUBE_API_KEY)
+    // Enqueue never trusts client metadata: resolve the video id server-side (1 quota unit).
+    const resolveTrack = async (trackKey: string) => {
+      const r = await provider.resolve(trackKey.replace(/^youtube:/, ''))
+      return r.ok ? { ok: true as const, value: r.value } : r
+    }
+    const r = await executeCommand(who.value.tools, who.value.actor, cmd.value, Date.now(), { appTools, resolveTrack })
     return respond(c, r)
   })
 }
