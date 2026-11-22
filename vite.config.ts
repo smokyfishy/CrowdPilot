@@ -20,8 +20,10 @@ function copyOrtRuntime(): void {
   const src = join(appDir, 'node_modules', 'onnxruntime-web', 'dist')
   const dst = join(appDir, 'public', 'ort')
   mkdirSync(dst, { recursive: true })
-  for (const f of ['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.mjs']) {
-    const to = join(dst, f)
+  // The loader is copied as .js: some static hosts serve .mjs as application/octet-stream,
+  // which browsers refuse to execute as a module.
+  for (const [f, name] of [['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.wasm'], ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.js']]) {
+    const to = join(dst, name)
     if (!existsSync(to) || statSync(to).size !== statSync(join(src, f)).size) copyFileSync(join(src, f), to)
   }
 }

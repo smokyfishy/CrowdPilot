@@ -14,7 +14,7 @@ function loadBeatNet() {
   beatNet ??= (async () => {
     try {
       const ort = await import('onnxruntime-web/webgpu')
-      ort.env.wasm.wasmPaths = { wasm: '/ort/ort-wasm-simd-threaded.jsep.wasm', mjs: '/ort/ort-wasm-simd-threaded.jsep.mjs' }
+      ort.env.wasm.wasmPaths = { wasm: '/ort/ort-wasm-simd-threaded.jsep.wasm', mjs: '/ort/ort-wasm-simd-threaded.jsep.js' }
       ort.env.wasm.numThreads = (self as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1
       const [model, bank] = await Promise.all([
         fetch('/models/beat_this_small0.onnx').then((r) => r.arrayBuffer()),
