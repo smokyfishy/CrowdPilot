@@ -36,7 +36,7 @@ test('host and two guests share a live queue', async ({ users, browser, baseURL 
   // Duplicate request → offered a vote instead, and the vote counts once.
   await bob.page.getByLabel('Search YouTube for a song').fill('again')
   await expect(bob.page.getByText('In queue').first()).toBeVisible({ timeout: 10_000 })
-  await bob.page.getByRole('button', { name: 'Queue' }).click()
+  await bob.page.getByRole('button', { name: 'Queue', exact: true }).click()
   const vote = bob.page.getByRole('button', { name: /Vote for Nightcall/ })
   await vote.click()
   await expect(host.page.getByRole('button', { name: /Nightcall, 1 vote/ })).toBeVisible({ timeout: 15_000 })
@@ -47,7 +47,7 @@ test('host and two guests share a live queue', async ({ users, browser, baseURL 
 
   // Host pauses requests → guests see the explanation.
   await host.page.getByRole('button', { name: 'Room settings' }).click()
-  await host.page.getByLabel('Guests can add songs').click()
+  await host.page.getByRole('switch', { name: 'Guests can add songs' }).click()
   await host.page.keyboard.press('Escape')
   await expect(ann.page.getByText('The host has paused requests', { exact: false })).toBeVisible({ timeout: 15_000 })
 

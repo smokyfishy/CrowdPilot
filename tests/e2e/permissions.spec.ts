@@ -49,7 +49,7 @@ test('guests cannot run host-only commands, and kicked guests are locked out', a
 
   // Anonymous joins are refused once the host requires sign-in.
   await host.page.getByRole('button', { name: 'Room settings' }).click()
-  await host.page.getByLabel('Guests can join without signing in').click()
+  await host.page.getByRole('switch', { name: 'Guests can join without signing in' }).click()
   await host.page.keyboard.press('Escape')
   await expect
     .poll(async () => (await request.post(`/api/rooms/${roomId}/join`, { data: { displayName: 'Eve' } })).status(), { timeout: 15_000 })
