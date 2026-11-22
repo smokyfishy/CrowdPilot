@@ -189,6 +189,26 @@ export function DjPanel({ dj, hostDj, nowPlaying, upNext, features, run }: Props
       )}
       {snap && !plan && dj.autopilot && snap.note && <p className="text-sm text-muted-foreground">{snap.note}</p>}
       {!hostDj && <p className="text-sm text-muted-foreground">The AI DJ runs on the device that plays the music.</p>}
+      {snap && hostDj && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground" aria-label="Learned DJ models">
+          <span>Learned DJ</span>
+          {(['promoted', 'experimental', 'off'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => void hostDj.setMlMode(m)}
+              className={cn('rounded-full border px-2 py-0.5', snap.ml.mode === m ? 'border-primary text-foreground' : 'border-border')}
+              aria-pressed={snap.ml.mode === m}
+            >
+              {m === 'promoted' ? 'validated' : m}
+            </button>
+          ))}
+          <span>
+            {[snap.ml.active.mixgraph && 'MixGraph', snap.ml.active.transitionNet && 'TransitionNet', snap.ml.active.critic && 'DJCritic'].filter(Boolean).join(' · ') || 'rules only'}
+            {snap.ml.last ? ` — ${snap.ml.last}` : ''}
+          </span>
+        </div>
+      )}
       {snap && (
         <p className="text-[11px] tabular-nums text-muted-foreground" aria-label="Master output meter">
           Output peak {Number.isFinite(snap.meter.peakDb) ? snap.meter.peakDb.toFixed(1) : '−∞'} dBFS · RMS {Number.isFinite(snap.meter.rmsDb) ? snap.meter.rmsDb.toFixed(1) : '−∞'} dB · limiter ceiling −1 dB

@@ -6,6 +6,9 @@
 import { analyzeTrack } from '../../dsp/analyze'
 import { wsola } from '../../dsp/stretch'
 import { runBeatNet, type BeatNetRunner, type MelBank } from '../../dsp/beatnet'
+import { resample } from '../../dsp/resample'
+import { criticScore, type DjModels } from '../../ml/dj-brain'
+import type { TransitionPlan } from '../transitions'
 
 // ── Beat This! (CPJKU, MIT) via ONNX Runtime Web: WebGPU when available, WASM otherwise ──
 let beatNet: Promise<{ run: BeatNetRunner; bank: MelBank; backend: string } | null> | null = null
@@ -54,10 +57,25 @@ export type WorkerRequest =
       /** Piecewise-linear ratio: [outSample, ratio] knots, ratio held after the last knot. */
       knots: Array<[number, number]>
     }
+  | {
+      /** DJCritic: render each candidate's preview from mono deck crops and score it. */
+      type: 'critic'
+      id: number
+      plans: TransitionPlan[]
+      out: Float32Array
+      outStartSec: number
+      in: Float32Array
+      inStartSec: number
+      sampleRate: number
+      inSampleRate: number
+      trims: { out: number; in: number }
+      models: NonNullable<DjModels['critic']>
+    }
 
 export type WorkerResponse =
   | { type: 'analysis'; id: number; analysis?: ReturnType<typeof analyzeTrack>; error?: string; ms: number }
   | { type: 'stretched'; id: number; channels?: Float32Array[]; anchors?: Float64Array; hop?: number; inputEnd?: number; error?: string; ms: number }
+  | { type: 'critic'; id: number; scores?: Array<{ quality: number; artifact: number; ms: number }>; error?: string; ms: number }
 
 function ratioFrom(knots: Array<[number, number]>) {
   return (s: number) => {
@@ -98,6 +116,19 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
       ;(self as unknown as Worker).postMessage(res)
     } catch (e) {
       ;(self as unknown as Worker).postMessage({ type: 'analysis', id: msg.id, error: e instanceof Error ? e.message : String(e), ms: performance.now() - t0 })
+    }
+    return
+  }
+  if (msg.type === 'critic') {
+    try {
+      const RATE = 16000 // previews at the rate DJCritic was trained on
+      const out = resample(msg.out, msg.sampleRate, RATE)
+      const inn = resample(msg.in, msg.inSampleRate, RATE)
+      const scores = msg.plans.map((p) => criticScore(msg.models, p, out, msg.outStartSec, inn, msg.inStartSec, RATE, msg.trims))
+      const res: WorkerResponse = { type: 'critic', id: msg.id, scores, ms: performance.now() - t0 }
+      ;(self as unknown as Worker).postMessage(res)
+    } catch (e) {
+      ;(self as unknown as Worker).postMessage({ type: 'critic', id: msg.id, error: e instanceof Error ? e.message : String(e), ms: performance.now() - t0 })
     }
     return
   }

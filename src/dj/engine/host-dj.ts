@@ -23,6 +23,7 @@ import { AudioLoadError, analysisCopy, DecodedCache, fetchAndDecode, type AudioF
 import { DjEngine, stretchedMap, trimDbFor } from './deck-engine'
 import { refineWithLocalBeats } from '../phase'
 import type { WorkerRequest, WorkerResponse } from './analysis.worker'
+import { applyTransitionNet, loadDjModels, mixgraphRank, previewWindow, transitionNetPredict, type DjModels, type MlMode } from '../../ml/dj-brain'
 
 export type TrackAnalysisStatus = 'analyzing' | 'ready' | 'low_confidence' | 'cannot_mix' | 'failed'
 
@@ -35,7 +36,13 @@ export interface HostDjSnapshot {
   meter: { peakDb: number; rmsDb: number; clipCount: number }
   activeItemId: string | null
   positionSec: number
+  /** Learned-DJ status: which models drive decisions and what the last commit did. */
+  ml: { mode: MlMode; active: DjModels['active']; last: string }
 }
+
+export const ML_MODE_KEY = 'cp_ml_mode'
+/** Max time the critic may spend on rendered previews before the top-ranked plan is used. */
+const CRITIC_BUDGET_MS = 4000
 
 type Send = (cmd: RoomCommand) => Promise<{ ok: boolean; error?: { code: string; message?: string } }>
 
@@ -97,6 +104,11 @@ export class HostDj implements PlaybackController {
   private preparing = false
   private volume = 0.8
   private disposed = false
+  private models: DjModels = { active: { mixgraph: false, transitionNet: false, critic: false } }
+  private mlMode: MlMode = 'promoted'
+  private mlLast = ''
+  /** Top MixGraph candidates for the next change (distinct technique / cue), for the critic. */
+  private pool: TransitionPlan[] = []
 
   private readonly tickTimer: ReturnType<typeof setInterval>
 
@@ -104,6 +116,20 @@ export class HostDj implements PlaybackController {
     // Re-evaluate once per second so proposals/commit windows track the playhead.
     // (Scheduling itself happens on the AudioContext clock inside DjEngine.)
     this.tickTimer = setInterval(() => this.evaluate(), 1000)
+    void this.setMlMode(readMlMode())
+  }
+
+  /** 'promoted' (validated models only, default), 'experimental' (every trained model), 'off' (rules only). */
+  async setMlMode(mode: MlMode): Promise<void> {
+    this.mlMode = mode
+    try {
+      globalThis.localStorage?.setItem(ML_MODE_KEY, mode)
+    } catch {
+      /* storage unavailable */
+    }
+    const m = await loadDjModels(mode)
+    if (this.mlMode === mode) this.models = m
+    this.deps.onChange()
   }
 
   // ───────────────────────── engine plumbing ─────────────────────────
@@ -388,6 +414,19 @@ export class HostDj implements PlaybackController {
       this.setStatus('safe_fallback', 'Too late in the track for a planned mix — standard playback.')
       return
     }
+    // MixGraph: learned re-ranking of the feasible candidates (host restrictions already applied)
+    if (this.models.mixgraph && a.summary && b.summary) {
+      try {
+        all = mixgraphRank(all, a.summary, b.summary, this.models.mixgraph).map((r) => r.plan)
+      } catch {
+        /* rules order stays */
+      }
+    }
+    this.pool = []
+    for (const p of all) {
+      if (this.pool.length >= 3) break
+      if (!this.pool.some((q) => q.style === p.style && Math.abs(q.outCueSec - p.outCueSec) < 1)) this.pool.push(p)
+    }
     const best = all[0]
     const seen = new Set([best.style])
     const alternatives = all.filter((p) => !seen.has(p.style) && (seen.add(p.style), true)).slice(0, 3)
@@ -402,7 +441,7 @@ export class HostDj implements PlaybackController {
       }
       return
     }
-    void this.commit(best, alternatives, next)
+    void this.commit(best, alternatives, next, this.pool)
   }
 
   /** Host override: commit now (earliest feasible phrase), pick an alternative style, or skip mixing for this change. */
@@ -432,26 +471,47 @@ export class HostDj implements PlaybackController {
     this.evaluate()
   }
 
-  private async commit(planIn: TransitionPlan, alternatives: TransitionPlan[], next: QueueItem): Promise<void> {
+  private async commit(planIn: TransitionPlan, alternatives: TransitionPlan[], next: QueueItem, pool: TransitionPlan[] = []): Promise<void> {
     if (this.preparing || this.committed) return
     const pb = this.pb
     const engine = this.engine
     const nextKey = audioKeyOf(next)
     if (!pb || !engine || !nextKey) return
-    // Local beat refinement: snap cues to the network's beats and derive the tempo ratio from the
-    // two tracks' LOCAL beat periods over the overlap (a global grid can drift over a blend).
     const curKey = engine.activeTrackKey
-    const plan: TransitionPlan =
-      planIn.durationSec >= 4 && curKey
-        ? (() => {
-            const r = refineWithLocalBeats(planIn, this.analyses.get(curKey)?.analysis?.netBeats, this.analyses.get(nextKey)?.analysis?.netBeats, (this.dj?.maxTempoPct ?? 6) / 100)
-            const { localRefined: _l, ...rest } = r
-            void _l
-            return rest as TransitionPlan
-          })()
-        : planIn
+    const sa = curKey ? this.analyses.get(curKey)?.summary : undefined
+    const sb = this.analyses.get(nextKey)?.summary
+    const prepare = (p: TransitionPlan): TransitionPlan => {
+      // Local beat refinement: snap cues to the network's beats and derive the tempo ratio from the
+      // two tracks' LOCAL beat periods over the overlap (a global grid can drift over a blend).
+      let q = p
+      if (p.durationSec >= 4 && curKey) {
+        const r = refineWithLocalBeats(p, this.analyses.get(curKey)?.analysis?.netBeats, this.analyses.get(nextKey)?.analysis?.netBeats, (this.dj?.maxTempoPct ?? 6) / 100)
+        const { localRefined: _l, ...rest } = r
+        void _l
+        q = rest as TransitionPlan
+      }
+      // TransitionNet: learned fader/EQ/filter/echo automation or technique parameters
+      if (this.models.transitionNet && sa && sb) {
+        try {
+          q = applyTransitionNet(q, transitionNetPredict(this.models.transitionNet, sa, sb, q))
+        } catch {
+          /* template automation stays */
+        }
+      }
+      return q
+    }
     this.preparing = true
+    let plan = prepare(planIn)
     try {
+      // DJCritic: render previews of the top MixGraph candidates, keep the best validated one
+      const cands = pool.length > 1 && pool[0] === planIn ? [plan, ...pool.slice(1).map(prepare)] : []
+      if (this.models.critic && cands.length > 1 && curKey) {
+        const pick = await this.criticPick(cands, curKey, nextKey, sa, sb).catch(() => null)
+        if (pick) {
+          plan = pick.plan
+          this.mlLast = `critic chose ${plan.style.replace('_', ' ')} (${pick.index + 1}/${cands.length}, quality ${pick.quality.toFixed(2)}, ${Math.round(pick.ms)} ms)`
+        } else this.mlLast = 'critic unavailable in time — top-ranked plan used'
+      } else this.mlLast = this.models.active.mixgraph || this.models.active.transitionNet ? `learned plan: ${plan.style.replace('_', ' ')}` : ''
       const buf = await this.decode(nextKey)
       const lufs = this.analyses.get(nextKey)?.summary?.lufs
       const truePeak = this.analyses.get(nextKey)?.summary?.truePeak
@@ -476,6 +536,48 @@ export class HostDj implements PlaybackController {
       this.preparing = false
       this.deps.onChange()
     }
+  }
+
+  /** Renders bounded previews (mono 16 kHz) of each candidate in the worker and scores them with DJCritic. */
+  private async criticPick(cands: TransitionPlan[], curKey: string, nextKey: string, sa?: AnalysisSummary, sb?: AnalysisSummary): Promise<{ plan: TransitionPlan; index: number; quality: number; ms: number } | null> {
+    const [ba, bb] = await Promise.all([this.decode(curKey), this.decode(nextKey)])
+    const wins = cands.map(previewWindow)
+    const crop = (buf: AudioBuffer, a: number, b: number) => {
+      const s0 = Math.max(0, Math.floor(a * buf.sampleRate))
+      const s1 = Math.min(buf.length, Math.ceil(b * buf.sampleRate))
+      const pcm = new Float32Array(Math.max(0, s1 - s0))
+      const n = buf.numberOfChannels
+      for (let c = 0; c < n; c++) {
+        const d = buf.getChannelData(c)
+        for (let i = 0; i < pcm.length; i++) pcm[i] += d[s0 + i] / n
+      }
+      return { pcm, startSec: s0 / buf.sampleRate }
+    }
+    const out = crop(ba, Math.min(...wins.map((w) => w.out[0])), Math.max(...wins.map((w) => w.out[1])))
+    const inn = crop(bb, Math.min(...wins.map((w) => w.in[0])), Math.max(...wins.map((w) => w.in[1])))
+    const req = this.call(
+      {
+        type: 'critic',
+        id: ++this.reqId,
+        plans: cands,
+        out: out.pcm,
+        outStartSec: out.startSec,
+        in: inn.pcm,
+        inStartSec: inn.startSec,
+        sampleRate: ba.sampleRate,
+        inSampleRate: bb.sampleRate,
+        trims: { out: trimDbFor(sa?.lufs, sa?.truePeak), in: trimDbFor(sb?.lufs, sb?.truePeak) },
+        models: this.models.critic!,
+      },
+      [out.pcm.buffer, inn.pcm.buffer],
+    )
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), CRITIC_BUDGET_MS))
+    const res = await Promise.race([req, timeout])
+    if (!res || res.type !== 'critic' || !res.scores?.length) return null
+    // candidates flagged as likely artifacts lose unless all are flagged; small tie-break toward MixGraph's order
+    const ranked = res.scores.map((s, index) => ({ ...s, index, key: s.quality + 0.02 * index + (s.artifact > 0.8 ? 1 : 0) })).sort((x, y) => x.key - y.key)
+    const best = ranked[0]
+    return { plan: cands[best.index], index: best.index, quality: best.quality, ms: res.ms }
   }
 
   private async prerenderStretch(buf: AudioBuffer, plan: TransitionPlan): Promise<{ buffer: AudioBuffer; map: ReturnType<typeof stretchedMap> }> {
@@ -534,11 +636,21 @@ export class HostDj implements PlaybackController {
       meter: { peakDb: engine?.peakDb ?? -Infinity, rmsDb: engine?.rmsDb ?? -Infinity, clipCount: engine?.clipCount ?? 0 },
       activeItemId: engine?.activeItemId ?? null,
       positionSec: engine?.trackPosition() ?? 0,
+      ml: { mode: this.mlMode, active: this.models.active, last: this.mlLast },
     }
   }
 
   analysisFor(audioKey: string): TrackAnalysis | undefined {
     return this.analyses.get(audioKey)?.analysis
+  }
+}
+
+function readMlMode(): MlMode {
+  try {
+    const v = globalThis.localStorage?.getItem(ML_MODE_KEY)
+    return v === 'experimental' || v === 'off' ? v : 'promoted'
+  } catch {
+    return 'promoted'
   }
 }
 

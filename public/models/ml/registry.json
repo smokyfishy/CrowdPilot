@@ -1,0 +1,37 @@
+{
+ "mixgraph_quality": {
+  "file": "mixgraph_quality.json",
+  "sha256": "0c65ee76052300798dc347de3ca7ef9632e29c076d8768bf711dec71e4ab9d16",
+  "promoted": false,
+  "version": "20261122",
+  "bytes": 68027
+ },
+ "mixgraph_human_cue": {
+  "file": "mixgraph_human_cue.json",
+  "sha256": "50c804ace1c2a57dc8f4376cf59fce3e78f3eec2ecc503a2b983a1e2e58ec087",
+  "promoted": false,
+  "version": "20261122",
+  "bytes": 979659
+ },
+ "transitionnet": {
+  "file": "transitionnet.json",
+  "sha256": "0d163f9c86d0acccf6623299a98dad76ae65dc74b4538bf1fa27677bd572cc14",
+  "promoted": false,
+  "version": "20261122",
+  "bytes": 1509663
+ },
+ "critic_quality": {
+  "file": "critic_quality.json",
+  "sha256": "33761ddc0d4e82345a2da1db7f6c28035cf13ef4e845556058ca32c41e54d283",
+  "promoted": false,
+  "version": "20261122",
+  "bytes": 224349
+ },
+ "critic_artifact": {
+  "file": "critic_artifact.json",
+  "sha256": "2ecb92a2ab688374f9d95f44ef272cc33f1390883b41569da67aa81b458c14bd",
+  "promoted": false,
+  "version": "20261122",
+  "bytes": 258750
+ }
+}
