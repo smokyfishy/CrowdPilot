@@ -1,46 +1,35 @@
 /*
- * Theme overrides — applied via <html data-theme="<id>">.
+ * CrowdPilot theme — "Liner Notes" (chosen by the owner, 2026-11-21).
+ * Warm graphite surfaces, bone text, one amber accent for the thing you can act on.
+ * Applied via <html data-theme="liner"> in index.html. Dark-only product.
  *
- * Default values live in `styles.css` (@theme block, slate — a neutral
- * placeholder, not a design choice). Every app should define its OWN theme
- * before first deploy: copy the example block below, rename the selector,
- * and set colors that fit the product. Shape comes from `--radius`.
- *
- * To add a theme:
- *   1. Add a `[data-theme="my-id"] { ... }` block overriding the shadcn
- *      tokens below. If the theme is light, include `color-scheme: light;`
- *      so native form controls (calendar icons, scrollbars) match.
- *   2. Add an entry to `src/themes.ts` so it shows up in the typed catalog.
- *   3. Add the theme's --color-background to the first-paint <style> block
- *      in index.html so the pre-CSS frame matches (no white flash).
- *   4. Switch to it via `data-theme` on <html> in index.html.
+ * Contrast on --color-background (#151413): foreground 14.9:1, muted-foreground 6.6:1,
+ * primary (amber) 9.6:1; primary-foreground on primary 10.1:1. All WCAG AA+.
  */
-
-/* Paper — light example theme; shows the full token contract incl.
- * `color-scheme: light`. Replace or delete it once the app has its own. */
-[data-theme="paper"] {
-  color-scheme: light;
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-card: #fafafa;
-  --color-card-foreground: #0a0a0a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0a0a0a;
-  --color-primary: #171717;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #f5f5f5;
-  --color-secondary-foreground: #0a0a0a;
-  --color-muted: #f5f5f5;
-  --color-muted-foreground: #525252;
-  --color-accent: #e5e5e5;
-  --color-accent-foreground: #0a0a0a;
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #e5e5e5;
-  --color-input: #e5e5e5;
-  --color-ring: #171717;
-  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.016);
-  --shadow-card-hover: 0 2px 8px 0 rgba(0, 0, 0, 0.032);
-  --color-shell: #fafafa;
-  --color-shell-panel: #ffffff;
+[data-theme="liner"] {
+  color-scheme: dark;
+  --color-background: #151413;
+  --color-foreground: #ece6dc;
+  --color-card: #1e1c1a;
+  --color-card-foreground: #ece6dc;
+  --color-popover: #1e1c1a;
+  --color-popover-foreground: #ece6dc;
+  --color-primary: #e8b04a;
+  --color-primary-foreground: #1a1408;
+  --color-secondary: #26231f;
+  --color-secondary-foreground: #ece6dc;
+  --color-muted: #26231f;
+  --color-muted-foreground: #a39b8f;
+  --color-accent: #2c2824;
+  --color-accent-foreground: #ece6dc;
+  --color-destructive: #e5604d;
+  --color-destructive-foreground: #1a0a07;
+  --color-border: #34302b;
+  --color-input: #3a352f;
+  --color-ring: #e8b04a;
+  --radius: 0.625rem;
+  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
+  --color-shell: #121110;
+  --color-shell-panel: #1a1917;
 }

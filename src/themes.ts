@@ -1,10 +1,8 @@
 /**
  * Theme catalog.
  *
- * The scaffold ships two placeholder themes: `slate` (dark default, defined
- * in styles.css) and `paper` (light example, defined in themes.css). They
- * are scaffolding, not a design — give the app its own theme before first
- * deploy:
+ * CrowdPilot ships one theme, `liner` (src/themes.css). The @theme block in
+ * styles.css only provides fallbacks. To add another theme:
  *   1. Add a `[data-theme="my-id"] { ... }` block in src/themes.css with
  *      the shadcn token overrides (include `color-scheme: light;` for
  *      light themes).
@@ -18,14 +16,9 @@
 
 export const THEMES = [
   {
-    id: 'slate',
-    label: 'Slate',
-    description: 'Neutral dark placeholder default. Replace with your own theme.',
-  },
-  {
-    id: 'paper',
-    label: 'Paper',
-    description: 'Light example theme showing the token contract. Replace or delete.',
+    id: 'liner',
+    label: 'Liner Notes',
+    description: 'CrowdPilot: warm graphite, bone text, amber accent, editorial serif titles.',
   },
 ] as const
 
@@ -33,9 +26,9 @@ export type ThemeId = (typeof THEMES)[number]['id']
 
 /** Read the currently active theme id from <html data-theme>. */
 export function getActiveTheme(): ThemeId {
-  if (typeof document === 'undefined') return 'slate'
+  if (typeof document === 'undefined') return 'liner'
   const id = document.documentElement.getAttribute('data-theme') as ThemeId | null
-  return id ?? 'slate'
+  return id ?? 'liner'
 }
 
 /** Look up a theme entry by id, or fall back to the first theme. */

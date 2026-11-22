@@ -54,3 +54,5 @@ export {
 } from './DropdownMenu'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip'
 export { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './Popover'
+export { Artwork } from './Artwork'
+export { Skeleton } from './Skeleton'
