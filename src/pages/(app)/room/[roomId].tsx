@@ -128,10 +128,11 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
   )
 
   // Tell presence which member this tab is, so anonymous guests show as online.
-  const { updateState } = presence
+  // usePresenceRoom drops updates sent before its socket opens, so (re)send on every connect.
+  const { updateState, connected: presenceConnected } = presence
   useEffect(() => {
-    updateState({ memberId: actor.memberId })
-  }, [updateState, actor.memberId])
+    if (presenceConnected) updateState({ memberId: actor.memberId })
+  }, [updateState, presenceConnected, actor.memberId])
 
   const online = useMemo(() => onlineMemberIds(data.members, presence.peers, actor.memberId), [data.members, presence.peers, actor.memberId])
   const me = data.members.find((m) => m.id === actor.memberId)

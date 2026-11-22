@@ -47,4 +47,10 @@ Verified from the installed SDK (0.44.2) types and scaffold source:
 - `uniqueOn` is a single composite constraint per collection.
 - `useQuery` default limit is 50; CrowdPilot passes explicit limits.
 
-**Not yet verified at runtime** (needs the owner's DeepSpace login): that two concurrent creates with the same `uniqueOn` values reject one; that tools built for `room:<id>` are visible live through `RecordScope`; whether `usePresenceRoom` lists anonymous peers (CrowdPilot also tags presence with `memberId`).
+**Verified at runtime (2026-11-21, local dev against real RecordRoom DOs, spike spec since removed):**
+
+- (a) 8 guests adding the same song simultaneously → exactly 1 × 200 and 7 × 409 `DUPLICATE`. `uniqueOn` claims are atomic under concurrency.
+- (b) 8 simultaneous distinct adds → all 200 with distinct `enqueueSeq`.
+- (c) Rows written by worker tools into `room:<id>` appear live in the host's `RecordScope` without reload.
+- (d) Anonymous guests appear in `usePresenceRoom` (each anonymous socket gets an `anon-<uuid>` id). Finding: the SDK's `updateState` silently drops updates sent before the socket opens, so CrowdPilot re-sends its `memberId` tag whenever presence (re)connects.
+- The anonymous-join limiter (10/min per IP) tripped as designed when the spike first tried 12 joins.
