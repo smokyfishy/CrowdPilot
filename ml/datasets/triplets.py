@@ -124,32 +124,53 @@ def audit(_: argparse.Namespace | None = None) -> dict:
     return summary
 
 
-def align_cmd(args: argparse.Namespace) -> None:
+def _verify_one(job: tuple[str, str]) -> dict:
     from ml.dsp.unmix import AudioDecodeError, verify_mix
+
+    from .unmixdb import parse_mix_labels
+
+    lab, sname = Path(job[0]), job[1]
+    ml = parse_mix_labels(lab)
+    try:
+        r = verify_mix(ml, lab.parent.parent / "refsongs")
+    except AudioDecodeError as e:
+        r = {"mix": ml.audio.name, "error": str(e), "alignment_validated": False}
+    except Exception as e:  # noqa: BLE001 — record, never crash the batch
+        r = {"mix": ml.audio.name, "error": f"{type(e).__name__}: {e}", "alignment_validated": False}
+    r["set"] = sname
+    return r
+
+
+def align_cmd(args: argparse.Namespace) -> None:
+    from multiprocessing import Pool
 
     from .unmixdb import parse_mix_labels, set_dirs
 
     done = _alignment_index()
+    jobs = []
+    for sdir in set_dirs(_unmixdb_root()):
+        for lab in sorted((sdir / "mixes").glob("*.labels.txt")):
+            audio = lab.with_name(lab.name.replace(".labels.txt", ".mp3"))
+            if audio.exists() and audio.name not in done:
+                jobs.append((str(lab), sdir.name))
+    if args.limit:
+        jobs = jobs[: args.limit]
     n = 0
     with ALIGN.open("a", encoding="utf-8") as f:
-        for sdir in set_dirs(_unmixdb_root()):
-            for lab in sorted((sdir / "mixes").glob("*.labels.txt")):
-                ml = parse_mix_labels(lab)
-                if not ml.audio.exists() or ml.audio.name in done:
-                    continue
-                try:
-                    r = verify_mix(ml, sdir / "refsongs")
-                except AudioDecodeError as e:
-                    r = {"mix": ml.audio.name, "error": str(e), "alignment_validated": False}
-                r["set"] = sdir.name
-                f.write(json.dumps(r) + "\n")
+        if args.workers > 1:
+            with Pool(args.workers) as pool:
+                for r in pool.imap_unordered(_verify_one, jobs, chunksize=2):
+                    f.write(json.dumps(r) + "
+")
+                    f.flush()
+                    n += 1
+        else:
+            for j in jobs:
+                f.write(json.dumps(_verify_one(j)) + "
+")
                 f.flush()
                 n += 1
-                if args.limit and n >= args.limit:
-                    break
-            if args.limit and n >= args.limit:
-                break
-    log("align", processed=n)
+    log("align", processed=n, workers=args.workers)
     summarize_alignment()
 
 
@@ -210,6 +231,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("audit").set_defaults(fn=audit)
     a = sub.add_parser("align")
     a.add_argument("--limit", type=int)
+    a.add_argument("--workers", type=int, default=1)
     a.set_defaults(fn=align_cmd)
     e = sub.add_parser("export-train")
     e.add_argument("--verified-only", action="store_true")

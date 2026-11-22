@@ -55,6 +55,28 @@ def onset_env(M: np.ndarray) -> np.ndarray:
     return np.maximum(d, 0)
 
 
+FEATURES = "bands"  # "full" (single onset envelope, v1 baseline) or "bands" (full+low+mid+high, v2)
+
+
+def onset_bands(M: np.ndarray, sr: int = SR, n_fft: int = N_FFT) -> np.ndarray:
+    """Multi-band onset envelopes [full, <200 Hz, 200–2k, >2 kHz] (channels × frames).
+    Band-wise patterns (kick vs snare vs hats) survive time-stretching and resampling far
+    better than a single broadband envelope, which is dominated by whatever is loudest."""
+    if FEATURES == "full":
+        return onset_env(M)[None, :]
+    learned = FEATURES.startswith("learned") and n_fft == N_FFT
+    if learned:
+        from ml.models.align_embed import embed_frames
+
+        E = embed_frames(M)
+        if FEATURES == "learned":
+            return E
+    f = np.arange(M.shape[0]) * sr / n_fft
+    bands = [(0, sr / 2), (0, 200), (200, 2000), (2000, sr / 2)]
+    B = np.stack([onset_env(M[(f >= lo) & (f < hi)]) for lo, hi in bands])
+    return np.concatenate([B, E]) if learned else B
+
+
 @dataclasses.dataclass
 class Alignment:
     start: float  # mix time of source t=0 (s)
@@ -92,12 +114,18 @@ def align(mix_env: np.ndarray, src_env: np.ndarray, speeds: np.ndarray, min_scor
     preserved (none/resample)."""
     fps = SR / HOP
     best = Alignment(0.0, 1.0, -np.inf, False)
+    me = np.atleast_2d(mix_env)
+    se = np.atleast_2d(src_env)
     for s in speeds:
-        L = int(len(src_env) / s)
+        L = int(se.shape[1] / s)
         if L < 8:
             continue
-        w = np.interp(np.arange(L) * s, np.arange(len(src_env)), src_env)
-        lags, r = ncc(mix_env, w, min_overlap=int(0.6 * min(len(mix_env), L)))
+        rs = []
+        for c in range(se.shape[0]):
+            w = np.interp(np.arange(L) * s, np.arange(se.shape[1]), se[c])
+            lags, rc = ncc(me[c], w, min_overlap=int(0.6 * min(me.shape[1], L)))
+            rs.append(rc)
+        r = np.mean(rs, axis=0)
         if window:
             r = np.where((lags / fps >= window[0]) & (lags / fps <= window[1]), r, -np.inf)
         i = int(np.argmax(r))
@@ -109,7 +137,7 @@ def align(mix_env: np.ndarray, src_env: np.ndarray, speeds: np.ndarray, min_scor
 
 def fine_env(x: np.ndarray, hop: int = 128) -> np.ndarray:
     _, _, Z = stft(x, fs=SR, nperseg=1024, noverlap=1024 - hop, boundary=None, padded=False)
-    return onset_env(np.abs(Z).astype(np.float32))
+    return onset_bands(np.abs(Z).astype(np.float32), n_fft=1024)
 
 
 def align_full(mix: np.ndarray, src: np.ndarray, timescale: str, mix_env: np.ndarray, src_env: np.ndarray, window: tuple[float, float] | None = None) -> tuple[Alignment, float | None]:
@@ -125,9 +153,13 @@ def align_full(mix: np.ndarray, src: np.ndarray, timescale: str, mix_env: np.nda
         hop_fps = SR / 128
         best = (-np.inf, al.speed, al.start)
         for sp in np.arange(al.speed - 0.006, al.speed + 0.0061, 0.0005):
-            L = int(len(fs_) / sp)
-            w = np.interp(np.arange(L) * sp, np.arange(len(fs_)), fs_)
-            lags, r = ncc(fm, w, min_overlap=int(0.6 * min(len(fm), L)))
+            L = int(fs_.shape[1] / sp)
+            rs = []
+            for c in range(fs_.shape[0]):
+                w = np.interp(np.arange(L) * sp, np.arange(fs_.shape[1]), fs_[c])
+                lags, rc = ncc(fm[c], w, min_overlap=int(0.6 * min(fm.shape[1], L)))
+                rs.append(rc)
+            r = np.mean(rs, axis=0)
             if window:
                 r = np.where((lags / hop_fps >= window[0]) & (lags / hop_fps <= window[1]), r, -np.inf)
             i = int(np.argmax(r))
@@ -250,7 +282,7 @@ def verify_mix(labels, refsong_dir: Path, speeds: np.ndarray | None = None) -> d
     mix = load_mono(labels.audio)
     M = mag(mix)
     T = M.shape[1]
-    menv = onset_env(M)
+    menv = onset_bands(M)
     if speeds is None:
         speeds = np.round(np.arange(0.90, 1.1001, 0.005), 4) if labels.timescale != "none" else np.array([1.0])
     res = {"mix": labels.audio.name, "mix_sha256": sha256(labels.audio), "timescale": labels.timescale, "effect": labels.effect, "tracks": []}
@@ -264,7 +296,7 @@ def verify_mix(labels, refsong_dir: Path, speeds: np.ndarray | None = None) -> d
         # Tracklist-order prior (real DJ mixes come with a tracklist): track k starts inside the
         # previous track's span. Uses only the ORDER, never the labelled times.
         window = (prev[0] + 0.2 * prev[1], prev[0] + prev[1]) if prev else None
-        al, psr = align_full(mix, x, labels.timescale, menv, onset_env(X), window)
+        al, psr = align_full(mix, x, labels.timescale, menv, onset_bands(X), window)
         prev = (al.start, len(x) / SR / al.speed)
         Ys.append(warp_mag(X, T, al.start, al.speed))
         gts.append(ground_truth_gain(tr, T))

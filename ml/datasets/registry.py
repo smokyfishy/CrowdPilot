@@ -4,7 +4,9 @@ we may do with it. ``audio_available`` describes what the official source distri
 official endpoint by ``acquire inventory``; everything else is a lead to check."""
 from __future__ import annotations
 
-DATA_ROOT = r"C:\crowdpilot-data"
+import os
+
+DATA_ROOT = os.environ.get("CP_DATA_ROOT", r"C:\crowdpilot-data")
 
 SOURCES: dict[str, dict] = {
     "unmixdb": {
