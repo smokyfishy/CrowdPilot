@@ -17,8 +17,23 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   const add = (name: string, ok: boolean, value: string, limit: string) => checks.push({ name, ok, value, limit })
   const warnings: string[] = []
   const met = r.metrics
-  // A track's own natural fade at the very end of the set is not a gap.
-  const gaps = met.silences.filter((s) => s.startSec < met.durationSec - 3)
+  // A track's own natural fade at the very end of the set is not a gap. A silence inside a track's
+  // solo section (away from every transition) is part of that recording (a deliberate stop/break)
+  // and is reported as a warning; silence at or around a transition is a mix defect.
+  const nearTransition = (t0: number, t1: number) => m.transitions.some((t) => t1 >= t.mixStartSec - 2 && t0 <= t.mixEndSec + 2)
+  const inSource: string[] = []
+  const gaps = met.silences.filter((s) => {
+    if (s.startSec >= met.durationSec - 3) return false
+    if (s.startSec > 2 && !nearTransition(s.startSec, s.startSec + s.durationSec)) {
+      const tr = m.tracks.find((t) => s.startSec >= t.mixMainSec && s.startSec <= t.mixOutSec)
+      if (tr) {
+        inSource.push(`${s.durationSec.toFixed(1)} s silence at ${s.startSec.toFixed(0)} s inside "${tr.title}" (in the source recording, away from transitions)`)
+        return false
+      }
+    }
+    return true
+  })
+  warnings.push(...inSource)
   add('continuous audio (no silence > 1 s)', gaps.length === 0, gaps.map((s) => `${s.startSec.toFixed(1)}s+${s.durationSec.toFixed(1)}s`).join(', ') || 'none', 'none')
   add('no clipped samples', met.clippedSamples === 0, String(met.clippedSamples), '0')
   add('sample peak ≤ −0.9 dBFS', met.samplePeakDb <= -0.9, `${met.samplePeakDb} dBFS`, '−0.9 dBFS')
