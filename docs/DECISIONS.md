@@ -54,3 +54,10 @@ Verified from the installed SDK (0.44.2) types and scaffold source:
 - (c) Rows written by worker tools into `room:<id>` appear live in the host's `RecordScope` without reload.
 - (d) Anonymous guests appear in `usePresenceRoom` (each anonymous socket gets an `anon-<uuid>` id). Finding: the SDK's `updateState` silently drops updates sent before the socket opens, so CrowdPilot re-sends its `memberId` tag whenever presence (re)connects.
 - The anonymous-join limiter (10/min per IP) tripped as designed when the spike first tried 12 joins.
+
+**Live YouTube checks (local dev, real API key):**
+
+- Search returned 12 normalized results for real queries; adding them queued correctly.
+- From `http://localhost`, the official player loaded *Daft Punk – One More Time* and kept playing (no errors, lease renewed every 30 s).
+- From `http://127.0.0.1` (the scaffold's Playwright base URL), YouTube refuses label-owned videos with error 150 while its own demo video plays — YouTube rejects embeds on bare-IP origins. CrowdPilot handled it as designed: both songs were marked "The owner does not allow this video to be embedded" and skipped without looping. Production (`*.app.space`) is a real hostname, so this does not apply there.
+- Not verified live: auto-advance on a real ENDED event (covered by unit tests of the agent and state machine; check on the deployed app).
