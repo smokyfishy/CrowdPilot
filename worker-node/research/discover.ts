@@ -34,6 +34,7 @@ export function rejectReason(c: TrackCandidate, spec: ResolvedSpec): string | nu
   if (/\bcover\b/i.test(raw) || /\bcover\b/i.test(c.identity.version)) return 'cover'
   if (LIVE.test(c.identity.version) || / - live\b|\(live\)|\[live\]/i.test(raw)) return 'live recording'
   if (LYRIC.test(raw) && !c.official) return 'lyric re-upload'
+  if (/\s@\s|\b(burning man|boiler room|tomorrowland|ultra music festival|coachella|edc|cercle|dj set|live set|b2b)\b/i.test(raw)) return 'live/DJ-set recording'
   if ((c.durationSec ?? 0) < 100) return 'too short (clip/teaser)'
   return null
 }

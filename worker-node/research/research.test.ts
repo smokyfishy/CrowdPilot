@@ -123,3 +123,12 @@ describe('genre evidence', () => {
     expect(genreEvidence(b, spec)).toEqual([])
   })
 })
+
+describe('live set detection', () => {
+  it('rejects DJ-set / festival recordings', async () => {
+    const { rejectReason: rr } = await import('./discover')
+    const spec = resolveSpec(heuristicSpec('40 minute tech house mix'))
+    const c = youtubeCandidate({ id: 'abcdefghijk', snippet: { title: "Carl Cox @ Burning Man 2024 - Tony Romera, Crusy - 'The Unknown'", channelTitle: 'Toolroom Records' }, contentDetails: { duration: 'PT5M' } }, 'genre:tech house')!
+    expect(rr(c, spec)).toMatch(/live\/DJ-set/)
+  })
+})

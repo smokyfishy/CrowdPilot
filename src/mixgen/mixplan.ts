@@ -208,16 +208,30 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     ]
     const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) }))
     scored.sort((x, y) => x.c - y.c)
-    // Keep diverse candidates: distinct (style, outCue, inCue) and a spread of out cues.
+    // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
+    // region, so the duration DP can choose earlier exits / later entries even when they cost a
+    // little more. Pass 2: fill the remaining slots by cost (distinct style/cue/overlap).
     const keep: TransitionPlan[] = []
     const sig = new Set<string>()
-    for (const { p, c } of scored) {
+    const push = (p: TransitionPlan, c: number) => {
       const k = `${p.style}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
-      if (sig.has(k)) continue
+      if (sig.has(k)) return
       sig.add(k)
       keep.push({ ...p, costs: { ...p.costs, total: c } })
-      if (keep.length >= K) break
     }
+    const region = new Set<string>()
+    for (const { p, c } of scored) {
+      const r = `${Math.round(p.outCueSec / (16 * a.summary.barSec))}|${Math.round(p.inCueSec / (16 * b.summary.barSec))}`
+      if (region.has(r)) continue
+      region.add(r)
+      push(p, c)
+      if (keep.length >= Math.ceil(K * 0.6)) break
+    }
+    for (const { p, c } of scored) {
+      if (keep.length >= K) break
+      push(p, c)
+    }
+    keep.sort((x, y) => x.costs.total - y.costs.total)
     options.push(opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep)
     if (options[i][0]) recent.unshift(options[i][0].style)
   }
