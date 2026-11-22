@@ -159,13 +159,13 @@ export class HostDj implements PlaybackController {
     if (engine.activeItemId === itemId || engine.pendingTransition?.plan.toItemId === itemId) {
       // adopt: the item is already audible on a deck (mix handoff)
       const buf = await this.decode(audioKey).catch(() => null)
-      if (buf) engine.play(itemId, audioKey, buf, startSec, this.analyses.get(audioKey)?.summary?.lufs)
+      if (buf) engine.play(itemId, audioKey, buf, startSec, this.analyses.get(audioKey)?.summary?.lufs, this.analyses.get(audioKey)?.summary?.truePeak)
       return
     }
     try {
       const buf = await this.decode(audioKey)
       if (token !== this.loadToken || this.disposed) return
-      engine.play(itemId, audioKey, buf, startSec, this.analyses.get(audioKey)?.summary?.lufs)
+      engine.play(itemId, audioKey, buf, startSec, this.analyses.get(audioKey)?.summary?.lufs, this.analyses.get(audioKey)?.summary?.truePeak)
       if (engine.state !== 'running') await engine.suspend()
       void this.ensureAnalysis(audioKey)
     } catch (e) {
@@ -439,9 +439,10 @@ export class HostDj implements PlaybackController {
     try {
       const buf = await this.decode(nextKey)
       const lufs = this.analyses.get(nextKey)?.summary?.lufs
+      const truePeak = this.analyses.get(nextKey)?.summary?.truePeak
       let incoming: { buffer: AudioBuffer; map?: ReturnType<typeof stretchedMap> } = { buffer: buf }
       if (Math.abs(plan.tempoRatio - 1) > 1e-4) incoming = await this.prerenderStretch(buf, plan)
-      const scheduled = engine.scheduleTransition(plan, { itemId: next.id, trackKey: nextKey, buffer: incoming.buffer, map: incoming.map, lufs })
+      const scheduled = engine.scheduleTransition(plan, { itemId: next.id, trackKey: nextKey, buffer: incoming.buffer, map: incoming.map, lufs, truePeak })
       this.committed = { plan, toItemId: next.id }
       this.recentStyles = [plan.style, ...this.recentStyles].slice(0, 5)
       const startsAt = Math.round(this.deps.now() + (scheduled.startsAtCtx - engine.ctx.currentTime) * 1000)

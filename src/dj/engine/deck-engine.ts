@@ -61,9 +61,28 @@ export interface ScheduledTransition {
 export const TARGET_LUFS = -10
 const MIN_LEAD_SEC = 1.0
 
-export function trimDbFor(lufs: number | undefined): number {
+/**
+ * Loudness-normalising trim, capped by true-peak headroom: a quiet track is never
+ * boosted above −1 dBTP (the limiter is a safety net, not a loudness tool).
+ */
+export function trimDbFor(lufs: number | undefined, truePeakDbtp?: number): number {
   if (lufs === undefined || !Number.isFinite(lufs) || lufs < -60) return 0
-  return Math.max(-9, Math.min(6, TARGET_LUFS - lufs))
+  let t = Math.max(-9, Math.min(6, TARGET_LUFS - lufs))
+  if (truePeakDbtp !== undefined && Number.isFinite(truePeakDbtp)) t = Math.min(t, -1 - truePeakDbtp)
+  return Math.max(-9, t)
+}
+
+/** Transparent below −1 dBFS; smoothly saturates above so the output can never exceed full scale. */
+export function safetyCurve(n = 4096): Float32Array {
+  const c = new Float32Array(n)
+  const knee = 0.891 // −1 dBFS
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1
+    const a = Math.abs(x)
+    const y = a <= knee ? a : knee + (1 - knee) * Math.tanh((a - knee) / (1 - knee))
+    c[i] = Math.sign(x) * Math.min(y, 0.999)
+  }
+  return c
 }
 
 /** Validate a plan's automation before it can touch audio (audio-safety gate). */
@@ -93,6 +112,7 @@ export class DjEngine {
   readonly ctx: AudioContext
   private readonly decks: Record<DeckId, Deck>
   private readonly limiter: DynamicsCompressorNode
+  private readonly safety: WaveShaperNode
   private readonly master: GainNode
   readonly analyser: AnalyserNode
   private active: DeckId = 'A'
@@ -120,8 +140,12 @@ export class DjEngine {
     this.analyser = this.ctx.createAnalyser()
     this.analyser.fftSize = 2048
     this.meterBuf = new Float32Array(this.analyser.fftSize)
+    this.safety = this.ctx.createWaveShaper()
+    this.safety.curve = safetyCurve() as Float32Array<ArrayBuffer>
+    this.safety.oversample = '4x'
     this.master.connect(this.limiter)
-    this.limiter.connect(this.analyser)
+    this.limiter.connect(this.safety)
+    this.safety.connect(this.analyser)
     this.analyser.connect(this.ctx.destination)
     this.decks = { A: this.makeDeck('A'), B: this.makeDeck('B') }
     this.timer = setInterval(() => this.tick(), 100)
@@ -190,7 +214,7 @@ export class DjEngine {
   }
 
   /** Start (or adopt) an item on the active deck at a track position. */
-  play(itemId: string, trackKey: string, buffer: AudioBuffer, atTrackSec: number, lufs?: number): void {
+  play(itemId: string, trackKey: string, buffer: AudioBuffer, atTrackSec: number, lufs?: number, truePeak?: number): void {
     const cur = this.decks[this.active]
     if (cur.itemId === itemId && cur.source) return // already playing (e.g. after a mix handoff)
     // If the incoming deck of a scheduled/finished transition holds this item, adopt it.
@@ -202,7 +226,7 @@ export class DjEngine {
     this.cancelTransition()
     this.stopDeck(cur)
     this.stopDeck(other)
-    this.startDeck(cur, itemId, trackKey, buffer, IDENTITY, Math.max(0, Math.min(atTrackSec, buffer.duration - 0.05)), this.ctx.currentTime + 0.05, lufs)
+    this.startDeck(cur, itemId, trackKey, buffer, IDENTITY, Math.max(0, Math.min(atTrackSec, buffer.duration - 0.05)), this.ctx.currentTime + 0.05, lufs, truePeak)
     const t = this.ctx.currentTime + 0.05
     this.resetEq(cur, t)
     cur.fader.gain.cancelScheduledValues(t)
@@ -216,11 +240,11 @@ export class DjEngine {
     this.stopDeck(this.decks.B)
   }
 
-  private startDeck(d: Deck, itemId: string, trackKey: string, buffer: AudioBuffer, map: DeckTimeMap, bufSec: number, when: number, lufs?: number): void {
+  private startDeck(d: Deck, itemId: string, trackKey: string, buffer: AudioBuffer, map: DeckTimeMap, bufSec: number, when: number, lufs?: number, truePeak?: number): void {
     const src = this.ctx.createBufferSource()
     src.buffer = buffer
     src.connect(d.trim)
-    d.trim.gain.setValueAtTime(10 ** (trimDbFor(lufs) / 20), when)
+    d.trim.gain.setValueAtTime(10 ** (trimDbFor(lufs, truePeak) / 20), when)
     d.source = src
     d.itemId = itemId
     d.trackKey = trackKey
@@ -274,7 +298,7 @@ export class DjEngine {
    * (tempoRatio ≈ 1; played from plan.inCueSec) or a pre-rendered stretched buffer whose
    * t=0 is the incoming cue, with `incoming.map` translating to the original timeline.
    */
-  scheduleTransition(plan: TransitionPlan, incoming: { itemId: string; trackKey: string; buffer: AudioBuffer; map?: DeckTimeMap; lufs?: number }): ScheduledTransition {
+  scheduleTransition(plan: TransitionPlan, incoming: { itemId: string; trackKey: string; buffer: AudioBuffer; map?: DeckTimeMap; lufs?: number; truePeak?: number }): ScheduledTransition {
     const errs = validatePlan(plan)
     if (errs.length) throw new Error(`Unsafe transition plan: ${errs.join('; ')}`)
     const out = this.decks[this.active]
@@ -289,7 +313,7 @@ export class DjEngine {
     this.resetEq(inc, this.ctx.currentTime)
     inc.fader.gain.cancelScheduledValues(this.ctx.currentTime)
     inc.fader.gain.setValueAtTime(0, this.ctx.currentTime)
-    this.startDeck(inc, incoming.itemId, incoming.trackKey, incoming.buffer, map, bufStart, startsAtCtx, incoming.lufs)
+    this.startDeck(inc, incoming.itemId, incoming.trackKey, incoming.buffer, map, bufStart, startsAtCtx, incoming.lufs, incoming.truePeak)
     const b = plan.beatSec
     this.applyCurve(out.fader.gain, plan.out.gain, startsAtCtx, b)
     this.applyCurve(out.low.gain, plan.out.low, startsAtCtx, b)
