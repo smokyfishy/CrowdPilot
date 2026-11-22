@@ -66,10 +66,10 @@ export function playKeyOf(item: QueueItem): string | null {
 }
 
 const STYLE_SETS: Record<DjState['style'], TransitionStyle[]> = {
-  balanced: ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade'],
-  smooth: ['long_blend', 'bass_swap', 'short_fade', 'unmatched_fade'],
-  energetic: ['bass_swap', 'short_fade', 'cut', 'percussion_led', 'unmatched_fade'],
-  creative: ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade'],
+  balanced: ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade', 'drop_swap', 'filter_sweep', 'echo_out', 'loop_roll', 'brake', 'scratch_cut'],
+  smooth: ['long_blend', 'bass_swap', 'short_fade', 'filter_sweep', 'echo_out', 'unmatched_fade'],
+  energetic: ['drop_swap', 'bass_swap', 'short_fade', 'loop_roll', 'brake', 'scratch_cut', 'echo_out', 'cut', 'unmatched_fade'],
+  creative: ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade', 'drop_swap', 'filter_sweep', 'echo_out', 'loop_roll', 'brake', 'scratch_cut'],
 }
 
 export class HostDj implements PlaybackController {

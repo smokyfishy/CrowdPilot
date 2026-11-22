@@ -12,14 +12,14 @@ import { it } from 'vitest'
 import { analyzeTrack, summarize, type TrackAnalysis } from '../src/dsp/analyze'
 import { measureLoudness } from '../src/dsp/loudness'
 import { encodeWav, renderTransition } from '../src/dj/render'
-import { bestTransition, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../src/dj/transitions'
+import { bestTransition, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../src/dj/transitions'
 import { trimDbFor } from '../src/dj/engine/deck-engine'
 import { f1, readWav } from './wav'
 import { phaseNudge, refineWithLocalBeats } from '../src/dj/phase'
 import { robustKickLagMs } from './metrics'
 
 const ROOT = process.env.CP_DATA_ROOT ?? 'C:/crowdpilot-data'
-const CORPUS = join(ROOT, 'raw', 'jamendo_eval')
+const CORPUS = join(ROOT, 'raw', process.env.EVAL_CORPUS ?? 'jamendo_eval')
 const TAG = process.env.EVAL_TAG ?? 'A'
 const OUT = join(ROOT, 'eval', TAG)
 
@@ -61,7 +61,19 @@ function windowDb(x: Float32Array, a: number, b: number): number {
 }
 
 it('real-audio DJ evaluation', () => {
-  const corpus = JSON.parse(readFileSync(join(CORPUS, 'corpus.json'), 'utf8')) as Array<{ id: number; title: string; artist: string; wav: string; licence: string }>
+  const ref0 = existsSync(join(CORPUS, 'beatthis_ref.json')) ? (JSON.parse(readFileSync(join(CORPUS, 'beatthis_ref.json'), 'utf8')) as Record<string, { final0: { beats: number[] } }>) : {}
+  const bpmOf = (id: number) => {
+    const b = ref0[String(id)]?.final0?.beats ?? []
+    if (b.length < 16) return 0
+    const d = b.slice(1).map((v, i) => v - b[i]).sort((x, y) => x - y)
+    return 60 / d[Math.floor(d.length / 2)]
+  }
+  const lo = Number(process.env.EVAL_BPM_MIN ?? 0)
+  const hi = Number(process.env.EVAL_BPM_MAX ?? 999)
+  const corpus = (JSON.parse(readFileSync(join(CORPUS, 'corpus.json'), 'utf8')) as Array<{ id: number; title: string; artist: string; wav: string; licence: string }>).filter((c) => {
+    const b = bpmOf(c.id)
+    return b === 0 || (b >= lo && b <= hi)
+  })
   const refPath = join(CORPUS, 'beatthis_ref.json')
   const ref = existsSync(refPath) ? (JSON.parse(readFileSync(refPath, 'utf8')) as Record<string, { final0: { beats: number[]; downbeats: number[] } }>) : {}
   mkdirSync(OUT, { recursive: true })
@@ -89,10 +101,14 @@ it('real-audio DJ evaluation', () => {
   const order = [...tracks].sort((x, y) => x.a.grid.bpm - y.a.grid.bpm)
   const pairs: Array<[typeof tracks[number], typeof tracks[number]]> = []
   for (let i = 0; i + 1 < order.length; i++) pairs.push([order[i], order[i + 1]])
+  const recentStyles: TransitionStyle[] = []
   const results = pairs.map(([A, B], k) => {
     const pa: PlanTrack = { itemId: `a${A.c.id}`, trackKey: `jamendo:${A.c.id}`, title: A.c.title, mixable: true, summary: A.s, durationSec: A.s.durationSec }
     const pb: PlanTrack = { itemId: `b${B.c.id}`, trackKey: `jamendo:${B.c.id}`, title: B.c.title, mixable: true, summary: B.s, durationSec: B.s.durationSec }
-    const { best, alternatives } = bestTransition(pa, pb, DEFAULT_OPTIONS, 3)
+    // simulate a set: recent styles carry over from pair to pair (variety rotation)
+    const allowed = process.env.EVAL_STYLES === 'classic' ? (['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade'] as TransitionStyle[]) : undefined
+    const { best, alternatives } = bestTransition(pa, pb, { ...DEFAULT_OPTIONS, recentStyles, allowedStyles: allowed }, 3)
+    recentStyles.unshift(best.style)
     const row: Record<string, unknown> = { pair: k, a: A.c.id, b: B.c.id, bpmA: A.s.bpm, bpmB: B.s.bpm, style: best.style, overlapBars: best.overlapBars, tempoRatio: best.tempoRatio, outCue: best.outCueSec, inCue: best.inCueSec, costs: best.costs, risks: best.risks, alternatives: alternatives.map((p) => `${p.style}:${p.costs.total.toFixed(2)}`) }
     if (best.style === 'sequential') return row
     // local grid refinement (EVAL_LOCAL=0 disables, for ablation)
@@ -148,8 +164,9 @@ it('real-audio DJ evaluation', () => {
     tag: TAG,
     tracks: tracks.length,
     pairs: results.length,
-    styles: Object.fromEntries(['cut', 'unmatched_fade', 'short_fade', 'bass_swap', 'percussion_led', 'long_blend', 'sequential'].map((s) => [s, count(s)])),
-    beatmatchedPct: (100 * results.filter((r) => ['short_fade', 'bass_swap', 'percussion_led', 'long_blend'].includes(String(r.style))).length) / results.length,
+    styles: Object.fromEntries(['cut', 'unmatched_fade', 'short_fade', 'bass_swap', 'percussion_led', 'long_blend', 'drop_swap', 'filter_sweep', 'echo_out', 'loop_roll', 'brake', 'scratch_cut', 'sequential'].map((s) => [s, count(s)]).filter(([, n]) => (n as number) > 0)),
+    beatmatchedPct: (100 * results.filter((r) => ['short_fade', 'bass_swap', 'percussion_led', 'long_blend', 'drop_swap', 'filter_sweep'].includes(String(r.style))).length) / results.length,
+    distinctStyles: new Set(results.map((r) => r.style)).size,
     analyzer: {
       beatF1_median: median(analysis.map((a) => a.vsRef?.beatF1 ?? NaN).filter(Number.isFinite)),
       downbeatF1_median: median(analysis.map((a) => a.vsRef?.downbeatF1 ?? NaN).filter(Number.isFinite)),

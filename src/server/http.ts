@@ -71,6 +71,10 @@ const summary = z.object({
   energyOut: z.number().min(-200).max(50),
   energyMean: z.number().min(-200).max(50),
   phraseEnergy: z.array(z.number().min(-200).max(50)).max(48).optional(),
+  dropsSec: z.array(secs).max(8).optional(),
+  breakdownsSec: z.array(secs).max(8).optional(),
+  silentLeadSec: secs.optional(),
+  silentTailSec: secs.optional(),
   flags: z.array(z.string().max(80)).max(8),
 })
 const transition = z.object({

@@ -8,9 +8,14 @@ OUT = ROOT / "raw" / "jamendo_eval"
 
 
 def main():
+    import sys
+    global OUT
+    if len(sys.argv) > 1:
+        OUT = ROOT / "raw" / sys.argv[1]
+    cks = sys.argv[2].split(",") if len(sys.argv) > 2 else ["final0", "small0"]
     rows = json.loads((OUT / "corpus.json").read_text())
     res = {}
-    for ck in ("final0", "small0"):
+    for ck in cks:
         f2b = File2Beats(checkpoint_path=ck, device="cpu", dbn=False)
         for r in rows:
             t0 = time.time()
@@ -25,6 +30,8 @@ def main():
         hit = sum(np.min(np.abs(ref - e)) <= tol for e in est)
         p, rc = hit / len(est), hit / len(ref)
         return 2 * p * rc / (p + rc + 1e-9)
+    if "small0" not in cks:
+        return
     s = [f1(v["final0"]["beats"], v["small0"]["beats"]) for v in res.values()]
     d = [f1(v["final0"]["downbeats"], v["small0"]["downbeats"]) for v in res.values()]
     sec = {ck: float(np.mean([v[ck]["seconds"] for v in res.values()])) for ck in ("final0", "small0")}

@@ -7,7 +7,7 @@ import { resample, toMono } from '../src/dsp/resample'
 import { nodeBeatNet } from './beatnet-node'
 import { readWav, f1 } from './wav'
 
-const CORPUS = join(process.env.CP_DATA_ROOT ?? 'C:/crowdpilot-data', 'raw', 'jamendo_eval')
+const CORPUS = join(process.env.CP_DATA_ROOT ?? 'C:/crowdpilot-data', 'raw', process.env.EVAL_CORPUS ?? 'jamendo_eval')
 
 it('TS Beat This! matches Python on the eval corpus', async () => {
   const corpus = JSON.parse(readFileSync(join(CORPUS, 'corpus.json'), 'utf8')) as Array<{ id: number; wav: string }>
@@ -23,7 +23,7 @@ it('TS Beat This! matches Python on the eval corpus', async () => {
     const ms = performance.now() - t0
     cache[String(c.id)] = { beats: r.beats, downbeats: r.downbeats }
     const py = ref[String(c.id)]
-    rows.push({ id: c.id, ms: Math.round(ms), beatF1_vs_pySmall: f1(py.small0.beats, r.beats), downF1_vs_pySmall: f1(py.small0.downbeats, r.downbeats), beatF1_vs_pyFinal: f1(py.final0.beats, r.beats), downF1_vs_pyFinal: f1(py.final0.downbeats, r.downbeats) })
+    rows.push({ id: c.id, ms: Math.round(ms), beatF1_vs_pySmall: py.small0 ? f1(py.small0.beats, r.beats) : NaN, downF1_vs_pySmall: py.small0 ? f1(py.small0.downbeats, r.downbeats) : NaN, beatF1_vs_pyFinal: f1(py.final0.beats, r.beats), downF1_vs_pyFinal: f1(py.final0.downbeats, r.downbeats) })
   }
   writeFileSync(join(CORPUS, 'beatnet_ts.json'), JSON.stringify(cache))
   const med = (k: string) => { const v = rows.map((r) => (r as Record<string, number>)[k]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)] }

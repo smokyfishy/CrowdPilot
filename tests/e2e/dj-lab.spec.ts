@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test'
 
 test.setTimeout(900_000)
 
-for (const forced of ['', 'bass_swap']) test(`DJ Lab plays an analyzed, planned transition on real Audius audio${forced ? ` (forced ${forced})` : ''}`, async ({ page }) => {
+for (const forced of ['', 'bass_swap', 'echo_out', 'loop_roll']) test(`DJ Lab plays an analyzed, planned transition on real Audius audio${forced ? ` (forced ${forced})` : ''}`, async ({ page }) => {
   const logs: string[] = []
   page.on('console', (m) => logs.push(m.text()))
   await page.goto('/lab')

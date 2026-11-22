@@ -11,7 +11,7 @@ from scipy.signal import resample_poly
 from ml.datasets.acquire import PRIVATE, REPO, ROOT, log, rights_store
 from ml.datasets.rights import AssetRights, apply_cc_policy, Use
 
-OUT = ROOT / "raw" / "jamendo_eval"
+OUT = ROOT / "raw" / "jamendo_eval"  # overridden by --name
 UA = {"User-Agent": "CrowdPilot-research-pipeline/1.0 (noncommercial research)"}
 
 
@@ -24,20 +24,33 @@ def query(cid: str, tags: str, offset: int) -> list[dict]:
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, default=30)
+    p.add_argument("--name", default="jamendo_eval")
+    p.add_argument("--tags", nargs="*", default=["techno", "house", "techhouse", "deephouse", "minimal"])
+    p.add_argument("--genres", nargs="*", default=["techno", "house", "electronic", "minimal", "dance"])
+    p.add_argument("--allow-nd", action="store_true", help="also fetch CC ND tracks (analysis only until the owner approves private renders)")
+    p.add_argument("--per-artist", type=int, default=99)
     a = p.parse_args(argv)
+    global OUT
+    OUT = ROOT / "raw" / a.name
     cid = json.loads((PRIVATE / "jamendo.json").read_text())["client_id"]
     store = rights_store()
     OUT.mkdir(parents=True, exist_ok=True)
     picked, seen = [], set()
-    for tags in ("techno", "house", "techhouse", "deephouse", "minimal"):
+    per_artist: dict[str, int] = {}
+    for tags in a.tags:
         for off in (0, 200):
             for t in query(cid, tags, off):
                 lic = t.get("license_ccurl") or ""
-                if "/nd" in lic or "-nd" in lic or not lic or t["id"] in seen or not t.get("audiodownload"):
+                if not lic or t["id"] in seen or not t.get("audiodownload"):
+                    continue
+                if ("/nd" in lic or "-nd" in lic) and not a.allow_nd:
                     continue
                 g = " ".join((t.get("musicinfo") or {}).get("tags", {}).get("genres", []))
-                if not any(k in g for k in ("techno", "house", "electronic", "minimal", "dance")):
+                if not any(k in g for k in a.genres):
                     continue
+                if per_artist.get(t["artist_name"], 0) >= a.per_artist:
+                    continue
+                per_artist[t["artist_name"]] = per_artist.get(t["artist_name"], 0) + 1
                 seen.add(t["id"])
                 picked.append(t)
             if len(picked) >= a.n * 2:
@@ -63,7 +76,7 @@ def main(argv=None):
         aid = f"jamendo/{t['id']}"
         ar = AssetRights(aid, "eval_track", platform_terms="Jamendo API Terms §3.3 (non-commercial); artist enabled downloads")
         apply_cc_policy(ar, f"cc-{code[0]}-{code[1]}", lic, [f"https://www.jamendo.com/track/{t['id']}", lic, "Jamendo API v3 tracks response (license_ccurl, audiodownload_allowed=true)"])
-        store.put(ar, "eval corpus: CC licence without ND (adaptations permitted)")
+        store.put(ar, "eval corpus" + (" (ND: analysis only until owner approves private renders)" if "nd" in code[0] else " (adaptations permitted)"))
         rows.append({"id": t["id"], "title": t["name"], "artist": t["artist_name"], "duration": t["duration"], "licence": lic, "sha256": hashlib.sha256(mp3.read_bytes()).hexdigest(), "wav": str(wav), "render_private_mix": ar.allows(Use.RENDER_PRIVATE_MIX), "genres": (t.get("musicinfo") or {}).get("tags", {}).get("genres", [])})
     store.save(); store.save_redacted(REPO / "ml" / "data" / "registry" / "rights_redacted.json")
     (OUT / "corpus.json").write_text(json.dumps(rows, indent=1), encoding="utf-8")

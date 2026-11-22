@@ -60,7 +60,7 @@ describe('transitions', () => {
 
   it('never beat-matches beyond the tempo limit', () => {
     const plans = candidateTransitions(track('a', { bpm: 124 }), track('b', { bpm: 140 }))
-    expect(plans.every((p) => p.style === 'cut' || p.style === 'unmatched_fade')).toBe(true)
+    expect(plans.every((p) => !['short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep'].includes(p.style))).toBe(true)
   })
 
   it('handles half/double-time candidates', () => {
@@ -76,7 +76,7 @@ describe('transitions', () => {
 
   it('refuses beat-matched styles when the grid is unstable', () => {
     const plans = candidateTransitions(track('a'), track('b', { stable: false }))
-    expect(plans.every((p) => p.style === 'cut' || p.style === 'unmatched_fade')).toBe(true)
+    expect(plans.every((p) => !['short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep'].includes(p.style))).toBe(true)
   })
 
   it('produces bounded, monotone-time automation curves for every style', () => {

@@ -143,7 +143,7 @@ export function analyzeTrack(input: AnalyzeInput): TrackAnalysis {
   let phrases: PhraseBoundary[] = []
   let secs: Section[] = []
   let cues: CueCandidate[] = []
-  if (grid.bpm > 0 && grid.confidence > 0.05) {
+  if (grid.bpm > 0 && (grid.source === 'beatnet' || grid.confidence > 0.05)) {
     const bf = barFeatures(feats, onset, grid)
     bars = bf.bars
     barSec = bf.barSec
@@ -253,6 +253,12 @@ export interface AnalysisSummary {
   energyMean: number
   /** Mean bar energy (dB) of the 8 bars starting at each phrase boundary (aligned with phrasesSec). */
   phraseEnergy?: number[]
+  /** Start times of measured drops (low-band return after a breakdown) and breakdowns. */
+  dropsSec?: number[]
+  breakdownsSec?: number[]
+  /** Leading / trailing near-silence (s): never cue inside these. */
+  silentLeadSec?: number
+  silentTailSec?: number
   flags: string[]
 }
 
@@ -286,6 +292,10 @@ export function summarize(a: TrackAnalysis): AnalysisSummary {
     energyOut: r2(mean(a.energyCurve.slice(-16))),
     energyMean: r2(mean(a.energyCurve)),
     phraseEnergy: a.phrases.slice(0, 48).map((p) => r2(mean(a.energyCurve.slice(p.bar, p.bar + 8)))),
+    dropsSec: a.sections.filter((x) => x.kind === 'drop').slice(0, 8).map((x) => r3(x.startSec)),
+    breakdownsSec: a.sections.filter((x) => x.kind === 'breakdown').slice(0, 8).map((x) => r3(x.startSec)),
+    silentLeadSec: r3(a.qc.silentLeadSec),
+    silentTailSec: r3(a.qc.silentTailSec),
     flags: a.flags.slice(0, 8),
   }
 }

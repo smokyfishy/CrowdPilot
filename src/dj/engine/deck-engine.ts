@@ -12,6 +12,7 @@
  * never used for tempo (it would shift pitch).
  */
 import type { CurvePoint, DeckAutomation, TransitionPlan } from '../transitions'
+import { filterCutoffs, renderPerformance } from '../fx'
 
 export type DeckId = 'A' | 'B'
 
@@ -32,6 +33,13 @@ interface Deck {
   mid: GainNode
   high: GainNode
   fader: GainNode
+  /** Bipolar filter knob = low-pass + high-pass in series (after the isolator, before the fader). */
+  lp: BiquadFilterNode
+  hp: BiquadFilterNode
+  /** Echo send (pre-fader, so tails ring after the fader closes). */
+  echoSend: GainNode
+  echoDelay: DelayNode
+  echoFb: GainNode
   source: AudioBufferSourceNode | null
   itemId: string | null
   trackKey: string | null
@@ -113,6 +121,12 @@ export function validatePlan(plan: TransitionPlan): string[] {
   }
   check(plan.out, 'out')
   check(plan.in, 'in')
+  for (const [who, c] of [['out', plan.filter?.out], ['in', plan.filter?.in]] as const) {
+    if (c?.some((p) => !Number.isFinite(p.value) || p.value < -1 || p.value > 1)) errs.push(`${who}.filter out of [-1,1]`)
+  }
+  if (plan.echo && (plan.echo.feedback < 0 || plan.echo.feedback > 0.85 || plan.echo.delayBeats * plan.beatSec > 3.9)) errs.push('unsafe echo settings')
+  if (plan.echo?.send.some((p) => p.value < 0 || p.value > 1)) errs.push('echo send out of [0,1]')
+  if (plan.outPerf && (plan.outPerf.beats <= 0 || plan.outPerf.beats > 16)) errs.push('performance segment length out of range')
   return errs
 }
 
@@ -184,9 +198,26 @@ export class DjEngine {
     chain(trim, bq('lowpass', LOW_XOVER), bq('lowpass', LOW_XOVER), low)
     chain(trim, bq('highpass', LOW_XOVER), bq('highpass', LOW_XOVER), bq('lowpass', HIGH_XOVER), bq('lowpass', HIGH_XOVER), mid)
     chain(trim, bq('highpass', LOW_XOVER), bq('highpass', LOW_XOVER), bq('highpass', HIGH_XOVER), bq('highpass', HIGH_XOVER), high)
-    for (const g of [low, mid, high]) g.connect(fader)
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = 20000
+    lp.Q.value = 0.9
+    const hp = c.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 20
+    hp.Q.value = 0.9
+    for (const g of [low, mid, high]) g.connect(lp)
+    lp.connect(hp).connect(fader)
     fader.connect(this.master)
-    return { id, trim, low, mid, high, fader, source: null, itemId: null, trackKey: null, buffer: null, map: IDENTITY, startCtx: 0, startBufSec: 0, stoppedByEngine: false }
+    const echoSend = c.createGain()
+    echoSend.gain.value = 0
+    const echoDelay = c.createDelay(4)
+    const echoFb = c.createGain()
+    echoFb.gain.value = 0
+    hp.connect(echoSend).connect(echoDelay)
+    echoDelay.connect(echoFb).connect(echoDelay)
+    echoDelay.connect(this.master)
+    return { id, trim, low, mid, high, fader, lp, hp, echoSend, echoDelay, echoFb, source: null, itemId: null, trackKey: null, buffer: null, map: IDENTITY, startCtx: 0, startBufSec: 0, stoppedByEngine: false }
   }
 
   get state(): AudioContextState {
@@ -298,6 +329,33 @@ export class DjEngine {
     }
   }
 
+  private resetFx(d: Deck, t: number): void {
+    d.lp.frequency.cancelScheduledValues(t)
+    d.lp.frequency.setValueAtTime(20000, t)
+    d.hp.frequency.cancelScheduledValues(t)
+    d.hp.frequency.setValueAtTime(20, t)
+    d.echoSend.gain.cancelScheduledValues(t)
+    d.echoSend.gain.setValueAtTime(0, t)
+  }
+
+  /** Bipolar filter-knob curve → scheduled low-pass/high-pass cutoffs (dense points, linear ramps). */
+  private applyFilter(d: Deck, curve: CurvePoint[] | undefined, t0: number, beatSec: number): void {
+    if (!curve?.length) return
+    d.lp.frequency.cancelScheduledValues(t0)
+    d.hp.frequency.cancelScheduledValues(t0)
+    curve.forEach((p, i) => {
+      const { lp, hp } = filterCutoffs(p.value)
+      const t = t0 + p.beat * beatSec
+      if (i === 0) {
+        d.lp.frequency.setValueAtTime(lp, t)
+        d.hp.frequency.setValueAtTime(hp, t)
+      } else {
+        d.lp.frequency.linearRampToValueAtTime(lp, t)
+        d.hp.frequency.linearRampToValueAtTime(hp, t)
+      }
+    })
+  }
+
   private resetEq(d: Deck, t: number): void {
     for (const f of [d.low, d.mid, d.high]) {
       f.gain.cancelScheduledValues(t)
@@ -344,9 +402,39 @@ export class DjEngine {
     this.applyCurve(inc.low.gain, plan.in.low, startsAtCtx, b, true)
     this.applyCurve(inc.mid.gain, plan.in.mid, startsAtCtx, b, true)
     this.applyCurve(inc.high.gain, plan.in.high, startsAtCtx, b, true)
+    // ── creative FX: filter knobs, echo send, performance segment ──
+    this.resetFx(out, this.ctx.currentTime)
+    this.resetFx(inc, this.ctx.currentTime)
+    this.applyFilter(out, plan.filter?.out, startsAtCtx, b)
+    this.applyFilter(inc, plan.filter?.in, startsAtCtx, b)
+    if (plan.echo) {
+      out.echoDelay.delayTime.setValueAtTime(Math.min(3.9, plan.echo.delayBeats * b), this.ctx.currentTime)
+      out.echoFb.gain.setValueAtTime(Math.min(0.85, plan.echo.feedback), this.ctx.currentTime)
+      this.applyCurve(out.echoSend.gain, plan.echo.send, startsAtCtx, b)
+      // let the tail decay, then close the feedback loop
+      out.echoFb.gain.setValueAtTime(0, startsAtCtx + (plan.handoffBeat + 16) * b)
+    }
+    if (plan.outPerf && out.buffer) {
+      const chans = Array.from({ length: out.buffer.numberOfChannels }, (_, c) => out.buffer!.getChannelData(c))
+      const perfStartTrack = plan.outCueSec + plan.outPerf.startBeat * b
+      const data = renderPerformance(chans, out.buffer.sampleRate, { startSec: perfStartTrack, beatSec: b, beats: plan.outPerf.beats, ops: plan.outPerf.ops })
+      const pbuf = this.ctx.createBuffer(data.length, data[0].length, out.buffer.sampleRate)
+      data.forEach((d, c) => pbuf.getChannelData(c).set(d))
+      const when = startsAtCtx + plan.outPerf.startBeat * b
+      const ps = this.ctx.createBufferSource()
+      ps.buffer = pbuf
+      ps.connect(out.trim)
+      // switch sample-accurately: the main source stops exactly when the performance starts
+      if (out.source) {
+        out.stoppedByEngine = true
+        out.source.stop(when)
+      }
+      ps.start(when)
+      ps.stop(when + pbuf.duration)
+    }
     const lastBeat = Math.max(...[plan.out.gain, plan.in.gain].map((c) => c[c.length - 1]?.beat ?? 0))
     const endsAtCtx = startsAtCtx + lastBeat * b + 0.05
-    this.stopDeck(out, endsAtCtx + 0.02)
+    if (!plan.outPerf) this.stopDeck(out, endsAtCtx + 0.02)
     this.transition = { plan, startsAtCtx, handoffAtCtx: startsAtCtx + plan.handoffBeat * b, endsAtCtx, incomingDeck: inc.id, handedOff: false }
     return this.transition
   }

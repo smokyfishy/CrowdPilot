@@ -261,7 +261,7 @@ export default function LabPage() {
       <div className="flex flex-wrap items-center gap-2">
         <select className="rounded border border-input bg-background px-2 py-1.5 text-sm" value={style} onChange={(e) => setStyle(e.target.value as TransitionStyle | '')} aria-label="Force style">
           <option value="">Best style (planner)</option>
-          {(['long_blend', 'bass_swap', 'percussion_led', 'short_fade', 'cut', 'unmatched_fade'] as TransitionStyle[]).map((s) => (
+          {(['drop_swap', 'filter_sweep', 'long_blend', 'bass_swap', 'percussion_led', 'short_fade', 'echo_out', 'loop_roll', 'brake', 'scratch_cut', 'cut', 'unmatched_fade'] as TransitionStyle[]).map((s) => (
             <option key={s} value={s}>
               {STYLE_LABEL[s]}
             </option>

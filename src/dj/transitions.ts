@@ -7,8 +7,23 @@
  */
 import type { AnalysisSummary } from '../dsp/analyze'
 import { camelotDistance } from '../dsp/key'
+import type { PerfOp } from './fx'
 
-export type TransitionStyle = 'cut' | 'short_fade' | 'long_blend' | 'bass_swap' | 'percussion_led' | 'unmatched_fade' | 'sequential'
+export type TransitionStyle =
+  | 'cut'
+  | 'short_fade'
+  | 'long_blend'
+  | 'bass_swap'
+  | 'percussion_led'
+  | 'unmatched_fade'
+  | 'sequential'
+  // creative / performance techniques
+  | 'drop_swap'
+  | 'filter_sweep'
+  | 'echo_out'
+  | 'loop_roll'
+  | 'brake'
+  | 'scratch_cut'
 
 export const STYLE_LABEL: Record<TransitionStyle, string> = {
   cut: 'Phrase-aligned cut',
@@ -18,6 +33,12 @@ export const STYLE_LABEL: Record<TransitionStyle, string> = {
   percussion_led: 'Percussion-led blend',
   unmatched_fade: 'Quick fade (no beat-match)',
   sequential: 'Standard playback (no mix)',
+  drop_swap: 'Drop swap (build into drop)',
+  filter_sweep: 'Filter sweep blend',
+  echo_out: 'Echo-out',
+  loop_roll: 'Loop roll into the drop',
+  brake: 'Vinyl brake',
+  scratch_cut: 'Scratch + echo cut',
 }
 
 export interface PlanTrack {
@@ -76,6 +97,12 @@ export interface TransitionPlan {
   costs: CostBreakdown
   risks: string[]
   reasons: string[]
+  /** Bipolar DJ filter knob curves (-1 low-pass ... 0 off ... +1 high-pass). */
+  filter?: { out?: CurvePoint[]; in?: CurvePoint[] }
+  /** Tempo-synced echo send on the outgoing deck (tails keep ringing after the dry signal stops). */
+  echo?: { send: CurvePoint[]; delayBeats: number; feedback: number }
+  /** Performance moves on the outgoing deck (roll/brake/spinback/scratch), beats relative to the transition start. */
+  outPerf?: { startBeat: number; beats: number; ops: PerfOp[] }
 }
 
 export interface PlannerWeights {
@@ -88,7 +115,7 @@ export interface PlannerWeights {
   variety: number
 }
 
-export const DEFAULT_WEIGHTS: PlannerWeights = { tempo: 0.25, key: 1.0, energy: 0.08, vocals: 1.2, confidence: 1.0, truncation: 0.02, variety: 0.4 }
+export const DEFAULT_WEIGHTS: PlannerWeights = { tempo: 0.25, key: 1.0, energy: 0.08, vocals: 1.2, confidence: 1.0, truncation: 0.02, variety: 0.8 }
 
 export interface PlannerOptions {
   maxTempoDeviation: number // 0.06 = ±6 %
@@ -158,10 +185,141 @@ function bassHandoff(total: number, at: number, len: number): { out: CurvePoint[
   return { out: curve(total, b0, b1, 1, 0, lin, true), in: curve(total, b0, b1, 0, 1, lin, true) }
 }
 
+export interface Automation {
+  out: DeckAutomation
+  in: DeckAutomation
+  handoffBeat: number
+  /** Beat (relative to the transition start) where the incoming cue/downbeat lands. */
+  inStartBeat?: number
+  filter?: TransitionPlan['filter']
+  echo?: TransitionPlan['echo']
+  outPerf?: TransitionPlan['outPerf']
+}
+
+const silentIn = (B: number, at: number): DeckAutomation => ({
+  gain: [{ beat: 0, value: 0 }, { beat: Math.max(0, at - 0.02), value: 0 }, { beat: at, value: 1 }, { beat: Math.max(B, at), value: 1 }],
+  low: flat(B, 0),
+  mid: flat(B, 0),
+  high: flat(B, 0),
+})
+
+/**
+ * Continuous parameters of the creative techniques. Defaults reproduce the hand-designed
+ * templates; TransitionNet predicts them per transition (see src/ml/transition-net.ts).
+ */
+export interface StyleParams {
+  /** Echo subdivision (beats), feedback (0–0.85), send peak (0–1), and how many beats before the cut the send opens. */
+  echoDelayBeats?: number
+  echoFeedback?: number
+  echoSend?: number
+  echoLead?: number
+  /** Loop-roll slice sizes (beats, shrinking) and the high-pass depth of the riser (0–0.95). */
+  rollSizes?: number[]
+  rollFilter?: number
+  /** Brake: beat it starts (≥ 0) and its length (beats). */
+  brakeAt?: number
+  brakeBeats?: number
+  /** Scratch: start beat, length (beats), forward/back strokes. */
+  scratchAt?: number
+  scratchBeats?: number
+  scratchStrokes?: number
+  /** Drop swap: starting low-pass depth on the incoming build (−0.95…0). */
+  dropFilter?: number
+}
+
+const clampN = (v: number | undefined, lo: number, hi: number, d: number) => (v === undefined || !Number.isFinite(v) ? d : Math.min(hi, Math.max(lo, v)))
+
 /** Automation templates per style; `beats` = overlap length in beats. Each style has its own control shape. */
-export function automationFor(style: TransitionStyle, beats: number): { out: DeckAutomation; in: DeckAutomation; handoffBeat: number } {
+export function automationFor(style: TransitionStyle, beats: number, p: StyleParams = {}): Automation {
   const B = Math.max(beats, 0)
   switch (style) {
+    case 'echo_out': {
+      // The last bar of the outgoing rings out through a dotted-1/8 echo; the incoming drops in
+      // on the next downbeat (works even when tempos are too far apart to beat-match).
+      const at = Math.min(4, B)
+      const lead = clampN(p.echoLead, 0.5, Math.max(0.5, at - 0.25), 1.5)
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: at - 0.05, value: 1 }, { beat: at, value: 0 }, { beat: B, value: 0 }], low: curve(B, at - 2, at, 1, 0.3, lin, true), mid: flat(B, 0), high: flat(B, 0) },
+        in: silentIn(B, at),
+        handoffBeat: at,
+        inStartBeat: at,
+        echo: {
+          send: [{ beat: 0, value: 0 }, { beat: at - lead, value: 0 }, { beat: at - 0.25, value: clampN(p.echoSend, 0.3, 1, 0.9) }, { beat: at + 0.1, value: 0 }, { beat: B, value: 0 }],
+          delayBeats: clampN(p.echoDelayBeats, 0.25, 1, 0.75),
+          feedback: clampN(p.echoFeedback, 0.2, 0.85, 0.55),
+        },
+      }
+    }
+    case 'loop_roll': {
+      // Beat-repeat roll 1 -> 1/2 -> 1/4 -> 1/8 beat over two bars while a high-pass sweeps up,
+      // then the incoming slams in on the downbeat.
+      const at = B
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: at - 0.03, value: 1 }, { beat: at, value: 0 }], low: flat(B, 0), mid: flat(B, 0), high: flat(B, 0) },
+        in: silentIn(B, at),
+        handoffBeat: at,
+        inStartBeat: at,
+        filter: { out: curve(B, 0, at, 0, clampN(p.rollFilter, 0, 0.95, 0.7), lin) },
+        outPerf: { startBeat: 0, beats: at, ops: [{ kind: 'roll', atBeat: 0, sizes: (p.rollSizes?.length ? p.rollSizes : [1, 0.5, 0.25, 0.125]).map((v) => clampN(v, 0.0625, 2, 0.25)), stepBeats: at / (p.rollSizes?.length || 4) }] },
+      }
+    }
+    case 'brake': {
+      // Vinyl brake over two beats, a beat of air, the incoming on the next downbeat.
+      const at = Math.max(4, B)
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: at, value: 1 }, { beat: at + 0.02, value: 0 }], low: flat(at, 0), mid: flat(at, 0), high: flat(at, 0) },
+        in: silentIn(at, at),
+        handoffBeat: at,
+        inStartBeat: at,
+        outPerf: (() => {
+          const bb = clampN(p.brakeBeats, 0.5, at - 0.5, 2)
+          return { startBeat: 0, beats: at, ops: [{ kind: 'brake' as const, atBeat: clampN(p.brakeAt, 0, at - bb, 1), beats: bb }] }
+        })(),
+      }
+    }
+    case 'scratch_cut': {
+      // Baby-scratch flourish on the outgoing, echo tail, the incoming on the downbeat.
+      const at = Math.max(4, B)
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: at - 0.05, value: 1 }, { beat: at, value: 0 }], low: flat(at, 0), mid: flat(at, 0), high: flat(at, 0) },
+        in: silentIn(at, at),
+        handoffBeat: at,
+        inStartBeat: at,
+        outPerf: (() => {
+          const sb = clampN(p.scratchBeats, 1, at - 0.5, 2.5)
+          return { startBeat: 0, beats: at, ops: [{ kind: 'scratch' as const, atBeat: clampN(p.scratchAt, 0, at - sb, 1.5), beats: sb, strokes: Math.round(clampN(p.scratchStrokes, 2, 10, 5)) }] }
+        })(),
+        echo: { send: [{ beat: 0, value: 0 }, { beat: at - 0.6, value: 0 }, { beat: at - 0.1, value: clampN(p.echoSend, 0.3, 1, 0.8) }, { beat: at + 0.1, value: 0 }], delayBeats: clampN(p.echoDelayBeats, 0.25, 1, 0.5), feedback: clampN(p.echoFeedback, 0.2, 0.85, 0.5) },
+      }
+    }
+    case 'filter_sweep': {
+      // The incoming opens from a low-pass while the outgoing climbs a high-pass; bass handoff mid-way.
+      const mid = B / 2
+      const bass = bassHandoff(B, mid, 4)
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: B * 0.6, value: HEADROOM }, ...curve(B, B * 0.6, B, HEADROOM, 0, smooth).slice(1)], low: bass.out, mid: flat(B, 0), high: flat(B, 0) },
+        in: { gain: [...curve(B, 0, B * 0.4, 0, HEADROOM, smooth).slice(0, -1), { beat: B * 0.75, value: 1 }, { beat: B, value: 1 }], low: bass.in, mid: flat(B, 0), high: flat(B, 0) },
+        handoffBeat: mid,
+        filter: { out: curve(B, B * 0.3, B, 0, 0.85, smooth), in: curve(B, 0, B * 0.6, -0.85, 0, smooth) },
+      }
+    }
+    case 'drop_swap': {
+      // The incoming BUILD plays under the outgoing (lows killed, low-pass opening); on the
+      // incoming drop the outgoing is cut with an echo tail and the incoming bass slams in.
+      const end = B
+      return {
+        out: { gain: [{ beat: 0, value: 1 }, { beat: end - 0.05, value: HEADROOM }, { beat: end, value: 0 }], low: curve(B, end - 4, end, 1, 0.5, lin, true), mid: flat(B, 0), high: flat(B, 0) },
+        in: {
+          gain: [...curve(B, 0, B * 0.5, 0, 0.8, smooth).slice(0, -1), { beat: end - 0.05, value: 0.85 }, { beat: end, value: 1 }],
+          low: [{ beat: 0, value: KILL }, { beat: end - 0.05, value: KILL }, { beat: end, value: 0 }],
+          mid: flat(B, 0),
+          high: flat(B, 0),
+        },
+        handoffBeat: end,
+        filter: { in: curve(B, 0, end - 1, clampN(p.dropFilter, -0.95, 0, -0.7), 0, smooth) },
+        echo: { send: [{ beat: 0, value: 0 }, { beat: end - 1, value: 0 }, { beat: end - 0.1, value: clampN(p.echoSend, 0.3, 1, 0.8) }, { beat: end + 0.1, value: 0 }], delayBeats: clampN(p.echoDelayBeats, 0.25, 1, 0.75), feedback: clampN(p.echoFeedback, 0.2, 0.85, 0.5) },
+      }
+    }
     case 'cut':
     case 'sequential': {
       // Deliberate cut on a downbeat: ~60 ms outgoing release, ~30 ms incoming attack (click-free).
@@ -242,7 +400,7 @@ export function automationFor(style: TransitionStyle, beats: number): { out: Dec
   }
 }
 
-const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
+export const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
   cut: [0],
   sequential: [0],
   short_fade: [4],
@@ -250,9 +408,18 @@ const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
   long_blend: [16, 32],
   bass_swap: [8, 16],
   percussion_led: [16],
+  drop_swap: [8, 16],
+  filter_sweep: [16],
+  echo_out: [2],
+  loop_roll: [2],
+  brake: [1],
+  scratch_cut: [1],
 }
 
-const BEATMATCHED: ReadonlySet<TransitionStyle> = new Set(['short_fade', 'long_blend', 'bass_swap', 'percussion_led'])
+export const BEATMATCHED: ReadonlySet<TransitionStyle> = new Set(['short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep'])
+/** Styles where the incoming starts on a downbeat after the outgoing's flourish (no overlap of beats). */
+export const SLAM: ReadonlySet<TransitionStyle> = new Set(['echo_out', 'loop_roll', 'brake', 'scratch_cut'])
+export const ALL_STYLES: TransitionStyle[] = ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade', 'drop_swap', 'filter_sweep', 'echo_out', 'loop_roll', 'brake', 'scratch_cut']
 
 /** Tempo ratio that maps the incoming track onto the outgoing tempo, trying ½× and 2× (octave errors). */
 export function tempoMatch(outBpm: number, inBpm: number): { ratio: number; octave: number } {
@@ -310,8 +477,18 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
   const ins = uniqueSorted([...sb.cueIn, ...sb.phrasesSec.filter((t) => t <= sb.durationSec * 0.35)])
   if (!outs.length) outs.push(Math.max(0, sa.durationSec - 16 * barSec))
   if (!ins.length) ins.push(sb.firstBeat + sb.downbeatPhase * (60 / Math.max(1, sb.bpm)))
+  // Never cue into leading silence of the incoming or past the start of the outgoing's tail silence.
+  const leadB = Math.max(0, (sb.silentLeadSec ?? 0) - 0.05) // a cue may coincide with where the music starts
+  const tailA = sa.durationSec - (sa.silentTailSec ?? 0)
+  for (let i = ins.length - 1; i >= 0; i--) if (ins[i] < leadB && ins.length > 1) ins.splice(i, 1)
+  if (ins.length === 1 && ins[0] < leadB) {
+    const bb = 60 / Math.max(1, sb.bpm)
+    ins[0] = sb.firstBeat + Math.ceil((leadB - sb.firstBeat) / (4 * bb)) * 4 * bb
+  }
 
-  const styles = (opts.allowedStyles ?? (['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade'] as TransitionStyle[])).filter(
+  const inBeat = sb.bpm > 0 ? 60 / sb.bpm : beatSec
+  const drops = (sb.dropsSec ?? []).filter((d) => d > 8 * inBeat && d < sb.durationSec * 0.7)
+  const styles = (opts.allowedStyles ?? ALL_STYLES).filter(
     (s) => s !== 'sequential' && (BEATMATCHED.has(s) ? canMatch : true),
   )
   const plans: TransitionPlan[] = []
@@ -320,15 +497,26 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
       const beats = bars * 4
       const overlapSec = beats * beatSec
       for (const outCue of outs.slice(0, 6)) {
-        if (outCue + overlapSec > sa.durationSec - 0.05) continue // must finish before the outgoing ends
-        for (const inCue of ins.slice(0, 4)) {
+        if (outCue + overlapSec > Math.min(sa.durationSec - 0.05, tailA)) continue // must finish before the outgoing ends (or goes silent)
+        // Incoming cue candidates. drop_swap: the incoming DROP lands at the end of the overlap.
+        // Slam styles: the incoming downbeat (a phrase start, or a drop for energy) lands on the
+        // slam beat, so its playback starts that many beats earlier (silently).
+        const auto0 = automationFor(style, beats)
+        const inCands =
+          style === 'drop_swap'
+            ? drops.map((d) => d - overlapSec * ratio).filter((c) => c >= 0)
+            : SLAM.has(style)
+              ? uniqueSorted([...ins.slice(0, 3), ...drops.slice(0, 2)]).map((c) => c - (auto0.inStartBeat ?? 0) * inBeat).filter((c) => c >= 0)
+              : ins.slice(0, 4)
+        for (const inCue of inCands) {
           const inDur = overlapSec * (BEATMATCHED.has(style) ? ratio : 1)
           if (inCue + inDur > sb.durationSec * 0.8) continue
+          if (inCue + (auto0.inStartBeat ?? 0) * inBeat < leadB) continue // incoming would start in silence
           const risks: string[] = []
           const reasons: string[] = []
           // ── costs ──
           const tempo = BEATMATCHED.has(style) ? w.tempo * (deviation * 100) : 0
-          const keyWeight = style === 'cut' ? 0.1 : style === 'unmatched_fade' ? 0.4 : Math.min(1.5, bars / 16 + 0.3)
+          const keyWeight = style === 'cut' || SLAM.has(style) ? 0.1 : style === 'unmatched_fade' ? 0.4 : Math.min(1.5, bars / 16 + 0.3)
           const key = w.key * keyWeight * Math.max(0, keyDist - 1)
           const levelDiff = Math.abs(sa.lufs - sb.lufs)
           const dir = sb.energyMean - sa.energyMean
@@ -344,6 +532,8 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           const eOut = energyAt(sa, outCue)
           const eIn = energyAt(sb, inCue)
           const silence = (eOut !== null && eOut < sa.energyMean - 18 ? 2 : 0) + (eIn !== null && eIn < sb.energyMean - 24 && style !== 'percussion_led' ? 1 : 0)
+          // a cut or slam into/out of near-silence is never musical: hard exclusion
+          if (silence && (style === 'cut' || SLAM.has(style))) continue
           const skippedOut = Math.max(0, sa.durationSec - (outCue + overlapSec))
           const skippedIn = inCue
           const truncation = w.truncation * (Math.max(0, skippedOut - 32 * barSec) + skippedIn)
@@ -356,6 +546,16 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           // Cuts and un-matched fades are last resorts when a beat-matched blend is feasible.
           if (style === 'unmatched_fade') musical += canMatch ? 2.2 : 1.0
           if (style === 'cut') musical += canMatch ? 2.8 : 1.2
+          // Creative techniques: priced so a set rotates through them (variety weight) and so the
+          // tempo-free ones beat plain cuts/fades when the pair cannot be beat-matched.
+          const energetic = opts.energyDirection > 0 ? -0.4 : 0
+          const landsOnDrop = drops.some((d) => Math.abs(d - (inCue + (auto0.inStartBeat ?? 0) * inBeat)) < inBeat)
+          if (style === 'echo_out') musical += canMatch ? 1.9 : 0.5
+          if (style === 'loop_roll') musical += (canMatch ? 1.3 : 0.7) + (landsOnDrop ? -0.3 : 0.2) + energetic
+          if (style === 'brake') musical += (canMatch ? 1.6 : 0.8) + energetic
+          if (style === 'scratch_cut') musical += (canMatch ? 1.6 : 0.9) + (landsOnDrop ? -0.2 : 0.2)
+          if (style === 'filter_sweep') musical += 0.15
+          if (style === 'drop_swap') musical += -0.6 + energetic
           musical += silence
           const total = tempo + key + energy + vocals + confidence + truncation + variety + musical
           if (deviation > 0.03 && BEATMATCHED.has(style)) risks.push(`tempo shift ${(deviation * 100).toFixed(1)}%`)
@@ -367,7 +567,9 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           if (keyDist <= 1) reasons.push(`harmonic match ${sa.camelot} → ${sb.camelot}`)
           if (BEATMATCHED.has(style)) reasons.push(`beat-matched at ${sa.bpm.toFixed(1)} BPM (${((ratio - 1) * 100).toFixed(1)}%)`)
           if (style === 'cut') reasons.push('clean phrase cut on a downbeat')
-          const auto = automationFor(style, beats)
+          if (style === 'drop_swap') reasons.push('incoming build under the outgoing, swap on the drop')
+          if (SLAM.has(style)) reasons.push(landsOnDrop ? 'incoming slams in on its drop' : 'incoming enters on a phrase downbeat')
+          const auto = auto0
           plans.push({
             fromItemId: a.itemId,
             toItemId: b.itemId,
@@ -385,6 +587,9 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
             costs: { tempo, key, energy, vocals, confidence, truncation, variety, total },
             risks,
             reasons,
+            ...(auto.filter ? { filter: auto.filter } : {}),
+            ...(auto.echo ? { echo: auto.echo } : {}),
+            ...(auto.outPerf ? { outPerf: auto.outPerf } : {}),
           })
         }
       }
