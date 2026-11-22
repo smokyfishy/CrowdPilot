@@ -24,6 +24,7 @@ import { QueueList } from '@/components/room/QueueList'
 import { ReactionBar, ReactionLayer } from '@/components/room/Reactions'
 import { SearchPanel } from '@/components/room/SearchPanel'
 import { SettingsDialog } from '@/components/room/SettingsDialog'
+import { HostPlayer } from '@/components/room/HostPlayer'
 import { announcementFor, onlineMemberIds } from '@/components/room/view-model'
 
 function StateScreen({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -85,7 +86,20 @@ function Room({ roomId }: { roomId: string }) {
 
 type MobileTab = 'room' | 'search' | 'people'
 
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = () => setMatches(mql.matches)
+    onChange()
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
 function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
+  const wide = useMediaQuery('(min-width: 1024px)')
   const data = useRoomData()
   const myVotes = useMyVotes(actor.memberId)
   const presence = usePresenceRoom(roomScope(roomId))
@@ -178,7 +192,17 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
       onPlay={onPlay}
       onPause={onPause}
       onSkip={onSkip}
-      compact
+      compact={!wide}
+      player={
+        isHost ? (
+          <HostPlayer
+            roomId={roomId}
+            playback={data.playback}
+            items={data.nowPlaying ? [data.nowPlaying, ...data.upNext] : data.upNext}
+            run={run}
+          />
+        ) : undefined
+      }
     />
   )
   const queue = (
@@ -198,7 +222,7 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
   const people = <PeoplePanel members={data.members} online={online} actor={actor} events={data.events} run={run} />
 
   return (
-    <div className="relative min-h-full pb-20 lg:pb-0">
+    <div className={cn('relative min-h-full', !wide && 'pb-20')}>
       <title>{`${room.name} · CrowdPilot`}</title>
       <p className="sr-only" aria-live="polite">
         {announcement}
@@ -229,8 +253,9 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
         )}
       </header>
 
-      {/* Wide screens: three columns */}
-      <div className="mx-auto hidden max-w-7xl gap-0 px-[max(16px,env(safe-area-inset-left))] py-4 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,0.85fr)]">
+      {/* Exactly one layout is mounted, so the host never gets two players. */}
+      {wide ? (
+      <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-0 px-[max(16px,env(safe-area-inset-left))] py-4">
         <section aria-label="Now playing" className="relative grid content-start gap-6 pr-8">
           {nowPlaying}
           <ReactionBar run={run} />
@@ -243,8 +268,8 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
         </div>
       </div>
 
-      {/* Phones and tablets: tabs */}
-      <div className="px-[max(16px,env(safe-area-inset-left))] py-4 lg:hidden">
+      ) : (
+      <div className="px-[max(16px,env(safe-area-inset-left))] py-4">
         {tab === 'room' && (
           <div className="relative grid gap-6">
             {nowPlaying}
@@ -256,10 +281,12 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
         {tab === 'search' && search}
         {tab === 'people' && people}
       </div>
+      )}
 
+      {!wide && (
       <nav
         aria-label="Room sections"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
       >
         {(
           [
@@ -280,6 +307,7 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
           </button>
         ))}
       </nav>
+      )}
 
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} roomName={room.name} roomId={roomId} code={room.code} />
       {isHost && <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} room={room} run={run} />}
