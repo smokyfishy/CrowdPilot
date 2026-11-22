@@ -248,7 +248,16 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const ref = mono(rch, renderEnd - refLen, refLen)
     const nextG = gain(nextTl.trimDb)
     for (let k = 0; k < ref.length; k++) ref[k] /= nextG || 1
-    const { lag, corr } = alignLag(ref, stereo(next), est - refLen, Math.round(SEARCH * rate))
+    let { lag, corr } = alignLag(ref, stereo(next), est - refLen, Math.round(SEARCH * rate))
+    if (corr < 0.6) {
+      // WSOLA position can drift further after a long tempo-recovery ramp: widen the search
+      // (±80 ms) with a longer reference before accepting a weak match.
+      const refLen2 = Math.min(16384, renderEnd)
+      const ref2 = mono(rch, renderEnd - refLen2, refLen2)
+      for (let k = 0; k < ref2.length; k++) ref2[k] /= nextG || 1
+      const wide = alignLag(ref2, stereo(next), est - refLen2, Math.round(0.08 * rate))
+      if (wide.corr > corr) ({ lag, corr } = wide)
+    }
     const nextCursor = est + lag
     pendingXf = rch.map((c) => c.slice(renderEnd, renderEnd + xf))
     const mixStart = tStartEmitted / rate

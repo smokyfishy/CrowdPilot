@@ -85,6 +85,7 @@ function stylePreference(style: TransitionStyle, spec: ResolvedSpec, pos: number
       else if (style === 'short_fade') c -= 0.1
       if (creative.has(style)) c -= 0.35
       if (style === 'brake' || style === 'scratch_cut') c += 1.2
+      if (style === 'loop_roll') c += 0.6 // a creative accent, not the default join in a smooth set
       break
     case 'creative':
       if (creative.has(style)) c -= 0.9
