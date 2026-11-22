@@ -27,9 +27,10 @@ const IDENTITY: DeckTimeMap = { toTrack: (s) => s, toBuffer: (s) => s }
 interface Deck {
   id: DeckId
   trim: GainNode
-  low: BiquadFilterNode
-  mid: BiquadFilterNode
-  high: BiquadFilterNode
+  /** Isolator band gains (linear amplitude, 1 = unity, 0 = kill). */
+  low: GainNode
+  mid: GainNode
+  high: GainNode
   fader: GainNode
   source: AudioBufferSourceNode | null
   itemId: string | null
@@ -59,6 +60,13 @@ export interface ScheduledTransition {
 }
 
 export const TARGET_LUFS = -10
+export const LOW_XOVER = 200
+export const HIGH_XOVER = 2500
+
+/** EQ curve value (dB, −40 = kill) → isolator band gain (linear). */
+export function bandGain(db: number): number {
+  return db <= -40 ? 0 : 10 ** (db / 20)
+}
 const MIN_LEAD_SEC = 1.0
 
 /**
@@ -154,19 +162,30 @@ export class DjEngine {
   private makeDeck(id: DeckId): Deck {
     const c = this.ctx
     const trim = c.createGain()
-    const low = c.createBiquadFilter()
-    low.type = 'lowshelf'
-    low.frequency.value = 250
-    const mid = c.createBiquadFilter()
-    mid.type = 'peaking'
-    mid.frequency.value = 1000
-    mid.Q.value = 0.7
-    const high = c.createBiquadFilter()
-    high.type = 'highshelf'
-    high.frequency.value = 4000
+    // 3-band isolator: Linkwitz–Riley 4th-order crossovers (two cascaded Butterworth biquads)
+    // at 200 Hz and 2.5 kHz. The band outputs sum flat, so unity band gains are transparent and a
+    // band at 0 truly removes it (unlike a shelving "kill").
+    const bq = (type: BiquadFilterType, f: number) => {
+      const b = c.createBiquadFilter()
+      b.type = type
+      b.frequency.value = f
+      b.Q.value = Math.SQRT1_2
+      return b
+    }
+    const chain = (...nodes: AudioNode[]) => {
+      for (let i = 1; i < nodes.length; i++) nodes[i - 1].connect(nodes[i])
+      return nodes[nodes.length - 1]
+    }
+    const low = c.createGain()
+    const mid = c.createGain()
+    const high = c.createGain()
     const fader = c.createGain()
     fader.gain.value = 0
-    trim.connect(low).connect(mid).connect(high).connect(fader).connect(this.master)
+    chain(trim, bq('lowpass', LOW_XOVER), bq('lowpass', LOW_XOVER), low)
+    chain(trim, bq('highpass', LOW_XOVER), bq('highpass', LOW_XOVER), bq('lowpass', HIGH_XOVER), bq('lowpass', HIGH_XOVER), mid)
+    chain(trim, bq('highpass', LOW_XOVER), bq('highpass', LOW_XOVER), bq('highpass', HIGH_XOVER), bq('highpass', HIGH_XOVER), high)
+    for (const g of [low, mid, high]) g.connect(fader)
+    fader.connect(this.master)
     return { id, trim, low, mid, high, fader, source: null, itemId: null, trackKey: null, buffer: null, map: IDENTITY, startCtx: 0, startBufSec: 0, stoppedByEngine: false }
   }
 
@@ -282,15 +301,17 @@ export class DjEngine {
   private resetEq(d: Deck, t: number): void {
     for (const f of [d.low, d.mid, d.high]) {
       f.gain.cancelScheduledValues(t)
-      f.gain.setValueAtTime(0, t)
+      f.gain.setValueAtTime(1, t)
     }
   }
 
-  private applyCurve(param: AudioParam, curve: CurvePoint[], t0: number, beatSec: number): void {
+  /** Schedules a curve; EQ curves are in dB and are applied as linear isolator band gains. */
+  private applyCurve(param: AudioParam, curve: CurvePoint[], t0: number, beatSec: number, isDb = false): void {
     if (!curve.length) return
+    const v = (x: number) => (isDb ? bandGain(x) : x)
     param.cancelScheduledValues(t0)
-    param.setValueAtTime(curve[0].value, t0 + curve[0].beat * beatSec)
-    for (let i = 1; i < curve.length; i++) param.linearRampToValueAtTime(curve[i].value, t0 + curve[i].beat * beatSec)
+    param.setValueAtTime(v(curve[0].value), t0 + curve[0].beat * beatSec)
+    for (let i = 1; i < curve.length; i++) param.linearRampToValueAtTime(v(curve[i].value), t0 + curve[i].beat * beatSec)
   }
 
   /**
@@ -316,13 +337,13 @@ export class DjEngine {
     this.startDeck(inc, incoming.itemId, incoming.trackKey, incoming.buffer, map, bufStart, startsAtCtx, incoming.lufs, incoming.truePeak)
     const b = plan.beatSec
     this.applyCurve(out.fader.gain, plan.out.gain, startsAtCtx, b)
-    this.applyCurve(out.low.gain, plan.out.low, startsAtCtx, b)
-    this.applyCurve(out.mid.gain, plan.out.mid, startsAtCtx, b)
-    this.applyCurve(out.high.gain, plan.out.high, startsAtCtx, b)
+    this.applyCurve(out.low.gain, plan.out.low, startsAtCtx, b, true)
+    this.applyCurve(out.mid.gain, plan.out.mid, startsAtCtx, b, true)
+    this.applyCurve(out.high.gain, plan.out.high, startsAtCtx, b, true)
     this.applyCurve(inc.fader.gain, plan.in.gain, startsAtCtx, b)
-    this.applyCurve(inc.low.gain, plan.in.low, startsAtCtx, b)
-    this.applyCurve(inc.mid.gain, plan.in.mid, startsAtCtx, b)
-    this.applyCurve(inc.high.gain, plan.in.high, startsAtCtx, b)
+    this.applyCurve(inc.low.gain, plan.in.low, startsAtCtx, b, true)
+    this.applyCurve(inc.mid.gain, plan.in.mid, startsAtCtx, b, true)
+    this.applyCurve(inc.high.gain, plan.in.high, startsAtCtx, b, true)
     const lastBeat = Math.max(...[plan.out.gain, plan.in.gain].map((c) => c[c.length - 1]?.beat ?? 0))
     const endsAtCtx = startsAtCtx + lastBeat * b + 0.05
     this.stopDeck(out, endsAtCtx + 0.02)

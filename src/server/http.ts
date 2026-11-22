@@ -48,6 +48,7 @@ const summary = z.object({
   v: z.string().max(40),
   bpm: z.number().min(0).max(300),
   bpmConf: z.number().min(0).max(1),
+  gridSource: z.enum(['beatnet', 'dsp']).optional(),
   firstBeat: secs,
   downbeatPhase: z.number().int().min(0).max(3),
   downbeatConf: z.number().min(0).max(1),
@@ -69,6 +70,7 @@ const summary = z.object({
   energyIn: z.number().min(-200).max(50),
   energyOut: z.number().min(-200).max(50),
   energyMean: z.number().min(-200).max(50),
+  phraseEnergy: z.array(z.number().min(-200).max(50)).max(48).optional(),
   flags: z.array(z.string().max(80)).max(8),
 })
 const transition = z.object({

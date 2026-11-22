@@ -117,80 +117,123 @@ function flat(beats: number, value: number): CurvePoint[] {
   ]
 }
 
-/** Equal-power fade sampled every beat (Web Audio interpolates linearly between points). */
-function eqPower(fromBeat: number, toBeat: number, rising: boolean, steps = 16): CurvePoint[] {
-  const pts: CurvePoint[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const v = rising ? Math.sin((t * Math.PI) / 2) : Math.cos((t * Math.PI) / 2)
-    pts.push({ beat: fromBeat + t * (toBeat - fromBeat), value: v })
+/** Linear amplitude (0..1) → dB for EQ band curves (floor = KILL). */
+function ampDb(a: number): number {
+  return a <= 0.01 ? KILL : Math.max(KILL, 20 * Math.log10(a))
+}
+
+/** Smoothstep (musical S-curve) between 0 and 1. */
+function smooth(t: number): number {
+  const u = Math.max(0, Math.min(1, t))
+  return u * u * (3 - 2 * u)
+}
+
+/**
+ * Dense curve from a shape function f(t∈[0,1]) between beats b0..b1, held flat outside.
+ * `db` converts amplitude to dB (for EQ bands). Points every 1/4 beat (≥ 8 points) so the
+ * engine's linear ramps between points approximate the intended shape closely.
+ */
+function curve(total: number, b0: number, b1: number, from: number, to: number, f: (t: number) => number, db = false): CurvePoint[] {
+  const conv = (a: number) => (db ? ampDb(a) : a)
+  const pts: CurvePoint[] = [{ beat: 0, value: conv(from) }]
+  const n = Math.max(8, Math.ceil((b1 - b0) * 4))
+  for (let i = 0; i <= n; i++) {
+    const t = i / n
+    pts.push({ beat: b0 + t * (b1 - b0), value: conv(from + (to - from) * f(t)) })
   }
-  return pts
+  pts.push({ beat: Math.max(total, b1), value: conv(to) })
+  return pts.filter((p, i, arr) => i === 0 || p.beat >= arr[i - 1].beat)
 }
 
-function step(beats: number, at: number, from: number, to: number, rampBeats = 0.5): CurvePoint[] {
-  return [
-    { beat: 0, value: from },
-    { beat: Math.max(0, at - rampBeats / 2), value: from },
-    { beat: Math.min(beats, at + rampBeats / 2), value: to },
-    { beat: beats, value: to },
-  ]
+const lin = (t: number) => t
+const HEADROOM = 0.89 // −1 dB on each deck while both are at full level
+
+/**
+ * Bass handoff in LINEAR amplitude: out 1→0 while in 0→1 over `len` beats centred on `at`.
+ * For beat-aligned kicks/basslines the summed low band stays ≈ constant (no dip, no doubling).
+ */
+function bassHandoff(total: number, at: number, len: number): { out: CurvePoint[]; in: CurvePoint[] } {
+  const b0 = Math.max(0, at - len / 2)
+  const b1 = Math.min(total, at + len / 2)
+  return { out: curve(total, b0, b1, 1, 0, lin, true), in: curve(total, b0, b1, 0, 1, lin, true) }
 }
 
-/** Automation templates per style; `beats` = overlap length in beats. */
+/** Automation templates per style; `beats` = overlap length in beats. Each style has its own control shape. */
 export function automationFor(style: TransitionStyle, beats: number): { out: DeckAutomation; in: DeckAutomation; handoffBeat: number } {
   const B = Math.max(beats, 0)
   switch (style) {
     case 'cut':
     case 'sequential': {
-      const tiny = 0.05 // ~25 ms anti-click ramp
+      // Deliberate cut on a downbeat: ~60 ms outgoing release, ~30 ms incoming attack (click-free).
+      const out = 0.125
+      const inn = 0.0625
       return {
-        out: { gain: [{ beat: 0, value: 1 }, { beat: tiny, value: 0 }], low: flat(tiny, 0), mid: flat(tiny, 0), high: flat(tiny, 0) },
-        in: { gain: [{ beat: 0, value: 0 }, { beat: tiny, value: 1 }], low: flat(tiny, 0), mid: flat(tiny, 0), high: flat(tiny, 0) },
+        out: { gain: [{ beat: 0, value: 1 }, { beat: out, value: 0 }], low: flat(out, 0), mid: flat(out, 0), high: flat(out, 0) },
+        in: { gain: [{ beat: 0, value: 0 }, { beat: inn, value: 1 }], low: flat(out, 0), mid: flat(out, 0), high: flat(out, 0) },
         handoffBeat: 0,
       }
     }
-    case 'short_fade':
-    case 'unmatched_fade':
+    case 'short_fade': {
+      // 4-bar beat-matched S-curve blend with a 1-bar bass handoff in the middle.
+      const bass = bassHandoff(B, B / 2, Math.min(4, B / 2))
       return {
-        out: { gain: eqPower(0, B, false), low: step(B, B / 2, 0, KILL, B / 4), mid: flat(B, 0), high: flat(B, 0) },
-        in: { gain: eqPower(0, B, true), low: step(B, B / 2, KILL, 0, B / 4), mid: flat(B, 0), high: flat(B, 0) },
+        out: { gain: curve(B, 0, B, 1, 0, smooth), low: bass.out, mid: flat(B, 0), high: flat(B, 0) },
+        in: { gain: curve(B, 0, B, 0, 1, smooth), low: bass.in, mid: flat(B, 0), high: flat(B, 0) },
         handoffBeat: B / 2,
       }
+    }
+    case 'unmatched_fade': {
+      // Tempos too far apart to beat-match: never overlap two basslines or kicks. The outgoing
+      // track loses its lows first and fades; the incoming enters after the low-end has gone.
+      return {
+        out: { gain: curve(B, B * 0.15, B, 1, 0, smooth), low: curve(B, 0, B * 0.5, 1, 0, lin, true), mid: flat(B, 0), high: flat(B, 0) },
+        in: { gain: curve(B, B * 0.45, B, 0, 1, smooth), low: curve(B, B * 0.55, B, 0, 1, lin, true), mid: flat(B, 0), high: flat(B, 0) },
+        handoffBeat: B * 0.6,
+      }
+    }
     case 'long_blend': {
-      const half = B / 2
+      // Incoming layers in over the first ~40 % (no bass, mids tucked), 1-bar bass handoff at the
+      // midpoint, then the outgoing loses mids/highs and fades over the last 40 %.
+      const mid = B / 2
+      const bass = bassHandoff(B, mid, 4)
       return {
         out: {
-          gain: [{ beat: 0, value: 1 }, { beat: half, value: 1 }, ...eqPower(half, B, false, 12).slice(1)],
-          low: step(B, half, 0, KILL, 1),
-          mid: [{ beat: 0, value: 0 }, { beat: half, value: 0 }, { beat: B * 0.85, value: -12 }, { beat: B, value: -24 }],
-          high: [{ beat: 0, value: 0 }, { beat: B * 0.75, value: 0 }, { beat: B, value: -18 }],
+          gain: [{ beat: 0, value: 1 }, { beat: B * 0.25, value: HEADROOM }, { beat: B * 0.6, value: HEADROOM }, ...curve(B, B * 0.6, B, HEADROOM, 0, smooth).slice(1)],
+          low: bass.out,
+          mid: curve(B, B * 0.55, B, 1, 0.35, lin, true),
+          high: curve(B, B * 0.7, B, 1, 0.5, lin, true),
         },
         in: {
-          gain: [...eqPower(0, half, true, 12), { beat: B, value: 1 }],
-          low: step(B, half, KILL, 0, 1),
-          mid: [{ beat: 0, value: -12 }, { beat: half * 0.75, value: 0 }, { beat: B, value: 0 }],
-          high: [{ beat: 0, value: -6 }, { beat: half * 0.5, value: 0 }, { beat: B, value: 0 }],
+          gain: [...curve(B, 0, B * 0.4, 0, HEADROOM, smooth).slice(0, -1), { beat: B * 0.6, value: HEADROOM }, { beat: B * 0.75, value: 1 }, { beat: B, value: 1 }],
+          low: bass.in,
+          mid: curve(B, B * 0.1, B * 0.45, 0.5, 1, lin, true),
+          high: curve(B, 0, B * 0.3, 0.7, 1, lin, true),
         },
-        handoffBeat: half,
+        handoffBeat: mid,
       }
     }
     case 'bass_swap': {
+      // Incoming rises over the first half with lows removed; a crisp 2-beat bass swap on the
+      // centre bar line; outgoing (now bass-less) fades over the second half.
       const swap = B / 2
+      const bass = bassHandoff(B, swap, 2)
       return {
-        out: { gain: [{ beat: 0, value: 1 }, { beat: swap, value: 1 }, ...eqPower(swap, B, false, 8).slice(1)], low: step(B, swap, 0, KILL, 0.5), mid: flat(B, 0), high: flat(B, 0) },
-        in: { gain: [...eqPower(0, swap, true, 8), { beat: B, value: 1 }], low: step(B, swap, KILL, 0, 0.5), mid: flat(B, 0), high: flat(B, 0) },
+        out: { gain: [{ beat: 0, value: 1 }, { beat: swap, value: HEADROOM }, ...curve(B, swap, B, HEADROOM, 0, smooth).slice(1)], low: bass.out, mid: flat(B, 0), high: flat(B, 0) },
+        in: { gain: [...curve(B, 0, swap, 0, HEADROOM, smooth).slice(0, -1), { beat: Math.min(B, swap + 4), value: 1 }, { beat: B, value: 1 }], low: bass.in, mid: flat(B, 0), high: flat(B, 0) },
         handoffBeat: swap,
       }
     }
     case 'percussion_led': {
+      // Hats/percussion of the incoming first (lows+mids removed), mids blend in, 1-bar bass
+      // handoff at the midpoint, outgoing mids tucked while it fades.
       const swap = B / 2
+      const bass = bassHandoff(B, swap, 4)
       return {
-        out: { gain: [{ beat: 0, value: 1 }, { beat: swap, value: 1 }, ...eqPower(swap, B, false, 8).slice(1)], low: step(B, swap, 0, KILL, 0.5), mid: [{ beat: 0, value: 0 }, { beat: swap, value: 0 }, { beat: B, value: -18 }], high: flat(B, 0) },
+        out: { gain: [{ beat: 0, value: 1 }, { beat: swap, value: HEADROOM }, ...curve(B, swap, B, HEADROOM, 0, smooth).slice(1)], low: bass.out, mid: curve(B, swap, B, 1, 0.3, lin, true), high: flat(B, 0) },
         in: {
-          gain: [...eqPower(0, swap / 2, true, 6), { beat: B, value: 1 }],
-          low: step(B, swap, KILL, 0, 0.5),
-          mid: [{ beat: 0, value: KILL }, { beat: swap * 0.75, value: KILL }, { beat: swap, value: 0 }, { beat: B, value: 0 }],
+          gain: [...curve(B, 0, B * 0.2, 0, HEADROOM, smooth).slice(0, -1), { beat: Math.min(B, swap + 4), value: 1 }, { beat: B, value: 1 }],
+          low: bass.in,
+          mid: curve(B, B * 0.25, B * 0.45, 0, 1, lin, true),
           high: flat(B, 0),
         },
         handoffBeat: swap,
@@ -243,7 +286,9 @@ export function sequentialPlan(a: PlanTrack, b: PlanTrack, reason: string): Tran
 
 /** Is the analysis good enough to beat-match this track? */
 export function beatmatchable(s: AnalysisSummary | undefined): boolean {
-  return !!s && s.bpm > 0 && s.bpmConf >= 0.35 && s.stable
+  // Calibrated on 30 real house/techno tracks vs Beat This!: tracks with a correct tempo scored
+  // 0.29–0.56, wrong-octave tempos mostly < 0.06. Downbeat confidence does NOT gate beat-matching.
+  return !!s && s.bpm > 0 && s.bpmConf >= 0.3 && s.stable
 }
 
 /** All candidate edges A→B (region-level, multi-edge), sorted by total cost. */
@@ -289,8 +334,16 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           const dir = sb.energyMean - sa.energyMean
           const energy = w.energy * (levelDiff + Math.max(0, -dir * opts.energyDirection) * 2)
           const vocals = w.vocals * sa.vocalOut * sb.vocalIn * Math.min(1, bars / 8)
-          const confPenalty = BEATMATCHED.has(style) ? (1 - Math.min(sa.bpmConf, sb.bpmConf)) + (1 - Math.min(sa.downbeatConf, sb.downbeatConf)) * 0.5 : 0
-          const confidence = w.confidence * confPenalty * Math.min(1, bars / 8)
+          // Tempo/beat confidence matters for every beat-matched style; bar-phase (downbeat)
+          // uncertainty is a graded penalty that grows with overlap length, never a veto.
+          const tempoUnc = 1 - Math.min(1, Math.min(sa.bpmConf, sb.bpmConf) / 0.6)
+          const barUnc = 1 - Math.min(1, Math.min(sa.downbeatConf, sb.downbeatConf) / 0.3)
+          const confPenalty = BEATMATCHED.has(style) ? 0.6 * tempoUnc + 0.35 * barUnc * Math.min(1, bars / 16) : 0
+          const confidence = w.confidence * confPenalty
+          // Silence/low-energy guard: never cue into or out of near-silence.
+          const eOut = energyAt(sa, outCue)
+          const eIn = energyAt(sb, inCue)
+          const silence = (eOut !== null && eOut < sa.energyMean - 18 ? 2 : 0) + (eIn !== null && eIn < sb.energyMean - 24 && style !== 'percussion_led' ? 1 : 0)
           const skippedOut = Math.max(0, sa.durationSec - (outCue + overlapSec))
           const skippedIn = inCue
           const truncation = w.truncation * (Math.max(0, skippedOut - 32 * barSec) + skippedIn)
@@ -300,14 +353,17 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           if (style === 'long_blend' && keyDist > 2) musical += 1.5
           if (style === 'cut' && sa.outroBars > 0) musical += 0.3
           if (style === 'percussion_led' && sb.introBars < 8) musical += 0.8
-          if (style === 'unmatched_fade') musical += 1.2
-          if (style === 'cut') musical += 1.0
+          // Cuts and un-matched fades are last resorts when a beat-matched blend is feasible.
+          if (style === 'unmatched_fade') musical += canMatch ? 2.2 : 1.0
+          if (style === 'cut') musical += canMatch ? 2.8 : 1.2
+          musical += silence
           const total = tempo + key + energy + vocals + confidence + truncation + variety + musical
           if (deviation > 0.03 && BEATMATCHED.has(style)) risks.push(`tempo shift ${(deviation * 100).toFixed(1)}%`)
           if (octave !== 1) risks.push(`incoming tempo treated as ${octave === 2 ? 'double' : 'half'}-time`)
           if (keyDist >= 3 && style !== 'cut') risks.push(`key clash risk (${sa.camelot} → ${sb.camelot})`)
           if (sa.vocalOut * sb.vocalIn > 0.25 && bars >= 8) risks.push('possible vocal overlap (heuristic)')
-          if (Math.min(sa.downbeatConf, sb.downbeatConf) < 0.15 && style !== 'cut') risks.push('downbeat uncertain')
+          if (Math.min(sa.downbeatConf, sb.downbeatConf) < 0.15 && style !== 'cut') risks.push('bar phase uncertain (beats aligned)')
+          if (silence) risks.push('low-energy region at a cue')
           if (keyDist <= 1) reasons.push(`harmonic match ${sa.camelot} → ${sb.camelot}`)
           if (BEATMATCHED.has(style)) reasons.push(`beat-matched at ${sa.bpm.toFixed(1)} BPM (${((ratio - 1) * 100).toFixed(1)}%)`)
           if (style === 'cut') reasons.push('clean phrase cut on a downbeat')
@@ -337,6 +393,13 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
   if (!plans.length) return [sequentialPlan(a, b, 'No feasible cue pair inside the tracks.')]
   plans.sort((p, q) => p.costs.total - q.costs.total || p.outCueSec - q.outCueSec)
   return plans
+}
+
+function energyAt(s: AnalysisSummary, t: number): number | null {
+  if (!s.phraseEnergy?.length) return null
+  let k = -1
+  for (let i = 0; i < s.phrasesSec.length; i++) if (s.phrasesSec[i] <= t + 0.05) k = i
+  return k >= 0 ? s.phraseEnergy[k] ?? null : null
 }
 
 function uniqueSorted(xs: number[]): number[] {

@@ -160,14 +160,12 @@ def align_cmd(args: argparse.Namespace) -> None:
         if args.workers > 1:
             with Pool(args.workers) as pool:
                 for r in pool.imap_unordered(_verify_one, jobs, chunksize=2):
-                    f.write(json.dumps(r) + "
-")
+                    f.write(json.dumps(r) + "\n")
                     f.flush()
                     n += 1
         else:
             for j in jobs:
-                f.write(json.dumps(_verify_one(j)) + "
-")
+                f.write(json.dumps(_verify_one(j)) + "\n")
                 f.flush()
                 n += 1
     log("align", processed=n, workers=args.workers)

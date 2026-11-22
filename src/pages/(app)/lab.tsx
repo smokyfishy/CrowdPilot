@@ -16,6 +16,7 @@ import { DjEngine, stretchedMap } from '@/dj/engine/deck-engine'
 import { bestTransition, STYLE_LABEL, type PlanTrack, type TransitionPlan, type TransitionStyle } from '@/dj/transitions'
 import { wsola } from '@/dsp/stretch'
 import { WaveformView } from '@/components/dj/WaveformView'
+import { refineWithLocalBeats } from '@/dj/phase'
 import type { WorkerRequest, WorkerResponse } from '@/dj/engine/analysis.worker'
 
 interface Loaded {
@@ -131,7 +132,7 @@ export default function LabPage() {
       return
     }
     const s = summarize(analysis)
-    say(`${slot.toUpperCase()}: ${s.bpm} BPM (conf ${s.bpmConf}), ${s.key} ${s.camelot} (conf ${s.keyConf}), ${s.lufs} LUFS — ${(ms / 1000).toFixed(1)} s analysis${track.providerBpm ? ` · Audius-declared BPM ${track.providerBpm}` : ''}`)
+    say(`${slot.toUpperCase()}: ${s.bpm} BPM (conf ${s.bpmConf}, grid ${s.gridSource}), downbeat conf ${s.downbeatConf}, ${s.key} ${s.camelot} (conf ${s.keyConf}), ${s.lufs} LUFS — ${(ms / 1000).toFixed(1)} s analysis (beat model ${Math.round(analysis.timings.beatnet ?? 0)} ms)${track.providerBpm ? ` · Audius-declared BPM ${track.providerBpm}` : ''}`)
     const loaded = { track, buffer, analysis, ms }
     lab()[slot] = s
     lab().state = `loaded-${slot}`
@@ -155,8 +156,10 @@ export default function LabPage() {
     if (!p || !a || !b) return
     const e = engine()
     await e.resume()
-    const best = p.best
-    if (best.style === 'sequential') return say('No mixable plan.')
+    const best0 = p.best
+    if (best0.style === 'sequential') return say('No mixable plan.')
+    const best = best0.durationSec >= 4 ? { ...best0, ...refineWithLocalBeats(best0, a.analysis.netBeats, b.analysis.netBeats) } : best0
+    if (best !== best0) say(`local beat refinement: out ${best0.outCueSec.toFixed(3)}→${best.outCueSec.toFixed(3)} s, in ${best0.inCueSec.toFixed(3)}→${best.inCueSec.toFixed(3)} s, ratio ${best0.tempoRatio.toFixed(5)}→${best.tempoRatio.toFixed(5)}`)
     const lead = 8
     const startAt = Math.max(0, best.outCueSec - lead)
     e.play('A', a.track.trackKey, a.buffer, startAt, summarize(a.analysis).lufs, summarize(a.analysis).truePeak)

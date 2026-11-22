@@ -90,10 +90,15 @@ describe('transitions', () => {
         for (const p of deck.gain) expect(p.value).toBeLessThanOrEqual(1)
         for (const p of [...deck.low, ...deck.mid, ...deck.high]) expect(p.value).toBeLessThanOrEqual(0)
       }
-      // equal-power sum at the handoff is ≈ constant power for fades
+      // S-curve fades are amplitude-complementary (out + in = 1) at every sampled point: for
+      // beat-aligned dance tracks this avoids the ≈ +3 dB mid-blend bump of equal-power curves.
       if (style === 'short_fade') {
-        const mid = a.out.gain[8].value ** 2 + a.in.gain[8].value ** 2
-        expect(mid).toBeCloseTo(1, 6)
+        for (let i = 1; i < a.out.gain.length - 1; i++) expect(a.out.gain[i].value + a.in.gain[i].value).toBeCloseTo(1, 6)
+      }
+      // bass handoffs are amplitude-complementary too (no dip, no doubling of the low band)
+      if (style === 'bass_swap') {
+        const amp = (db: number) => (db <= -40 ? 0 : 10 ** (db / 20))
+        for (let i = 1; i < a.out.low.length - 1; i++) expect(amp(a.out.low[i].value) + amp(a.in.low[i].value)).toBeGreaterThan(0.98)
       }
     }
   })

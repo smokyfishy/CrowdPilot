@@ -12,7 +12,7 @@ import type { Page, Route } from '@playwright/test'
 import { createRoom, joinSignedIn, queueRow } from './helpers'
 
 test.skip(loadAllTestAccounts().length < 2, 'Needs 2 usable test accounts (npx deepspace test accounts create ...).')
-test.describe.configure({ timeout: 300_000 })
+test.describe.configure({ timeout: 900_000 })
 
 const AUDIUS = [
   { source: 'audius', sourceId: 'VA6M3y', trackKey: 'audius:VA6M3y', title: 'Yo no quiero agua', creatorLabel: 'Audius', durationMs: 175_000, playable: true, mixability: 'mixable', rights: { basis: 'audius-oml', label: 'OML' } },
@@ -42,7 +42,7 @@ test('host AI DJ mixes two real Audius tracks and the guest follows live', async
 
   await host.page.getByRole('button', { name: 'Start the music' }).click()
   // the host decodes + analyzes the real audio; measured features sync to the guest
-  await expect(queueRow(guest.page, 'Feel Me').getByText(/BPM/)).toBeVisible({ timeout: 120_000 })
+  await expect(queueRow(guest.page, 'Feel Me').getByText(/BPM/)).toBeVisible({ timeout: 300_000 })
   await expect(host.page.getByText(/Tempo/).first()).toBeVisible({ timeout: 60_000 })
 
   await host.page.getByRole('switch', { name: 'Autopilot' }).click()

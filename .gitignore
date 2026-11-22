@@ -20,3 +20,6 @@ ml/.venv/
 ml/**/__pycache__/
 .pytest_cache/
 ml/data/registry/private/
+
+# ONNX Runtime Web runtime copied at build time
+public/ort/

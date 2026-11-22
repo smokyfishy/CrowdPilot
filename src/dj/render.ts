@@ -1,7 +1,7 @@
 /**
  * Offline transition renderer (pure TypeScript, Node or browser). Renders the
  * SAME TransitionPlan the live Web Audio engine schedules: per-deck fader gains and
- * RBJ low-shelf / peaking / high-shelf EQ (same frequencies/Q as the engine),
+ * 3-band Linkwitz–Riley isolator EQ (same crossovers as the engine),
  * WSOLA tempo matching for the incoming deck, loudness trim, and a simple
  * look-ahead-free safety limiter. Used for tests, benchmarks, A/B listening exports.
  */
@@ -45,27 +45,14 @@ function curveAt(curve: CurvePoint[], beat: number): number {
 
 type Coeffs = [number, number, number, number, number]
 
-function shelf(type: 'low' | 'high', f0: number, gainDb: number, rate: number): Coeffs {
-  const A = 10 ** (gainDb / 40)
+/** RBJ 2nd-order Butterworth (Q = 1/√2) low/high-pass — same as Web Audio BiquadFilterNode. */
+function butter(type: 'low' | 'high', f0: number, rate: number): Coeffs {
   const w0 = (2 * Math.PI * f0) / rate
   const cos = Math.cos(w0)
-  const alpha = (Math.sin(w0) / 2) * Math.SQRT2 // S = 1 (Web Audio shelf slope)
-  const sq = 2 * Math.sqrt(A) * alpha
-  if (type === 'low') {
-    const a0 = A + 1 + (A - 1) * cos + sq
-    return [(A * (A + 1 - (A - 1) * cos + sq)) / a0, (2 * A * (A - 1 - (A + 1) * cos)) / a0, (A * (A + 1 - (A - 1) * cos - sq)) / a0, (-2 * (A - 1 + (A + 1) * cos)) / a0, (A + 1 + (A - 1) * cos - sq) / a0]
-  }
-  const a0 = A + 1 - (A - 1) * cos + sq
-  return [(A * (A + 1 + (A - 1) * cos + sq)) / a0, (-2 * A * (A - 1 + (A + 1) * cos)) / a0, (A * (A + 1 + (A - 1) * cos - sq)) / a0, (2 * (A - 1 - (A + 1) * cos)) / a0, (A + 1 - (A - 1) * cos - sq) / a0]
-}
-
-function peaking(f0: number, q: number, gainDb: number, rate: number): Coeffs {
-  const A = 10 ** (gainDb / 40)
-  const w0 = (2 * Math.PI * f0) / rate
-  const alpha = Math.sin(w0) / (2 * q)
-  const cos = Math.cos(w0)
-  const a0 = 1 + alpha / A
-  return [(1 + alpha * A) / a0, (-2 * cos) / a0, (1 - alpha * A) / a0, (-2 * cos) / a0, (1 - alpha / A) / a0]
+  const alpha = Math.sin(w0) / (2 * Math.SQRT1_2)
+  const a0 = 1 + alpha
+  if (type === 'low') return [(1 - cos) / 2 / a0, (1 - cos) / a0, (1 - cos) / 2 / a0, (-2 * cos) / a0, (1 - alpha) / a0]
+  return [(1 + cos) / 2 / a0, -(1 + cos) / a0, (1 + cos) / 2 / a0, (-2 * cos) / a0, (1 - alpha) / a0]
 }
 
 class Biquad {
@@ -112,9 +99,20 @@ export function renderTransition(input: RenderInput): RenderOutput {
   }
 
   const out = Array.from({ length: nch }, () => new Float32Array(total))
-  const eqA = { low: [] as Biquad[], mid: [] as Biquad[], high: [] as Biquad[] }
-  const eqB = { low: [] as Biquad[], mid: [] as Biquad[], high: [] as Biquad[] }
-  for (let c = 0; c < nch; c++) for (const eq of [eqA, eqB]) for (const k of ['low', 'mid', 'high'] as const) eq[k].push(new Biquad())
+  // 3-band LR4 isolator per deck and channel (matches DjEngine): low = LP·LP @200,
+  // mid = HP·HP @200 → LP·LP @2500, high = HP·HP @200 → HP·HP @2500.
+  const makeIso = () => {
+    const mk = (t: 'low' | 'high', f: number) => {
+      const q = new Biquad()
+      q.c = butter(t, f, rate)
+      return q
+    }
+    return { l: [mk('low', 200), mk('low', 200)], m: [mk('high', 200), mk('high', 200), mk('low', 2500), mk('low', 2500)], h: [mk('high', 200), mk('high', 200), mk('high', 2500), mk('high', 2500)] }
+  }
+  const isoA = Array.from({ length: nch }, makeIso)
+  const isoB = Array.from({ length: nch }, makeIso)
+  const run = (chain: Biquad[], x: number) => chain.reduce((v, q) => q.process(v), x)
+  const band = (db: number) => (db <= -40 ? 0 : 10 ** (db / 20))
   const trimA = 10 ** ((input.outTrimDb ?? 0) / 20)
   const trimB = 10 ** ((input.inTrimDb ?? 0) / 20)
   const beatOf = (i: number) => (i - tStart) / rate / plan.beatSec
@@ -127,32 +125,25 @@ export function renderTransition(input: RenderInput): RenderOutput {
     const inTransition = blk + BLOCK > tStart
     const gA = inTransition ? curveAt(plan.out.gain, beat) : 1
     const gB = inTransition ? curveAt(plan.in.gain, beat) : 0
-    const set = (eq: typeof eqA, d: TransitionPlan['out']) => {
-      const lo = inTransition ? curveAt(d.low, beat) : 0
-      const md = inTransition ? curveAt(d.mid, beat) : 0
-      const hi = inTransition ? curveAt(d.high, beat) : 0
-      for (let c = 0; c < nch; c++) {
-        eq.low[c].c = shelf('low', 250, lo, rate)
-        eq.mid[c].c = peaking(1000, 0.7, md, rate)
-        eq.high[c].c = shelf('high', 4000, hi, rate)
-      }
-    }
-    set(eqA, plan.out)
-    set(eqB, plan.in)
+    const bandsOf = (d: TransitionPlan['out']) => (inTransition ? [band(curveAt(d.low, beat)), band(curveAt(d.mid, beat)), band(curveAt(d.high, beat))] : [1, 1, 1])
+    const [aL, aM, aH] = bandsOf(plan.out)
+    const [bL, bM, bH] = bandsOf(plan.in)
     const end = Math.min(total, blk + BLOCK)
     for (let i = blk; i < end; i++) {
       const aIdx = outStart + i
       const bIdx = i - tStart
       for (let c = 0; c < nch; c++) {
         const srcA = ch(input.out, c)
-        let a = aIdx < srcA.length && gA > 0 ? srcA[aIdx] * trimA : 0
-        a = eqA.high[c].process(eqA.mid[c].process(eqA.low[c].process(a)))
-        let b = 0
-        if (bIdx >= 0 && gB > 0) {
+        const xa = aIdx < srcA.length ? srcA[aIdx] * trimA : 0
+        const ia = isoA[c]
+        const a = run(ia.l, xa) * aL + run(ia.m, xa) * aM + run(ia.h, xa) * aH
+        let xb = 0
+        if (bIdx >= 0) {
           const srcB = ch(incoming, c)
-          b = bIdx < srcB.length ? srcB[bIdx] * trimB : 0
+          xb = bIdx < srcB.length ? srcB[bIdx] * trimB : 0
         }
-        b = eqB.high[c].process(eqB.mid[c].process(eqB.low[c].process(b)))
+        const ib = isoB[c]
+        const b = run(ib.l, xb) * bL + run(ib.m, xb) * bM + run(ib.h, xb) * bH
         out[c][i] = a * gA + b * gB
       }
       // safety limiter: instant attack, 100 ms release, ceiling −1 dBFS

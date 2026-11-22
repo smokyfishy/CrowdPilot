@@ -21,6 +21,7 @@ import { planQueue, type QueueCandidate } from '../queue-planner'
 import { bestTransition, candidateTransitions, DEFAULT_WEIGHTS, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../transitions'
 import { AudioLoadError, analysisCopy, DecodedCache, fetchAndDecode, type AudioFetchContext } from './audio-source'
 import { DjEngine, stretchedMap, trimDbFor } from './deck-engine'
+import { refineWithLocalBeats } from '../phase'
 import type { WorkerRequest, WorkerResponse } from './analysis.worker'
 
 export type TrackAnalysisStatus = 'analyzing' | 'ready' | 'low_confidence' | 'cannot_mix' | 'failed'
@@ -431,12 +432,24 @@ export class HostDj implements PlaybackController {
     this.evaluate()
   }
 
-  private async commit(plan: TransitionPlan, alternatives: TransitionPlan[], next: QueueItem): Promise<void> {
+  private async commit(planIn: TransitionPlan, alternatives: TransitionPlan[], next: QueueItem): Promise<void> {
     if (this.preparing || this.committed) return
     const pb = this.pb
     const engine = this.engine
     const nextKey = audioKeyOf(next)
     if (!pb || !engine || !nextKey) return
+    // Local beat refinement: snap cues to the network's beats and derive the tempo ratio from the
+    // two tracks' LOCAL beat periods over the overlap (a global grid can drift over a blend).
+    const curKey = engine.activeTrackKey
+    const plan: TransitionPlan =
+      planIn.durationSec >= 4 && curKey
+        ? (() => {
+            const r = refineWithLocalBeats(planIn, this.analyses.get(curKey)?.analysis?.netBeats, this.analyses.get(nextKey)?.analysis?.netBeats, (this.dj?.maxTempoPct ?? 6) / 100)
+            const { localRefined: _l, ...rest } = r
+            void _l
+            return rest as TransitionPlan
+          })()
+        : planIn
     this.preparing = true
     try {
       const buf = await this.decode(nextKey)

@@ -10,6 +10,7 @@ import { measureLoudness, type LoudnessReport } from './loudness'
 import { resample, toMono } from './resample'
 import { barFeatures, cueCandidates, noveltyCurve, phraseBoundaries, sections, type Bar, type CueCandidate, type PhraseBoundary, type Section } from './structure'
 import { estimateDownbeat, estimateGrid, type BeatGrid } from './tempo'
+import { gridFromBeats } from './beatnet'
 
 export const ANALYZER_VERSION = 'cp-dsp-1.0.0'
 export const ANALYSIS_RATE = 22050
@@ -45,6 +46,9 @@ export interface TrackAnalysis {
   overview: { columns: number; secPerColumn: number; peak: Float32Array; low: Float32Array; mid: Float32Array; high: Float32Array }
   flags: string[]
   timings: Record<string, number>
+  /** Network beat/downbeat times (host-local only; used for local grid refinement at commit). */
+  netBeats?: number[]
+  netDownbeats?: number[]
 }
 
 export interface AnalyzeInput {
@@ -54,6 +58,8 @@ export interface AnalyzeInput {
   analysisMono?: Float32Array
   overviewColumns?: number
   now?: () => number
+  /** Beat This! network beats/downbeats (seconds). When present they define the grid. */
+  net?: { beats: number[]; downbeats: number[] }
 }
 
 export function qcReport(channels: Float32Array[], rate: number): QcReport {
@@ -98,7 +104,23 @@ export function analyzeTrack(input: AnalyzeInput): TrackAnalysis {
   const durationSec = mono.length / ANALYSIS_RATE
   const { halfBeatResolved, ...g } = estimateGrid(onset, fps, durationSec, frameSec, onsetLow, onsetHigh)
   const db = g.bpm > 0 ? estimateDownbeat(g, frameSec, { ...feats, onsetLow }) : { phase: 0, confidence: 0 }
-  const grid: BeatGrid = { ...g, downbeatPhase: db.phase, downbeatConfidence: db.confidence }
+  let grid: BeatGrid = { ...g, downbeatPhase: db.phase, downbeatConfidence: db.confidence, source: 'dsp' }
+  const ng = input.net ? gridFromBeats(input.net.beats, input.net.downbeats, durationSec) : null
+  if (ng) {
+    grid = {
+      ...grid,
+      bpm: ng.bpm,
+      periodSec: ng.periodSec,
+      firstBeatSec: ng.firstBeatSec,
+      beatCount: ng.beatCount,
+      downbeatPhase: ng.downbeatPhase,
+      confidence: Math.min(ng.tempoConfidence, ng.beatConfidence),
+      downbeatConfidence: ng.downbeatConfidence,
+      driftMs: ng.driftMs,
+      stable: ng.stable,
+      source: 'beatnet',
+    }
+  }
   mark('tempo')
 
   // Key: weight frames by tonality (1 - flatness) to downweight drums.
@@ -132,9 +154,10 @@ export function analyzeTrack(input: AnalyzeInput): TrackAnalysis {
   } else {
     flags.push('no reliable beat grid')
   }
-  if (grid.bpm > 0 && !halfBeatResolved) flags.push('beat vs off-beat phase ambiguous')
+  if (grid.source === 'dsp' && grid.bpm > 0 && !halfBeatResolved) flags.push('beat vs off-beat phase ambiguous')
   if (!grid.stable) flags.push('tempo drifts — long beat-matched blends disabled')
   if (grid.confidence < 0.5) flags.push('low tempo confidence')
+  if (grid.source === 'dsp') flags.push('beat grid from DSP fallback (no network beats)')
   if (grid.downbeatConfidence < 0.15) flags.push('downbeat uncertain')
   if (key.confidence < 0.2) flags.push('key uncertain')
   if (key.relativeAmbiguous) flags.push('relative major/minor ambiguous')
@@ -163,6 +186,8 @@ export function analyzeTrack(input: AnalyzeInput): TrackAnalysis {
     overview,
     flags,
     timings,
+    netBeats: input.net?.beats,
+    netDownbeats: input.net?.downbeats,
   }
 }
 
@@ -200,6 +225,8 @@ export interface AnalysisSummary {
   v: string
   bpm: number
   bpmConf: number
+  /** 'beatnet' (Beat This! network) or 'dsp' (fallback). */
+  gridSource?: 'beatnet' | 'dsp'
   firstBeat: number
   downbeatPhase: number
   downbeatConf: number
@@ -224,6 +251,8 @@ export interface AnalysisSummary {
   energyIn: number
   energyOut: number
   energyMean: number
+  /** Mean bar energy (dB) of the 8 bars starting at each phrase boundary (aligned with phrasesSec). */
+  phraseEnergy?: number[]
   flags: string[]
 }
 
@@ -234,6 +263,7 @@ export function summarize(a: TrackAnalysis): AnalysisSummary {
     v: a.version,
     bpm: Math.round(a.grid.bpm * 100) / 100,
     bpmConf: Math.round(a.grid.confidence * 100) / 100,
+    gridSource: a.grid.source,
     firstBeat: r3(a.grid.firstBeatSec),
     downbeatPhase: a.grid.downbeatPhase,
     downbeatConf: Math.round(a.grid.downbeatConfidence * 100) / 100,
@@ -255,6 +285,7 @@ export function summarize(a: TrackAnalysis): AnalysisSummary {
     energyIn: r2(mean(a.energyCurve.slice(0, 16))),
     energyOut: r2(mean(a.energyCurve.slice(-16))),
     energyMean: r2(mean(a.energyCurve)),
+    phraseEnergy: a.phrases.slice(0, 48).map((p) => r2(mean(a.energyCurve.slice(p.bar, p.bar + 8)))),
     flags: a.flags.slice(0, 8),
   }
 }

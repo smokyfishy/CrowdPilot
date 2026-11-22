@@ -37,6 +37,8 @@ export interface BeatGrid {
   gridContrast: number
   /** Per-segment local BPM estimates (for variable-tempo diagnostics). */
   segmentBpm: number[]
+  /** Which estimator produced the grid. */
+  source?: 'beatnet' | 'dsp'
 }
 
 export const BPM_MIN = 60

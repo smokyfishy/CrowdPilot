@@ -6,7 +6,7 @@
  */
 import { expect, test } from '@playwright/test'
 
-test.setTimeout(360_000)
+test.setTimeout(900_000)
 
 for (const forced of ['', 'bass_swap']) test(`DJ Lab plays an analyzed, planned transition on real Audius audio${forced ? ` (forced ${forced})` : ''}`, async ({ page }) => {
   const logs: string[] = []
@@ -21,7 +21,7 @@ for (const forced of ['', 'bass_swap']) test(`DJ Lab plays an analyzed, planned 
     for (;;) {
       expect(next).toBeLessThan(await rows.count())
       await rows.nth(next++).getByRole('button', { name: slot === 'a' ? 'Deck A' : 'Deck B' }).click()
-      await page.waitForFunction((s) => window.__djLab?.state === `loaded-${s}` || window.__djLab?.state === `failed-${s}`, slot, { timeout: 150_000 })
+      await page.waitForFunction((s) => window.__djLab?.state === `loaded-${s}` || window.__djLab?.state === `failed-${s}`, slot, { timeout: 330_000 })
       if ((await page.evaluate(() => window.__djLab?.state)) === `loaded-${slot}`) break
     }
   }
@@ -30,6 +30,9 @@ for (const forced of ['', 'bass_swap']) test(`DJ Lab plays an analyzed, planned 
   console.log('analysis A', JSON.stringify(summaries.a))
   console.log('analysis B', JSON.stringify(summaries.b))
   expect(summaries.a?.durationSec).toBeGreaterThan(30)
+  // the in-browser Beat This! model (ONNX Runtime Web) produced the grid
+  expect(summaries.a?.gridSource).toBe('beatnet')
+  expect(summaries.b?.gridSource).toBe('beatnet')
 
   if (forced) await page.getByLabel('Force style').selectOption(forced)
   await page.getByRole('button', { name: 'Plan', exact: true }).click()

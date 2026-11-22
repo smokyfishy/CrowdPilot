@@ -1,4 +1,6 @@
 import { fileURLToPath } from 'node:url'
+import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import generouted from '@generouted/react-router/plugin'
@@ -9,7 +11,24 @@ import { prerender } from './prerender.ts'
 
 const appDir = fileURLToPath(new URL('.', import.meta.url))
 
+/**
+ * Copies ONNX Runtime Web's WebGPU+WASM runtime into public/ort/ (gitignored) so the analysis
+ * worker can load it from the app's own origin (the package does not export its .wasm files).
+ */
+function copyOrtRuntime(): void {
+  // Runs once at config load (before Vite's watcher starts; avoids EBUSY races on Windows).
+  const src = join(appDir, 'node_modules', 'onnxruntime-web', 'dist')
+  const dst = join(appDir, 'public', 'ort')
+  mkdirSync(dst, { recursive: true })
+  for (const f of ['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.mjs']) {
+    const to = join(dst, f)
+    if (!existsSync(to) || statSync(to).size !== statSync(join(src, f)).size) copyFileSync(join(src, f), to)
+  }
+}
+copyOrtRuntime()
+
 export default defineConfig({
+  server: { watch: { ignored: ['**/public/ort/**', '**/public/models/**'] } },
   plugins: [
     react(),
     generouted(),
