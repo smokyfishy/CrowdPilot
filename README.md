@@ -66,7 +66,7 @@ npx deepspace logs --follow --json
 
 | Area | Status |
 |---|---|
-| Domain rules, playback state machine, claims/concurrency (in-memory DO double), guest tokens, YouTube normalizer, IFrame adapter, host agent, client API, maintenance | 120+ unit tests passing |
+| Domain rules, playback state machine, claims/concurrency (in-memory DO double), guest tokens, YouTube normalizer, IFrame adapter, host agent, client API, maintenance | 118 unit tests passing (14 files) |
 | Type-check and lint | clean |
 | Build, dev server, multi-browser E2E, live YouTube search/playback, deploy | **pending** — blocked on DeepSpace login/registration (the build refuses to run without a registered app id) |
 
