@@ -63,7 +63,7 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
   // Genre purity: when enough uploads explicitly claim a requested genre, use only those (plus
   // recordings by requested artists); otherwise keep everything and let scoring decide.
   const evidenced = disc.pool.filter((c) => c.genres.length || resolved.artists.some((ar) => artistMatches(ar, c)))
-  if (resolved.genres.length && evidenced.length >= Math.ceil(resolved.songCount * 1.5)) {
+  if (resolved.genres.length && evidenced.length >= resolved.songCount + 2) {
     for (const c of disc.pool) if (!evidenced.includes(c)) disc.rejected.push({ title: c.rawTitle ?? c.title, uploader: c.uploader, reason: `no ${resolved.genres.join('/')} evidence in title/tags/channel` })
     disc.pool = evidenced
   }

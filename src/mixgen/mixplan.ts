@@ -126,8 +126,16 @@ function energyBetween(s: AnalysisSummary, t0: number, t1: number): number | nul
 function energyContinuity(p: TransitionPlan, a: AnalysisSummary, b: AnalysisSummary): number {
   let c = 0
   const inEnd = p.inCueSec + inTrackSpan(p)
+  // (1) the incoming must carry the floor right after the outgoing is gone
   const after = energyBetween(b, inEnd, inEnd + 16 * b.barSec)
-  if (after !== null && after < b.energyMean - 6) c += Math.min(3, (b.energyMean - 6 - after) * 0.4)
+  if (after !== null && after < b.energyMean - 6) c += Math.min(5, (b.energyMean - 6 - after) * 0.6)
+  // (2) …and already during the second half of the overlap, while the outgoing fades out
+  //     (a drop swap deliberately lands its drop at the overlap end, so it is exempt)
+  if (p.style !== 'drop_swap' && p.durationSec > 0) {
+    const late = energyBetween(b, p.inCueSec + inTrackSpan(p) / 2, inEnd)
+    if (late !== null && late < b.energyMean - 8) c += Math.min(4, (b.energyMean - 8 - late) * 0.5)
+  }
+  // (3) the outgoing should not start leaving from inside its own breakdown
   const outAt = energyBetween(a, p.outCueSec, p.outCueSec + Math.max(4 * a.barSec, p.durationSec / 2))
   if (outAt !== null && outAt < a.energyMean - 8) c += Math.min(2, (a.energyMean - 8 - outAt) * 0.25)
   return c

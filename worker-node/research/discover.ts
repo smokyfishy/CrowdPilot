@@ -55,6 +55,23 @@ function uploadRank(c: TrackCandidate): number {
   return topic + vevo + official + views
 }
 
+/**
+ * Scene seeds per genre (labels/scene terms an interpreter would use) — discovery hints only,
+ * never constraints; every result still has to pass identity checks and genre evidence.
+ */
+const GENRE_SEEDS: Record<string, string[]> = {
+  'tech house': ['Toolroom tech house', 'Hot Creations tech house', 'Solid Grooves', 'Repopulate Mars', 'Defected tech house', 'Catch & Release tech house'],
+  house: ['Defected Records house', 'Glasgow Underground house', 'Toolroom house'],
+  'deep house': ['Anjunadeep deep house', 'Defected deep house', 'Stil vor Talent'],
+  'melodic techno': ['Afterlife melodic techno', 'Anjunadeep melodic', 'Diynamic melodic techno'],
+  techno: ['Drumcode techno', 'Afterlife techno', 'KNTXT techno'],
+  edm: ['Spinnin Records', 'STMPD RCRDS', 'Musical Freedom'],
+  'drum and bass': ['Hospital Records drum and bass', 'UKF drum and bass', 'RAM Records'],
+  'progressive house': ['Anjunabeats progressive house', 'Size Records', 'Armada progressive house'],
+  'afro house': ['Keinemusik afro house', 'MoBlack afro house'],
+  trance: ['Anjunabeats trance', 'Armada trance'],
+}
+
 export function researchQueries(spec: ResolvedSpec): Array<{ text: string; why: string; popular: boolean }> {
   const q: Array<{ text: string; why: string; popular: boolean }> = []
   for (const s of spec.songs) q.push({ text: `${s.artist ?? ''} ${s.title} ${s.version ?? ''}`.trim(), why: `song:${s.title}`, popular: false })
@@ -65,6 +82,7 @@ export function researchQueries(spec: ResolvedSpec): Array<{ text: string; why: 
     q.push({ text: `${g} official audio`, why: `genre:${g}`, popular: true })
     q.push({ text: `${g} original mix`, why: `genre:${g}`, popular: false })
   }
+  for (const g of genres.slice(0, 2)) for (const seed of (GENRE_SEEDS[g.toLowerCase()] ?? []).slice(0, spec.artists.length ? 2 : 6)) q.push({ text: seed, why: `genre:${g}`, popular: true })
   if (spec.artists.length && spec.artistMatching !== 'only_these') q.push({ text: `${genres[0]} ${spec.artists.slice(0, 2).join(' ')} type track`, why: `similar:${spec.artists.slice(0, 2).join('+')}`, popular: true })
   return q
 }
