@@ -1,0 +1,167 @@
+{
+ "unmixdb": {
+  "id": "unmixdb",
+  "title": "UnmixDB: A Dataset for DJ-Mix Information Retrieval",
+  "official": "https://zenodo.org/records/1422385",
+  "kind": "synthetic_reference",
+  "audio_available": "full: source excerpts + generated mixes (CC-licensed tracks from mixotic.net)",
+  "quality_tier": "synthetic_gold",
+  "licence": "cc-by-nc-nd-4.0",
+  "files": [
+   {
+    "key": "mixotic-set281-excerpts.zip",
+    "bytes": 1113151140,
+    "checksum": "md5:3e5c5590ec2b33529034de5497bd9fa5"
+   },
+   {
+    "key": "mixotic-set275-excerpts.zip",
+    "bytes": 550234665,
+    "checksum": "md5:50c184f70bec11f33b519a44ee24a671"
+   },
+   {
+    "key": "README.txt",
+    "bytes": 3526,
+    "checksum": "md5:9f16be56fb18d642df9693c87436ac93"
+   },
+   {
+    "key": "mixotic-set230-excerpts.zip",
+    "bytes": 838033879,
+    "checksum": "md5:8416257ceac136931b681237e627c2a7"
+   },
+   {
+    "key": "mixotic-set222-excerpts.zip",
+    "bytes": 85106114,
+    "checksum": "md5:423d62a8c2659507d6b964ac4ec2bffc"
+   },
+   {
+    "key": "mixotic-set123-excerpts.zip",
+    "bytes": 752511978,
+    "checksum": "md5:2d42608a742cfbe61ad0524724b2de1f"
+   },
+   {
+    "key": "mixotic-set044-excerpts.zip",
+    "bytes": 889938864,
+    "checksum": "md5:eadf9fb3b6ed7dad72db72acc111c66a"
+   },
+   {
+    "key": "schwarz-fourer-ismir2018late-breaking-unmixdb.pdf",
+    "bytes": 130929,
+    "checksum": "md5:3ed6ca036311d8455ec86d7ff101e313"
+   }
+  ],
+  "total_bytes": 4229111095,
+  "metadata_status": "snapshot saved"
+ },
+ "djmix-transitions": {
+  "id": "djmix-transitions",
+  "title": "DJ Mix Dataset \u2014 transitions (HF)",
+  "official": "https://huggingface.co/datasets/djmix/transitions",
+  "kind": "professional_dj_metadata",
+  "audio_available": "none in dataset: YouTube/1001Tracklists links only (links are NOT download rights)",
+  "quality_tier": "weak_pseudo_labels",
+  "licence": null,
+  "gated": false,
+  "files": [
+   ".gitattributes",
+   "README.md",
+   "data/train-00000-of-00008-7e3d0806f578ad1a.parquet",
+   "data/train-00001-of-00008-22aabf93d6e13e0c.parquet",
+   "data/train-00002-of-00008-3cf6f3820ff18cd9.parquet",
+   "data/train-00003-of-00008-e64ab490ba2dd3ac.parquet",
+   "data/train-00004-of-00008-b1c0bc9e7c879668.parquet",
+   "data/train-00005-of-00008-1a7f100bf3d5f9ff.parquet",
+   "data/train-00006-of-00008-385493fc194b3c8e.parquet",
+   "data/train-00007-of-00008-2e32cc8afe23f4c8.parquet"
+  ],
+  "audio_files_in_repo": 0,
+  "metadata_status": "snapshot saved"
+ },
+ "djmix-dataset": {
+  "id": "djmix-dataset",
+  "title": "DJ Mix Dataset (code + metadata)",
+  "official": "https://github.com/mir-aidj/djmix-dataset",
+  "kind": "professional_dj_metadata",
+  "audio_available": "none distributed; tooling references third-party platforms",
+  "quality_tier": "metadata",
+  "licence": null,
+  "default_branch": "main",
+  "updated": "2022-09-07T20:53:45Z",
+  "metadata_status": "snapshot saved"
+ },
+ "edm-cue": {
+  "id": "edm-cue",
+  "title": "EDM-CUE",
+  "official": "https://huggingface.co/datasets/disco-eth/edm-cue",
+  "kind": "expert_cue_annotations",
+  "audio_available": "unknown \u2014 verify per file",
+  "quality_tier": "expert_labels",
+  "licence": "mit",
+  "gated": false,
+  "files": [
+   ".gitattributes",
+   "README.md",
+   "data/test-00000-of-00001.parquet",
+   "data/train-00000-of-00001.parquet",
+   "data/valid-00000-of-00001.parquet"
+  ],
+  "audio_files_in_repo": 0,
+  "metadata_status": "snapshot saved"
+ },
+ "raveform": {
+  "id": "raveform",
+  "title": "Raveform",
+  "official": "https://mir-aidj.github.io/raveform/",
+  "kind": "professional_dj_metadata",
+  "audio_available": "unknown \u2014 verify",
+  "quality_tier": "expert_labels",
+  "metadata_status": "no machine-readable endpoint; page review required"
+ },
+ "cue-detr": {
+  "id": "cue-detr",
+  "title": "CUE-DETR",
+  "official": "https://github.com/ETH-DISCO/cue-detr",
+  "kind": "model",
+  "audio_available": "none",
+  "quality_tier": "model",
+  "licence": "MIT",
+  "default_branch": "main",
+  "updated": "2024-08-19T13:40:20Z",
+  "metadata_status": "snapshot saved"
+ },
+ "beat-this": {
+  "id": "beat-this",
+  "title": "Beat This!",
+  "official": "https://github.com/CPJKU/beat_this",
+  "kind": "model",
+  "audio_available": "none",
+  "quality_tier": "model",
+  "licence": "MIT",
+  "default_branch": "main",
+  "updated": "2026-05-28T21:14:58Z",
+  "metadata_status": "snapshot saved"
+ },
+ "dj-mix-evaluation-dataset": {
+  "id": "dj-mix-evaluation-dataset",
+  "title": "DJ mix evaluation dataset",
+  "official": "https://github.com/werthen/dj-mix-evaluation-dataset",
+  "kind": "unknown",
+  "audio_available": "unknown \u2014 inspect",
+  "quality_tier": "unknown",
+  "licence": null,
+  "default_branch": "master",
+  "updated": "2024-03-19T08:09:45Z",
+  "metadata_status": "snapshot saved"
+ },
+ "mixxx": {
+  "id": "mixxx",
+  "title": "Mixxx DJ software (capture platform)",
+  "official": "https://manual.mixxx.org/",
+  "kind": "capture_platform",
+  "audio_available": "n/a",
+  "quality_tier": "tool",
+  "licence": "NOASSERTION",
+  "default_branch": "main",
+  "updated": "2026-11-21T11:57:15Z",
+  "metadata_status": "snapshot saved"
+ }
+}

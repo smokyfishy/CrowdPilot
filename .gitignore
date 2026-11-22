@@ -14,3 +14,9 @@ src/modals.tsx
 .claude/launch.json
 .claude/worktrees
 .superpowers/
+
+# research pipeline
+ml/.venv/
+ml/**/__pycache__/
+.pytest_cache/
+ml/data/registry/private/

@@ -1,0 +1,861 @@
+{
+ "assets": {
+  "unmixdb/mixotic-set281-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set281-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/mixotic-set275-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set275-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/README.txt": {
+   "asset_id": "unmixdb/README.txt",
+   "role": "documentation",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/mixotic-set230-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set230-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/mixotic-set222-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set222-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/mixotic-set123-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set123-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/mixotic-set044-excerpts.zip": {
+   "asset_id": "unmixdb/mixotic-set044-excerpts.zip",
+   "role": "synthetic_reference",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  },
+  "unmixdb/schwarz-fourer-ismir2018late-breaking-unmixdb.pdf": {
+   "asset_id": "unmixdb/schwarz-fourer-ismir2018late-breaking-unmixdb.pdf",
+   "role": "documentation",
+   "licence": "cc-by-nc-nd-4.0",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+   "platform_terms": "Zenodo open access record",
+   "composition_rights": "unknown",
+   "consent_ref": null,
+   "uses": {
+    "waveform_analyze": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private reproduction for analysis",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "inverse_reconstruct": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: private analysis; reconstructions are not distributed",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "retain_derived_artifacts": {
+     "decision": "approved",
+     "basis": "cc-by-nc-nd-4.0: derived features retained privately",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "render_private_mix": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: ND \u2014 rendering a mix is an adaptation; keep private only after human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "train_model": {
+     "decision": "rights_review",
+     "basis": "cc-by-nc-nd-4.0: model training not addressed explicitly; weights may be distributed later \u2014 human review",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "redistribute_audio": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no redistribution by CrowdPilot (dataset is already public at source)",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "publish_demo": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: no public demo of adapted audio",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    },
+    "commercialize": {
+     "decision": "denied",
+     "basis": "cc-by-nc-nd-4.0: project is noncommercial",
+     "evidence": [
+      "https://zenodo.org/records/1422385",
+      "C:\\crowdpilot-data\\registry\\snapshots\\unmixdb.json",
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+     ],
+     "decided_by": "licence-policy:v1",
+     "decided_at": "2026-11-22T07:07:16+00:00",
+     "expires": null
+    }
+   }
+  }
+ },
+ "audit_entries": 8
+}
