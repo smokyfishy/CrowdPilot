@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AuthOverlay, useAuthProfileReady, signOut } from 'deepspace'
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
-import { APP_NAME } from '../constants'
+import { Logo } from './brand/Logo'
 import type { Role } from '../constants'
 import { nav } from '../nav'
 import { cn } from '../lib/utils'
@@ -69,10 +69,10 @@ export default function Navigation() {
 
   return (
     <>
-      <nav data-testid="app-navigation" className="border-b border-border bg-background">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-4 px-4">
-          <Link to="/home" className="text-sm font-semibold text-foreground">
-            {APP_NAME}
+      <nav data-testid="app-navigation" className="border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-[max(16px,env(safe-area-inset-left))]">
+          <Link to="/" aria-label="CrowdPilot home" className="rounded-md">
+            <Logo />
           </Link>
 
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>
@@ -136,7 +136,7 @@ export default function Navigation() {
             <button
               data-testid="nav-sign-in-button"
               onClick={() => setShowAuthModal(true)}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Sign in
             </button>
@@ -159,7 +159,15 @@ export default function Navigation() {
         )}
       </nav>
 
-      {showAuthModal && <AuthOverlay onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && (
+        <AuthOverlay
+          onClose={() => setShowAuthModal(false)}
+          providers={['google', 'github']}
+          title="Sign in to CrowdPilot"
+          description="Host rooms and keep your name across devices."
+          logo={<Logo compact />}
+        />
+      )}
     </>
   )
 }
