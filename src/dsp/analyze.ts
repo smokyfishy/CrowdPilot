@@ -213,6 +213,17 @@ export interface AnalysisSummary {
   phrasesSec: number[]
   cueIn: number[]
   cueOut: number[]
+  /** Bars of measured intro / outro (0 when no evidence). */
+  introBars: number
+  outroBars: number
+  barSec: number
+  /** Heuristic vocal likelihood in the first / last 32 bars (0..1, flagged heuristic). */
+  vocalIn: number
+  vocalOut: number
+  /** Mean bar energy (dB) of first / last 16 bars and of the whole track. */
+  energyIn: number
+  energyOut: number
+  energyMean: number
   flags: string[]
 }
 
@@ -236,6 +247,21 @@ export function summarize(a: TrackAnalysis): AnalysisSummary {
     phrasesSec: a.phrases.slice(0, 48).map((p) => r3(p.sec)),
     cueIn: a.cues.filter((c) => c.kind === 'mix_in').slice(0, 4).map((c) => r3(c.sec)),
     cueOut: a.cues.filter((c) => c.kind === 'mix_out').slice(0, 4).map((c) => r3(c.sec)),
+    introBars: sectionBars(a, 'intro'),
+    outroBars: sectionBars(a, 'outro'),
+    barSec: r3(a.barSec),
+    vocalIn: r2(mean(a.bars.slice(0, 32).map((b) => b.vocalLikelihood))),
+    vocalOut: r2(mean(a.bars.slice(-32).map((b) => b.vocalLikelihood))),
+    energyIn: r2(mean(a.energyCurve.slice(0, 16))),
+    energyOut: r2(mean(a.energyCurve.slice(-16))),
+    energyMean: r2(mean(a.energyCurve)),
     flags: a.flags.slice(0, 8),
   }
+}
+
+const r2 = (x: number) => Math.round(x * 100) / 100
+const mean = (xs: number[]) => (xs.length ? xs.reduce((p, q) => p + q, 0) / xs.length : 0)
+function sectionBars(a: TrackAnalysis, kind: 'intro' | 'outro'): number {
+  const s = kind === 'intro' ? a.sections[0] : a.sections[a.sections.length - 1]
+  return s && s.kind === kind ? s.endBar - s.startBar : 0
 }
