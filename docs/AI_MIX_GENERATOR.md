@@ -63,3 +63,25 @@ Requested artists/songs without a permitted source are listed as **unavailable**
 * Some Jamendo recordings have unstable beat grids (tempo drift / live feel); selection avoids them when enough stable tracks exist, otherwise they are joined with un-matched fades.
 * The browser path decodes Jamendo's VBR MP3 stream by default (lossless FLAC is an opt-in because files are ~35 MB each); the research worker uses FLAC.
 * Interrupted browser renders restart the render (analyses are cached, so only acquisition + render repeat).
+
+## Local research mode (YouTube via yt-dlp, operator's machine only)
+
+`npm run mixgen -- "<prompt>" [--songs N] [--minutes M] [--job id]` — private, noncommercial research on the
+operator's own machine; the operator has accepted responsibility for this local use. **Never deployed.**
+
+* Switch: `CP_RESEARCH_YOUTUBE=1`, read only in `worker-node/mixgen/research.ts` (the launcher sets it for its own
+  process). The Cloudflare app never reads it; the container worker refuses to start if it is set (unit-tested).
+* Policy: `researchYouTube` + `environment: 'local'` → YouTube acquire/analyze/mix, `persistRender: false`,
+  `exportScope: 'local'`, method `yt_dlp_research`, reason "Local research mode — not for distribution".
+  Jamendo/ND/Audius rules unchanged.
+* Hard rules in every mode: no DRM formats; no private, members-only, premium, login-gated, age-restricted, live or
+  upcoming videos; `--ignore-config --no-cookies --no-cookies-from-browser`; credential/cookie arguments rejected;
+  access-control errors classified as not permitted (never worked around); downloads sequential with a 3 s gap.
+* Discovery: YouTube Data API; official uploads preferred ("- Topic", VEVO, artist channel); covers, edits, live/DJ
+  sets, lyric re-uploads, compilations and DJ mixes rejected unless requested; genre counted only when the upload
+  claims it; scene seeds per genre. Fallbacks: other verified uploads of the same recording (identity + duration
+  ±4 s) → Jamendo same recording → unavailable with reasons.
+* Outputs: `C:\crowdpilot-data\mixgen\exports\research\<job>.mp3` (320 kbps, ID3 comment "research only — not for
+  distribution"), `renders\research\<job>.manifest.json` (`mode: 'research'`) and `<job>.report.json`.
+* Viewer: `/research/<job>` in `deepspace dev` only, data from the localhost-only Vite middleware `/__research/*`;
+  the page renders "Not found" in builds and the Worker answers 404 for `/__research/*`.
