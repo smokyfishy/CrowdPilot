@@ -33,7 +33,6 @@ import {
   resolveAuth,
 } from './src/server/http-routes.js'
 import { registerRealtimeRoutes } from './src/server/realtime-routes.js'
-import { registerRoomRoutes } from './src/server/room-routes.js'
 import { registerMixgenRoutes } from './src/server/mixgen-routes.js'
 
 // Dynamic deploy reads this manifest to create the app's DO bindings.
@@ -145,7 +144,6 @@ app.use('*', async (c, next) => {
 registerAuthAndIntegrationRoutes(app)
 registerRealtimeRoutes(app)
 registerActionRoutes(app, resolveAuth)
-registerRoomRoutes(app, resolveAuth)
 registerMixgenRoutes(app, resolveAuth)
 // Every scaffold exposes selected tools through HTTP, MCP and browser tools.
 // Only copilot owns the collections needed for the in-app chat UI.

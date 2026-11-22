@@ -23,7 +23,9 @@ import { decideAccess, POLICY_VERSION, type PolicyContext } from '../mixgen/poli
 import { EditOp, extractJson, heuristicSpec, INTERPRET_SYSTEM, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
 import { STAGES } from '../mixgen/types'
 import { appScope, createRoomTools } from './room-tools'
-import type { ResolveAuth } from './actor'
+import type { VerifyResult } from 'deepspace/worker'
+
+export type ResolveAuth = (req: Request, env: Env) => Promise<VerifyResult | null>
 
 const interprets = new TokenBucket(10, 10 / 60_000)
 const discovers = new TokenBucket(6, 6 / 60_000)

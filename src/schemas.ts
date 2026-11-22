@@ -5,7 +5,9 @@
  * Single source of truth — imported by both worker and frontend.
  *
  * CrowdPilot collections are read-only to every client role; all writes go
- * through the worker's room command route (src/server/room-routes.ts).
+ * through worker routes (src/server/mixgen-routes.ts). The room collections from
+ * the retired collaborative platform stay registered only so their stored data is
+ * preserved (no destructive migration); nothing reads or writes them any more.
  */
 
 import type { CollectionSchema } from 'deepspace/schema'
