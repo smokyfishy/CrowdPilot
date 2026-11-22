@@ -26,7 +26,9 @@
     "validate": "tsc --noEmit && vitest run --passWithNoTests",
     "screenshot": "deepspace test screenshot",
     "type-check": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "mixgen": "node worker-node/research/launch.mjs",
+    "mixgen:test": "vitest run -c vitest.pure.config.ts src/mixgen worker-node"
   },
   "dependencies": {
     "@base-ui/react": "~1.6.0",

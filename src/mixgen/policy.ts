@@ -42,6 +42,16 @@ export interface PolicyContext {
   ytDlpAvailable: boolean
   /** Include Audius OML-only uploads (session-only). Mirrors the room's host toggle default. */
   allowAudiusSession: boolean
+  /**
+   * Local research mode (operator's own machine, private noncommercial research, operator's
+   * responsibility): YouTube recordings may be acquired with yt-dlp, but outputs are local-only
+   * (never persisted to cloud storage or served). Only honoured when `environment === 'local'`.
+   * Set exclusively by the local Node worker from its research flag; never by the Cloudflare
+   * app or the container worker.
+   */
+  researchYouTube?: boolean
+  /** Where this policy is evaluated. Defaults to 'cloud' (the strict policy). */
+  environment?: 'local' | 'cloud'
   now?: Date
 }
 
@@ -105,6 +115,21 @@ export function decideAccess(c: TrackCandidate, ctx: PolicyContext): AccessDecis
       }
     }
     case 'youtube': {
+      if (ctx.researchYouTube && ctx.environment === 'local' && ctx.ytDlpAvailable) {
+        return {
+          acquire: true,
+          analyze: true,
+          mix: true,
+          persistRender: false,
+          export: true,
+          exportScope: 'local',
+          cacheAudio: true,
+          attributionRequired: true,
+          method: 'yt_dlp_research',
+          reason: 'Local research mode — not for distribution',
+          policyVersion: POLICY_VERSION,
+        }
+      }
       const g = liveGrant(ctx, c)
       if (!g && c.license.basis === 'youtube-cc-by' && c.official) {
         if (!ctx.ytDlpAvailable) return DENY('CC BY video from the official channel, but this environment has no download worker.')

@@ -128,6 +128,10 @@ const MixPatch = z.object({
 })
 
 export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: ResolveAuth): void {
+  // Local research outputs are only ever served by the dev server on localhost; never in production.
+  app.all('/__research', (c) => c.text('Not found', 404))
+  app.all('/__research/*', (c) => c.text('Not found', 404))
+
   const authed = async (c: C) => {
     const auth = await resolveAuth(c.req.raw, c.env)
     if (!auth || auth.userId.startsWith('anon-')) return null

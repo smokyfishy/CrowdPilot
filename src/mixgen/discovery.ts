@@ -275,6 +275,7 @@ export function youtubeCandidate(v: YtVideo, why: string): TrackCandidate | null
     sourceId: v.id,
     title: yi.titleLabel,
     artist: yi.artistLabel,
+    rawTitle: title,
     uploader: channel,
     durationSec: dur !== undefined ? dur / 1000 : undefined,
     url: `https://www.youtube.com/watch?v=${v.id}`,

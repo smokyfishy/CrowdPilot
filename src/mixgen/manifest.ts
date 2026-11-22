@@ -81,6 +81,8 @@ export interface ManifestTransition {
 
 export interface MixManifest {
   version: number
+  /** 'research' = local-only research render (YouTube audio, not for distribution). */
+  mode?: 'standard' | 'research'
   title: string
   description: string
   createdAt: string

@@ -229,8 +229,9 @@ export function createNodeSources(env: { jamendoClientId?: string; youtubeApiKey
       return { access, formats: access.acquire ? ['bestaudio (original container)'] : [], delivery: access.acquire ? 'download' : 'none' }
     },
     async acquireAudio(t, access) {
-      // Hard gate: an explicit authorization grant (policy) AND a yt-dlp-capable environment.
-      if (!access.acquire || access.method !== 'yt_dlp_authorized') throw new AcquisitionError(access.reason, 'not_permitted')
+      // Hard gate: the central policy must allow it (operator grant / official CC BY / local research
+      // mode) AND this must be a yt-dlp-capable environment.
+      if (!access.acquire || (access.method !== 'yt_dlp_authorized' && access.method !== 'yt_dlp_research')) throw new AcquisitionError(access.reason, 'not_permitted')
       return register(...(await ytDlpAcquire(t.candidate, access)))
     },
   }
@@ -256,9 +257,33 @@ export function createNodeSources(env: { jamendoClientId?: string; youtubeApiKey
 
 // ───────────────────────── yt-dlp adapter ─────────────────────────
 
+/**
+ * Flags applied to EVERY yt-dlp call, in every mode: ignore user/system config files (which could
+ * add cookies or other options), never read or write cookies, and pace requests.
+ */
+export const YTDLP_SAFE_ARGS = ['--ignore-config', '--no-cookies', '--no-cookies-from-browser', '--sleep-requests', '1'] as const
+
+/** Rejects any argument that would supply credentials or cookies. */
+export function assertSafeYtDlpArgs(args: readonly string[]): void {
+  const bad = args.find((a) => /^--(cookies|cookies-from-browser|username|password|netrc|netrc-location|netrc-cmd|twofactor|video-password|ap-mso|ap-username|ap-password|client-certificate|load-info-json)$/.test(a.split('=')[0]))
+  if (bad) throw new Error(`refusing yt-dlp argument ${bad}: credentials/cookies are never used`)
+}
+
+// Sequential downloads with a small gap between them (normal rate limiting).
+let ytQueue: Promise<unknown> = Promise.resolve()
+const YT_GAP_MS = Number(process.env.CP_YTDLP_GAP_MS ?? 3000)
+function sequential<T>(fn: () => Promise<T>): Promise<T> {
+  const run = ytQueue.then(fn, fn)
+  const gap = () => new Promise((r) => setTimeout(r, YT_GAP_MS))
+  ytQueue = run.then(gap, gap)
+  return run
+}
+
 function runYtDlp(args: string[]): Promise<{ code: number; out: string; err: string }> {
+  const full = [...YTDLP_SAFE_ARGS, ...args]
+  assertSafeYtDlpArgs(full)
   return new Promise((resolve, reject) => {
-    const p = spawn(process.env.PYTHON ?? 'python', ['-m', 'yt_dlp', ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const p = spawn(process.env.PYTHON ?? 'python', ['-m', 'yt_dlp', ...full], { stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''
     let err = ''
     p.stdout.on('data', (d) => (out += d.toString()))
@@ -287,6 +312,7 @@ interface YtInfo {
   availability?: string
   age_limit?: number
   is_live?: boolean
+  live_status?: string
   formats?: Array<{ format_id: string; acodec?: string; vcodec?: string; abr?: number; ext?: string; has_drm?: boolean | string }>
 }
 
@@ -299,19 +325,37 @@ export function chooseAudioFormat(info: YtInfo): { format_id: string; ext: strin
   return { format_id: f.format_id, ext: f.ext ?? 'webm', abr: f.abr ?? 0, acodec: f.acodec ?? '' }
 }
 
-async function ytDlpAcquire(c: TrackCandidate, access: AccessDecision): Promise<[AcquiredAudio, string]> {
+/** Restricted-content refusals (all modes). Returns a reason, or null when the video may be acquired. */
+export function restrictionReason(info: YtInfo): string | null {
+  if (info.availability && info.availability !== 'public' && info.availability !== 'unlisted') return `video availability "${info.availability}" (private, members-only, premium or login-required content is never acquired)`
+  if ((info.age_limit ?? 0) > 0) return 'age-restricted video (requires sign-in) — not acquired'
+  if (info.is_live || info.live_status === 'is_live' || info.live_status === 'is_upcoming') return 'live or upcoming stream — not a recording'
+  return null
+}
+
+/** Classifies yt-dlp error text; access controls are never worked around. */
+export function classifyYtDlpError(msg: string): 'not_permitted' | 'unavailable' | 'network' {
+  if (/sign in|log ?in|members[- ]only|join this channel|private video|age[- ]restrict|confirm your age|not a bot|premium|purchase|rental|drm/i.test(msg)) return 'not_permitted'
+  if (/unavailable|removed|not available|does not exist|terminated|copyright/i.test(msg)) return 'unavailable'
+  return 'network'
+}
+
+function ytDlpAcquire(c: TrackCandidate, access: AccessDecision): Promise<[AcquiredAudio, string]> {
+  return sequential(() => ytDlpAcquireNow(c, access))
+}
+
+async function ytDlpAcquireNow(c: TrackCandidate, access: AccessDecision): Promise<[AcquiredAudio, string]> {
   const id = parseYouTubeId(c.sourceId) ?? parseYouTubeId(c.url ?? '')
   if (!id) throw new AcquisitionError('not a YouTube video id or URL', 'invalid_audio')
   const url = `https://www.youtube.com/watch?v=${id}`
   const meta = await runYtDlp(['--dump-single-json', '--no-playlist', '--no-warnings', url])
   if (meta.code !== 0) {
     const msg = meta.err.split('\n').find((l) => l.includes('ERROR')) ?? meta.err.slice(0, 200)
-    throw new AcquisitionError(`yt-dlp: ${msg.trim()}`, /unavailable|private|removed|not available/i.test(msg) ? 'unavailable' : 'network')
+    throw new AcquisitionError(`yt-dlp: ${msg.trim()}`, classifyYtDlpError(msg))
   }
   const info = JSON.parse(meta.out) as YtInfo
-  if (info.availability && info.availability !== 'public' && info.availability !== 'unlisted') throw new AcquisitionError(`video availability "${info.availability}" — access-restricted content is never acquired`, 'not_permitted')
-  if ((info.age_limit ?? 0) > 0) throw new AcquisitionError('age-restricted video (requires sign-in) — not acquired', 'not_permitted')
-  if (info.is_live) throw new AcquisitionError('live stream — not a recording', 'unavailable')
+  const restricted = restrictionReason(info)
+  if (restricted) throw new AcquisitionError(restricted, /live/.test(restricted) ? 'unavailable' : 'not_permitted')
   // CC-based permission must hold on the video itself, not just in search metadata.
   if (access.basis === 'official-cc-by' && !/creative commons/i.test(info.license ?? '')) throw new AcquisitionError(`video is not Creative Commons licensed (${info.license ?? 'standard licence'})`, 'not_permitted')
   const fmt = chooseAudioFormat(info)
@@ -319,7 +363,10 @@ async function ytDlpAcquire(c: TrackCandidate, access: AccessDecision): Promise<
   const outPath = join(dir('acquired', 'youtube'), `${id}.${fmt.ext}`)
   if (!existsSync(outPath)) {
     const r = await runYtDlp(['-f', fmt.format_id, '--no-playlist', '--continue', '--retries', '3', '--fragment-retries', '3', '--no-mtime', '-o', outPath, url])
-    if (r.code !== 0 || !existsSync(outPath)) throw new AcquisitionError(`yt-dlp download failed: ${r.err.split('\n').filter((l) => l.includes('ERROR')).join(' ').slice(0, 200)}`, 'network')
+    if (r.code !== 0 || !existsSync(outPath)) {
+      const msg = r.err.split(/\r?\n/).filter((l) => l.includes('ERROR')).join(' ').slice(0, 200)
+      throw new AcquisitionError(`yt-dlp download failed: ${msg}`, classifyYtDlpError(msg))
+    }
   }
   const a = await finalize(c, outPath, access, url, false)
   return [a, outPath]

@@ -33,6 +33,8 @@ export interface TrackCandidate {
   sourceId: string
   title: string
   artist: string
+  /** Original upload title as published (YouTube), before cleaning. */
+  rawTitle?: string
   /** Channel / uploader label as reported (YouTube: channel, never treated as artist). */
   uploader?: string
   durationSec?: number
@@ -69,7 +71,9 @@ export interface AccessDecision {
   cacheAudio: boolean
   attributionRequired: boolean
   /** Access method used when acquire = true. */
-  method: 'jamendo_api' | 'audius_stream' | 'yt_dlp_authorized' | 'none'
+  method: 'jamendo_api' | 'audius_stream' | 'yt_dlp_authorized' | 'yt_dlp_research' | 'none'
+  /** Where an allowed export may go: 'local' = the operator's machine only (research mode). */
+  exportScope?: 'any' | 'local'
   reason: string
   policyVersion: string
   /** Why acquisition is allowed for YouTube: an operator grant, or a CC BY licence from the official channel. */
@@ -93,6 +97,8 @@ export interface AcquiredAudio {
   acquiredAt: string
   /** Opaque storage handle (never a filesystem path in client-visible data). */
   handle: string
+  /** When a fallback upload/source was used: the trackKey actually downloaded. */
+  sourceKey?: string
 }
 
 /** A requested artist/song the pipeline could not satisfy, reported honestly. */

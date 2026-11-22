@@ -8,6 +8,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import checker from 'vite-plugin-checker'
 import { deepspaceBuild } from 'deepspace/build'
 import { prerender } from './prerender.ts'
+import { researchViewer } from './worker-node/research/vite-plugin.ts'
 
 const appDir = fileURLToPath(new URL('.', import.meta.url))
 
@@ -32,6 +33,8 @@ copyOrtRuntime()
 export default defineConfig({
   server: { watch: { ignored: ['**/public/ort/**', '**/public/models/**'] } },
   plugins: [
+    // Dev-only (apply: 'serve'), localhost-only research viewer data route; absent from builds.
+    researchViewer(),
     react(),
     generouted(),
     // The Cloudflare plugin otherwise searches for a free inspector port by

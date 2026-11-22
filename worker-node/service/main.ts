@@ -20,6 +20,7 @@ import { parseSpec } from '../../src/mixgen/spec'
 import type { TrackCandidate } from '../../src/mixgen/types'
 import { runNodeJob } from '../mixgen/host'
 import { dir, storageReport } from '../mixgen/storage'
+import { assertNotResearch } from '../mixgen/research'
 
 export interface WorkerJob {
   mixId: string
@@ -220,6 +221,7 @@ export async function runJob(job: WorkerJob): Promise<void> {
 }
 
 export async function main(): Promise<void> {
+  assertNotResearch() // research mode is local-only: the cloud worker refuses to start with the flag set
   const msg = await receive()
   if (!msg) {
     console.log('no job in queue')

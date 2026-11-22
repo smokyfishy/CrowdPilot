@@ -35,6 +35,27 @@ function beatNet(root: string) {
   return beat
 }
 
+/** Cached full analysis (Beat This! via onnxruntime-node + DSP), keyed by content hash + analyzer version. */
+export function makeAnalyzer(repoRoot: string, log: (m: string) => void = () => {}): PipelineHost['analyze'] {
+  return async (audio, pcm) => {
+    const cachePath = join(dir('analysis'), `${audio.sha256}-${ANALYZER_VERSION}-bt.json`)
+    if (existsSync(cachePath)) return fromJson<TrackAnalysis>(readFileSync(cachePath, 'utf8'))
+    const mono = resample(toMono(pcm.channels), pcm.rate, ANALYSIS_RATE)
+    let net: { beats: number[]; downbeats: number[] } | undefined
+    try {
+      const bn = await beatNet(repoRoot)
+      const r = await runBeatNet(mono, bn.bank, bn.run)
+      net = { beats: r.beats, downbeats: r.downbeats }
+    } catch (e) {
+      log(`Beat This! failed for ${audio.trackKey}: ${(e as Error).message} — DSP grid fallback`)
+    }
+    const a = analyzeTrack({ channels: pcm.channels, sampleRate: pcm.rate, analysisMono: mono, net })
+    if (net) a.flags.push('beat model: Beat This! small0 (onnxruntime-node cpu)')
+    writeFileSync(cachePath, toJson(a))
+    return a
+  }
+}
+
 export interface JobFile {
   id: string
   prompt?: string
@@ -111,23 +132,7 @@ export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<Node
     async decode(audio) {
       return decodePcm(sources.pathOf(audio), 44100)
     },
-    async analyze(audio, pcm) {
-      const cachePath = join(dir('analysis'), `${audio.sha256}-${ANALYZER_VERSION}-bt.json`)
-      if (existsSync(cachePath)) return fromJson<TrackAnalysis>(readFileSync(cachePath, 'utf8'))
-      const mono = resample(toMono(pcm.channels), pcm.rate, ANALYSIS_RATE)
-      let net: { beats: number[]; downbeats: number[] } | undefined
-      try {
-        const bn = await beatNet(o.repoRoot)
-        const r = await runBeatNet(mono, bn.bank, bn.run)
-        net = { beats: r.beats, downbeats: r.downbeats }
-      } catch (e) {
-        log(`Beat This! failed for ${audio.trackKey}: ${(e as Error).message} — DSP grid fallback`)
-      }
-      const a = analyzeTrack({ channels: pcm.channels, sampleRate: pcm.rate, analysisMono: mono, net })
-      if (net) a.flags.push('beat model: Beat This! small0 (onnxruntime-node cpu)')
-      writeFileSync(cachePath, toJson(a))
-      return a
-    },
+    analyze: makeAnalyzer(o.repoRoot, log),
     sink: {
       async write(block) {
         for (const e of encoders) await e.write(block)
