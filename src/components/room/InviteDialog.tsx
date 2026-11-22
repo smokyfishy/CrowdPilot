@@ -56,12 +56,12 @@ export function InviteDialog({ open, onOpenChange, roomName, roomId, code }: Inv
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-3xl font-normal">Invite people</DialogTitle>
           <DialogDescription>Scan the code, open the link, or type the room code at the CrowdPilot home page.</DialogDescription>
         </DialogHeader>
-        <div className="grid justify-items-center gap-5">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] justify-items-center gap-5">
           <canvas ref={canvasRef} width={220} height={220} className="rounded-lg" aria-label={`QR code for ${link}`} role="img" />
           {code && (
             <button

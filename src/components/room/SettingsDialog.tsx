@@ -37,7 +37,7 @@ export function SettingsDialog({ open, onOpenChange, room, run }: SettingsDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-3xl font-normal">Room settings</DialogTitle>
           <DialogDescription>Changes apply to everyone in the room right away.</DialogDescription>
