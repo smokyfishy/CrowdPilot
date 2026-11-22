@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
@@ -25,9 +23,10 @@ function summary(over: Partial<AnalysisSummary> = {}): AnalysisSummary {
 }
 const track = (id: string, s: Partial<AnalysisSummary> = {}): PlanTrack => ({ itemId: id, trackKey: `audius:${id}`, title: id, mixable: true, summary: summary(s), durationSec: s.durationSec ?? 360 })
 
-const FIX = join(__dirname, '__fixtures__')
-const MODELS = join(__dirname, '..', '..', 'public', 'models', 'ml')
-const load = <T>(dir: string, f: string): T | null => (existsSync(join(dir, f)) ? (JSON.parse(readFileSync(join(dir, f), 'utf8')) as T) : null)
+// Vite globs (no Node APIs, so the file typechecks under the Workers/Vite tsconfig)
+const FIX = import.meta.glob('./__fixtures__/*.json', { eager: true, import: 'default' }) as Record<string, unknown>
+const MODELS = import.meta.glob('../../public/models/ml/*.json', { eager: true, import: 'default' }) as Record<string, unknown>
+const load = <T>(dir: Record<string, unknown>, f: string): T | null => (Object.entries(dir).find(([k]) => k.endsWith('/' + f))?.[1] as T | undefined) ?? null
 
 describe('controls', () => {
   it('round-trips template automation through beat-aligned trajectories', () => {
@@ -93,7 +92,11 @@ describe('inference runtimes (parity with the Python training code)', () => {
     it(`${name}: TypeScript GBDT matches LightGBM`, () => {
       const m = load<GbdtModel>(MODELS, `${name}.json`)
       const fx = load<{ X: number[][]; y: number[] }>(FIX, `${name}.json`)
-      if (!m || !fx) return // models not exported in this checkout
+      expect(m, name).not.toBeNull()
+      expect(fx, name).not.toBeNull()
+      expect(m).not.toBeNull()
+    expect(fx).not.toBeNull()
+    if (!m || !fx) return
       fx.X.forEach((x, i) => {
         const v = name === 'mixgraph_human_cue' ? gbdtRaw(m, x)[0] : gbdtPredict(m, x)
         expect(Math.abs(v - fx.y[i])).toBeLessThan(1e-4)
@@ -103,6 +106,8 @@ describe('inference runtimes (parity with the Python training code)', () => {
   it('TransitionNet: TypeScript MLP matches PyTorch', () => {
     const m = load<MlpModel>(MODELS, 'transitionnet.json')
     const fx = load<{ X: number[][]; params: number[][]; echoSub: number[][] }>(FIX, 'transitionnet.json')
+    expect(m).not.toBeNull()
+    expect(fx).not.toBeNull()
     if (!m || !fx) return
     fx.X.forEach((x, i) => {
       const o = mlpForward(m, x)

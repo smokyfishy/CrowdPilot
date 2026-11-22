@@ -4,7 +4,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { loadDjModels, type DjModels, type MlMode } from './dj-brain'
+import { loadDjModels, type DjModels, type MlMode } from '../../src/ml/dj-brain'
 
 export function loadDjModelsFromDir(dir: string, mode: MlMode): Promise<DjModels> {
   const fsFetch = (async (url: string) => {
