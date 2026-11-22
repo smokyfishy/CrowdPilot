@@ -19,6 +19,8 @@ interface NowPlayingProps {
   /** The host's official player (desktop) slots in here. */
   player?: ReactNode
   compact?: boolean
+  /** Phone host view: the player is shown above the tabs, so skip the artwork here. */
+  hideArtwork?: boolean
 }
 
 export function ProgressBar({ playback, item }: { playback?: PlaybackState; item?: QueueItem }) {
@@ -56,7 +58,7 @@ function statusLine(playback?: PlaybackState): string | null {
   return null
 }
 
-export function NowPlaying({ item, playback, isHost, queueEmpty, busy, onPlay, onPause, onSkip, player, compact }: NowPlayingProps) {
+export function NowPlaying({ item, playback, isHost, queueEmpty, busy, onPlay, onPause, onSkip, player, compact, hideArtwork }: NowPlayingProps) {
   const playing = playback?.state === 'playing'
   const line = statusLine(playback)
 
@@ -94,9 +96,9 @@ export function NowPlaying({ item, playback, isHost, queueEmpty, busy, onPlay, o
 
   return (
     <div className="grid gap-5">
-      {player ?? (
+      {player ?? (hideArtwork ? null : (
         <Artwork src={item.thumbnailUrl} title={item.title} className={cn('w-full', compact ? 'max-w-[280px] justify-self-center' : 'max-w-[420px]')} />
-      )}
+      ))}
       <div className="min-w-0">
         <h2 className="font-display text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.02] text-foreground [overflow-wrap:anywhere]">{item.title}</h2>
         <p className="mt-2 text-muted-foreground">

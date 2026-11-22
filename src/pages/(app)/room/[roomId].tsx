@@ -183,6 +183,16 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
   if (me?.status === 'kicked') return <StateScreen title="You've left this room" body="The host removed you from this room." />
   if (room.status !== 'open') return <StateScreen title="This room has ended" body={`${room.name} is closed. Thanks for listening.`} />
 
+  // The host's player is the room's only speaker. It is created once per layout and never
+  // unmounted by tab switches (on phones it sits above the tabs, always visible).
+  const hostPlayer = isHost ? (
+    <HostPlayer
+      roomId={roomId}
+      playback={data.playback}
+      items={data.nowPlaying ? [data.nowPlaying, ...data.upNext] : data.upNext}
+      run={run}
+    />
+  ) : undefined
   const nowPlaying = (
     <NowPlaying
       item={data.nowPlaying}
@@ -194,16 +204,8 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
       onPause={onPause}
       onSkip={onSkip}
       compact={!wide}
-      player={
-        isHost ? (
-          <HostPlayer
-            roomId={roomId}
-            playback={data.playback}
-            items={data.nowPlaying ? [data.nowPlaying, ...data.upNext] : data.upNext}
-            run={run}
-          />
-        ) : undefined
-      }
+      player={wide ? hostPlayer : undefined}
+      hideArtwork={!wide && isHost}
     />
   )
   const queue = (
@@ -271,6 +273,7 @@ function RoomShell({ roomId, actor }: { roomId: string; actor: Actor }) {
 
       ) : (
       <div className="px-[max(16px,env(safe-area-inset-left))] py-4">
+        {hostPlayer && <div className="mb-5">{hostPlayer}</div>}
         {tab === 'room' && (
           <div className="relative grid gap-6">
             {nowPlaying}
