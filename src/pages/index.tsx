@@ -49,9 +49,14 @@ export default function Landing() {
       <div data-testid="static-landing" className="mx-auto flex min-h-screen max-w-6xl flex-col px-[max(16px,env(safe-area-inset-left))] pb-16">
         <header className="flex h-16 items-center justify-between">
           <Logo />
-          <Link to="/home" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Your rooms
-          </Link>
+          <nav className="flex items-center gap-5">
+            <Link to="/mix" className="text-sm font-semibold text-foreground transition-colors hover:text-primary">
+              Generate AI Mix
+            </Link>
+            <Link to="/home" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Your rooms
+            </Link>
+          </nav>
         </header>
 
         <main className="grid flex-1 items-center gap-12 py-10 md:grid-cols-[1.15fr_1fr] md:py-16">
@@ -97,6 +102,24 @@ export default function Landing() {
           </div>
           <SleeveStack />
         </main>
+
+        <section aria-labelledby="ai-mix" className="mb-12 grid gap-4 rounded-2xl border border-primary/40 bg-card p-6 sm:p-8 md:grid-cols-[1.4fr_auto] md:items-center">
+          <div>
+            <h2 id="ai-mix" className="font-display text-[clamp(1.9rem,4vw,2.75rem)] leading-none text-foreground">
+              Describe your dream DJ set. CrowdPilot creates it.
+            </h2>
+            <p className="mt-3 max-w-[60ch] text-muted-foreground">
+              Type the mix you want — genre, length, energy, transitions. CrowdPilot finds licensed tracks, analyzes beats, keys and
+              phrases, and renders one continuous mix with real beat-matched blends you can play, explore and download.
+            </p>
+          </div>
+          <Link
+            to="/mix"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-primary px-7 text-[0.95rem] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Generate AI Mix
+          </Link>
+        </section>
 
         <section aria-labelledby="how" className="border-t border-border pt-10">
           <h2 id="how" className="font-display text-3xl text-foreground">

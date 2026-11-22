@@ -7,7 +7,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
-    include: ['src/domain/**/*.test.ts', 'src/dsp/**/*.test.ts', 'src/dj/**/*.test.ts', 'src/providers/**/*.test.ts', 'src/server/**/*.test.ts', 'src/schemas/**/*.test.ts', 'src/client/**/*.test.ts', 'src/components/**/*.test.ts'],
+    include: ['src/domain/**/*.test.ts', 'src/dsp/**/*.test.ts', 'src/dj/**/*.test.ts', 'src/providers/**/*.test.ts', 'src/server/**/*.test.ts', 'src/schemas/**/*.test.ts', 'src/client/**/*.test.ts', 'src/components/**/*.test.ts', 'src/mixgen/**/*.test.ts'],
     environment: 'node',
   },
 })

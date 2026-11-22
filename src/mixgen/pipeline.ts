@@ -1,0 +1,276 @@
+/**
+ * Prompt-to-mix orchestrator. Environment-neutral: the host supplies I/O (acquisition,
+ * decoding, analysis, render sink, cache) and the pipeline runs the same stages in the
+ * browser render worker (deployed) and the Node research worker (local + E2E tests).
+ *
+ * Progress events count REAL completed units (queries, acquisitions, analyses, rendered
+ * tracks); nothing is estimated or animated.
+ */
+import { summarize, type TrackAnalysis } from '../dsp/analyze'
+import { describeEnergy, energyScores, type EnergyDescriptor } from './energy'
+import { decideAccess, mixPermissions, type PolicyContext } from './policy'
+import { discover, relevant, type DiscoveryProvider } from './discovery'
+import { orderSet, preselect, type OrderTrack, type ScoredCandidate } from './select'
+import { planMix, type MixPlan, type PlannedTrack } from './mixplan'
+import { renderMix, type AudioSink, type PcmTrack, type RenderResult } from './mix-render'
+import { beatmatchable } from '../dj/transitions'
+import { buildManifest, type MixManifest } from './manifest'
+import { validateMix, type ValidationReport } from './validate'
+import { resolveSpec, type MixSpec, type ResolvedSpec } from './spec'
+import type { AccessDecision, AcquiredAudio, ProgressEvent, TrackCandidate, Unavailability } from './types'
+
+export class AcquisitionError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'unavailable' | 'not_permitted' | 'network' | 'invalid_audio' | 'integrity',
+  ) {
+    super(message)
+  }
+}
+
+export interface PipelineHost {
+  providers: DiscoveryProvider[]
+  policy: PolicyContext
+  /** Acquire original audio (or return the cached copy). Must throw AcquisitionError on failure — never fake. */
+  acquire(c: TrackCandidate, access: AccessDecision, attempt: number): Promise<AcquiredAudio>
+  /** Decode to PCM at the mix rate (44.1 kHz stereo float). */
+  decode(audio: AcquiredAudio): Promise<PcmTrack>
+  /** Full analysis (cached by content hash + analyzer version when the host can). */
+  analyze(audio: AcquiredAudio, pcm: PcmTrack): Promise<TrackAnalysis>
+  sink: AudioSink
+  /** Optional render override (browser: runs renderMix inside a Web Worker). */
+  render?(plan: MixPlan, load: (key: string) => Promise<PcmTrack>, onProgress: (done: number, total: number, detail: string) => void): Promise<RenderResult>
+  progress(ev: ProgressEvent): void
+  log?(msg: string): void
+  signal?: AbortSignal
+  /** Reuse prior stage outputs (regeneration / resume). */
+  previous?: { pool?: TrackCandidate[]; analyses?: Map<string, AnalyzedEntry> }
+  concurrency?: number
+}
+
+export interface AnalyzedEntry {
+  candidate: TrackCandidate
+  access: AccessDecision
+  audio: AcquiredAudio
+  analysis: TrackAnalysis
+  energy: EnergyDescriptor
+}
+
+export interface PipelineResult {
+  spec: ResolvedSpec
+  pool: TrackCandidate[]
+  acquisition: Array<{ trackKey: string; title: string; artist: string; source: string; status: string; reason: string }>
+  analyses: Map<string, AnalyzedEntry>
+  order: string[]
+  plan: MixPlan
+  render: RenderResult
+  manifest: MixManifest
+  validation: ValidationReport
+  unavailable: Unavailability[]
+}
+
+export const TARGET_LUFS = -12
+
+export function trimFor(lufs: number, truePeakDb: number): number {
+  if (!Number.isFinite(lufs) || lufs < -60) return 0
+  // Loudness match, but never push more than ~4 dB into the master limiter.
+  return Math.round(Math.min(TARGET_LUFS - lufs, -1 - truePeakDb + 4, 12) * 10) / 10
+}
+
+async function pool<T, R>(items: T[], n: number, fn: (t: T, i: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(n, items.length)) }, async () => {
+      while (next < items.length) {
+        const i = next++
+        out[i] = await fn(items[i], i)
+      }
+    }),
+  )
+  return out
+}
+
+export interface RunOptions {
+  /** Keep this fixed order of track keys (user edits / no reordering). */
+  fixedOrder?: string[]
+  /** Track keys the user removed or asked to replace (excluded from selection). */
+  exclude?: string[]
+  /** Track keys that must be included (user pinned). */
+  include?: string[]
+  /** Stop after planning (review step) without rendering. */
+  planOnly?: boolean
+  title?: string
+}
+
+export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: RunOptions = {}): Promise<PipelineResult | { planOnly: true; spec: ResolvedSpec; order: string[]; plan: MixPlan; analyses: Map<string, AnalyzedEntry>; acquisition: PipelineResult['acquisition']; unavailable: Unavailability[]; pool: TrackCandidate[] }> {
+  const log = host.log ?? (() => {})
+  const spec = resolveSpec(rawSpec)
+  host.progress({ stage: 'understanding', done: 1, total: 1, detail: spec.title })
+
+  // ── 2. discovery ──
+  let pool0 = host.previous?.pool
+  if (!pool0) {
+    const res = await discover(spec, host.providers, { signal: host.signal, onQuery: (d, t) => host.progress({ stage: 'discovering', done: d, total: t }) })
+    pool0 = res.pool.filter((c) => relevant(spec, c))
+    log(`discovery: ${res.queries} queries → ${res.pool.length} recordings (${JSON.stringify(res.bySource)}), ${res.crossResolved.length} YouTube→authorized matches`)
+  } else host.progress({ stage: 'discovering', done: 1, total: 1, detail: 'reused candidate pool' })
+  const excluded = new Set(opts.exclude ?? [])
+  const candPool = pool0.filter((c) => !excluded.has(c.trackKey))
+
+  // ── 3. resolving: central access policy ──
+  const access = new Map<string, AccessDecision>()
+  candPool.forEach((c, i) => {
+    access.set(c.trackKey, decideAccess(c, host.policy))
+    if (i % 10 === 0 || i === candPool.length - 1) host.progress({ stage: 'resolving', done: i + 1, total: candPool.length })
+  })
+  const mixable = (c: TrackCandidate) => !!access.get(c.trackKey)?.mix && (c.durationSec ?? 200) >= 90
+  const pre = preselect(spec, candPool, mixable, 0.75)
+  log(`resolving: ${candPool.filter(mixable).length}/${candPool.length} mixable under policy; acquiring ${pre.toAcquire.length}`)
+  // Pinned includes first.
+  const include = new Set(opts.include ?? [])
+  const queue: ScoredCandidate[] = [...pre.ranked.filter((s) => include.has(s.candidate.trackKey)), ...pre.toAcquire.filter((s) => !include.has(s.candidate.trackKey))]
+  const reserve = pre.ranked.filter((s) => !queue.includes(s))
+
+  // ── 4+5. acquisition and analysis ──
+  const analyses = new Map<string, AnalyzedEntry>(host.previous?.analyses ?? [])
+  const acquisition: PipelineResult['acquisition'] = []
+  const want = Math.min(pre.ranked.length, Math.ceil(spec.songCount * 1.5))
+  const maxAcquire = Math.ceil(spec.songCount * 2.5)
+  let acquiredCount = 0
+  let analyzedCount = 0
+  const total = () => Math.max(queue.length, want)
+  const work = async (s: ScoredCandidate) => {
+    const c = s.candidate
+    const a = access.get(c.trackKey)!
+    const prior = analyses.get(c.trackKey)
+    if (prior) {
+      acquisition.push({ trackKey: c.trackKey, title: c.title, artist: c.artist, source: c.source, status: 'cached', reason: 'reused from cache' })
+      acquiredCount++
+      analyzedCount++
+      host.progress({ stage: 'acquiring', done: acquiredCount, total: total() })
+      host.progress({ stage: 'analyzing', done: analyzedCount, total: total() })
+      return
+    }
+    let audio: AcquiredAudio | null = null
+    let lastErr: AcquisitionError | Error | null = null
+    for (let attempt = 1; attempt <= 3 && !audio; attempt++) {
+      try {
+        audio = await host.acquire(c, a, attempt)
+      } catch (e) {
+        lastErr = e as Error
+        if (e instanceof AcquisitionError && (e.code === 'not_permitted' || e.code === 'unavailable' || e.code === 'invalid_audio')) break
+      }
+    }
+    if (!audio) {
+      const code = lastErr instanceof AcquisitionError ? lastErr.code : 'network'
+      acquisition.push({ trackKey: c.trackKey, title: c.title, artist: c.artist, source: c.source, status: code === 'not_permitted' ? 'not_permitted' : code === 'unavailable' ? 'unavailable' : 'failed', reason: lastErr?.message ?? 'unknown' })
+      log(`acquire FAILED ${c.trackKey}: ${lastErr?.message}`)
+      return
+    }
+    acquiredCount++
+    acquisition.push({ trackKey: c.trackKey, title: c.title, artist: c.artist, source: c.source, status: 'acquired', reason: `${audio.container}${audio.codec ? '/' + audio.codec : ''}, ${(audio.bytes / 1e6).toFixed(1)} MB, sha256 ${audio.sha256.slice(0, 12)}` })
+    host.progress({ stage: 'acquiring', done: acquiredCount, total: total(), detail: c.title })
+    try {
+      const pcm = await host.decode(audio)
+      const analysis = await host.analyze(audio, pcm)
+      if (analysis.qc.mostlySilent || analysis.qc.durationSec < 60) throw new Error(`audio QC failed: ${analysis.qc.issues.join(', ') || 'too short'}`)
+      analyses.set(c.trackKey, { candidate: c, access: a, audio, analysis, energy: describeEnergy(analysis) })
+      analyzedCount++
+      host.progress({ stage: 'analyzing', done: analyzedCount, total: total(), detail: `${c.title}: ${analysis.grid.bpm.toFixed(1)} BPM ${analysis.key.camelot}` })
+    } catch (e) {
+      const row = acquisition.find((r) => r.trackKey === c.trackKey)!
+      row.status = 'failed'
+      row.reason = `invalid audio: ${(e as Error).message}`
+      log(`analysis FAILED ${c.trackKey}: ${(e as Error).message}`)
+    }
+  }
+  await pool(queue, host.concurrency ?? 2, work)
+  // Top up from the reserve when acquisitions or analyses failed.
+  // …and until enough tracks have reliable beat grids for beat-matched blends.
+  const gridOkCount = () => [...analyses.values()].filter((e) => beatmatchable(summarize(e.analysis))).length
+  while ((analyses.size < want || gridOkCount() < spec.songCount) && reserve.length && queue.length < maxAcquire) {
+    const need = Math.max(1, want - analyses.size, spec.songCount - gridOkCount())
+    const batch = reserve.splice(0, Math.min(reserve.length, need, maxAcquire - queue.length))
+    queue.push(...batch)
+    await pool(batch, host.concurrency ?? 2, work)
+  }
+  const usable = [...analyses.values()].filter((e) => !excluded.has(e.candidate.trackKey))
+  if (usable.length < 2) throw new Error(`Only ${usable.length} recording(s) could be acquired and analyzed — not enough for a mix. ${acquisition.filter((a) => a.status !== 'acquired').map((a) => `${a.title}: ${a.reason}`).join('; ')}`)
+
+  // ── 6+7. selection and ordering ──
+  host.progress({ stage: 'selecting', done: 0, total: 1 })
+  const scores = energyScores(usable.map((e) => e.energy))
+  const prefBy = new Map(pre.ranked.map((s) => [s.candidate.trackKey, s.score]))
+  const maxPref = Math.max(1, ...usable.map((e) => prefBy.get(e.candidate.trackKey) ?? 0))
+  const orderTracks: OrderTrack[] = usable.map((e, i) => {
+    const s = summarize(e.analysis)
+    const base = (prefBy.get(e.candidate.trackKey) ?? 0) / maxPref
+    return {
+      key: e.candidate.trackKey,
+      pref: 2.0 * base + (include.has(e.candidate.trackKey) ? 50 : 0),
+      bpm: s.bpm,
+      bpmConf: s.bpmConf,
+      camelot: s.camelot,
+      keyConf: s.keyConf,
+      energy: scores[i],
+      dropStrength: e.energy.dropStrength,
+      vocal: (s.vocalIn + s.vocalOut) / 2,
+      artist: e.candidate.identity.artist,
+      durationSec: s.durationSec,
+      gridOk: beatmatchable(s),
+    }
+  })
+  const count = Math.min(spec.songCount, orderTracks.length)
+  host.progress({ stage: 'selecting', done: 1, total: 1, detail: `${count} of ${orderTracks.length} analyzed recordings` })
+  const fixed = opts.fixedOrder ?? (!spec.allowReordering && spec.songs.length ? undefined : undefined)
+  const ord = orderSet(orderTracks, spec, { count, fixedOrder: fixed })
+  host.progress({ stage: 'ordering', done: 1, total: 1, detail: `beam search explored ${ord.explored} states` })
+  log(`ordering: cost ${ord.cost.toFixed(2)} parts ${JSON.stringify(ord.parts)}`)
+
+  // ── 8. transitions + duration ──
+  const planned: PlannedTrack[] = ord.order.map((k) => {
+    const e = analyses.get(k)!
+    const s = summarize(e.analysis)
+    return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp) }
+  })
+  const plan = planMix(planned, spec)
+  host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, planned.length - 1), detail: plan.transitions.map((t) => t.plan.style).join(', ') })
+  for (const n of plan.notes) log(`plan: ${n}`)
+
+  // Unavailability, including substitution notes.
+  const unavailable = pre.unavailable.map((u) => (spec.allowSubstitutions ? { ...u, substitutedWith: ord.order.slice(0, 3).map((k) => analyses.get(k)!.candidate.artist) } : u))
+  if (opts.planOnly) return { planOnly: true, spec, order: ord.order, plan, analyses, acquisition, unavailable, pool: pool0 }
+
+  // ── 9. render ──
+  const loaded = new Map<string, PcmTrack>()
+  const onRender = (d: number, t: number, detail: string) => host.progress({ stage: 'rendering', done: d, total: t, detail })
+  const render = host.render
+    ? await host.render(plan, (key) => host.decode(analyses.get(key)!.audio), onRender)
+    : await renderMix(
+    plan,
+    {
+      async load(key) {
+        const hit = loaded.get(key)
+        if (hit) return hit
+        const pcm = await host.decode(analyses.get(key)!.audio)
+        loaded.set(key, pcm)
+        return pcm
+      },
+      release(key) {
+        loaded.delete(key)
+      },
+    },
+    host.sink,
+    onRender,
+  )
+
+  // ── 10. validate ──
+  const perms = mixPermissions(ord.order.map((k) => analyses.get(k)!.access))
+  const manifest = buildManifest({ spec, plan, render, analyses, order: ord.order, unavailable, permissions: perms, acquisition, title: opts.title })
+  const validation = validateMix(manifest, render)
+  host.progress({ stage: 'validating', done: 1, total: 1, detail: validation.ok ? 'passed' : validation.failures.join('; ') })
+  manifest.validation = validation
+  host.progress({ stage: 'ready', done: 1, total: 1 })
+  return { spec, pool: pool0, acquisition, analyses, order: ord.order, plan, render, manifest, validation, unavailable }
+}

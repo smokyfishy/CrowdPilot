@@ -22,9 +22,10 @@ import { reactionsSchema } from './schemas/reactions-schema'
 import { commandReceiptsSchema } from './schemas/command-receipts-schema'
 import { djStateSchema } from './schemas/dj-state-schema'
 import { trackFeaturesSchema } from './schemas/track-features-schema'
+import { mixesSchema } from './schemas/mixes-schema'
 
 /** Collections that live in the app scope (`app:<APP_ID>`). */
-export const appSchemas: CollectionSchema[] = [usersSchema, settingsSchema, roomsSchema]
+export const appSchemas: CollectionSchema[] = [usersSchema, settingsSchema, roomsSchema, mixesSchema]
 
 /** Collections that live in each room's scope (`room:<roomId>`). */
 export const roomSchemas: CollectionSchema[] = [
@@ -55,4 +56,5 @@ export const schemas: CollectionSchema[] = [
   commandReceiptsSchema,
   djStateSchema,
   trackFeaturesSchema,
+  mixesSchema,
 ]

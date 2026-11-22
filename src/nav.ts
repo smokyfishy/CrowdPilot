@@ -12,6 +12,7 @@ export interface NavItem {
 }
 
 export const nav: NavItem[] = [
+  { path: '/mix', label: 'Generate AI Mix' },
   { path: '/home', label: 'Your rooms' },
   { path: '/api-status', label: 'API status', devOnly: true },
 ]

@@ -6,7 +6,7 @@
  * interpolator, evaluated around the loudest sample blocks.
  */
 
-interface Biquad {
+export interface Biquad {
   b0: number
   b1: number
   b2: number
@@ -16,7 +16,7 @@ interface Biquad {
 
 // Brecht De Man's parameterisation (as used by pyloudnorm); reproduces the ITU 48 kHz
 // reference coefficients exactly and generalises to other sample rates.
-function highShelf(rate: number, fc = 1681.974450955533, gainDb = 3.999843853973347, q = 0.7071752369554196): Biquad {
+export function highShelf(rate: number, fc = 1681.974450955533, gainDb = 3.999843853973347, q = 0.7071752369554196): Biquad {
   const K = Math.tan((Math.PI * fc) / rate)
   const Vh = 10 ** (gainDb / 20)
   const Vb = Vh ** 0.4996667741545416
@@ -30,7 +30,7 @@ function highShelf(rate: number, fc = 1681.974450955533, gainDb = 3.999843853973
   }
 }
 
-function highPass(rate: number, fc = 38.13547087602444, q = 0.5003270373238773): Biquad {
+export function highPass(rate: number, fc = 38.13547087602444, q = 0.5003270373238773): Biquad {
   const K = Math.tan((Math.PI * fc) / rate)
   const a0 = 1 + K / q + K * K
   return { b0: 1, b1: -2, b2: 1, a1: (2 * (K * K - 1)) / a0, a2: (1 - K / q + K * K) / a0 }
