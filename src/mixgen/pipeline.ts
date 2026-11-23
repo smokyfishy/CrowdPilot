@@ -372,6 +372,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     proTrace = res.trace
     if (ml) {
       ml.trace.decisions.push(...proDjDecisions(res.trace))
+      ml.trace.models = ml.trace.models.map((x) => ({ ...x })) // per-run copy (the runtime is shared by the review and render passes)
       // honesty: a model is "used" only if it actually produced candidates that were rendered and measured
       const mu = res.trace.closedLoop?.modelUse
       const mark = (name: string, used: boolean, why: string) => {
@@ -385,6 +386,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       mark('mixgraph_human_cue', (mu?.humanCue.rendered ?? 0) > 0, 'no pair offered a distinct human-prior slot')
       // the two signal models outside the learned-DJ registry, with their real usage in this mix
       const beatnet = usable.filter((e) => e.analysis.grid.source === 'beatnet').length
+      ml.trace.models = ml.trace.models.filter((x) => x.name !== 'beat_this_small0' && x.name !== 'demucs_htdemucs').map((x) => ({ ...x }))
       ml.trace.models.unshift({ name: 'beat_this_small0', kind: 'Beat This! (CNN beat/downbeat tracker, ONNX)', loaded: beatnet > 0, used: beatnet > 0, version: 'small0' })
       const stemTracks = [...stemInfo.values()]
       ml.trace.models.push({ name: 'demucs_htdemucs', kind: 'Demucs htdemucs 4-stem separation (stem service / local worker)', loaded: !!host.stems, used: stemTracks.length > 0, version: 'htdemucs' })

@@ -216,7 +216,7 @@ export class BrowserMixJob {
     // The render pass keeps the user-approved order, so the ordering decision made during the
     // prepare pass is carried over into the final trace.
     const carried = this.orderingDecisions
-    const ml: MlRuntime = { ...base, trace: { ...base.trace, decisions: [...carried.decisions], counts: { ...carried.counts }, timingsMs: { load: base.trace.timingsMs.load ?? 0, ...carried.timings }, fallbacks: [...base.trace.fallbacks] } }
+    const ml: MlRuntime = { ...base, trace: { ...base.trace, models: base.trace.models.map((m) => ({ ...m })), decisions: [...carried.decisions], counts: { ...carried.counts }, timingsMs: { load: base.trace.timingsMs.load ?? 0, ...carried.timings }, fallbacks: [...base.trace.fallbacks] } }
     this.lastMl = ml
     return {
       ml,
