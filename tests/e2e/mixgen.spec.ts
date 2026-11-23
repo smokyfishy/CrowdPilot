@@ -112,7 +112,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(page.getByTestId('transition-inspector')).toContainText('Overlap')
   // Learned-DJ diagnostics come from the manifest's inference trace.
   const diag = page.getByTestId('ml-diagnostics')
-  await diag.locator('summary').click()
+  await diag.locator(':scope > summary').click()
   for (const model of ['mixgraph_quality', 'transitionnet', 'critic_quality']) {
     await expect(diag.getByRole('row').filter({ hasText: model }).getByText('used', { exact: true })).toBeVisible()
   }
