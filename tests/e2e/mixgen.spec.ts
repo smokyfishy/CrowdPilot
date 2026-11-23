@@ -93,7 +93,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(diag).toContainText('mixgraph_quality')
   await expect(diag).toContainText('critic_quality')
   await expect(diag.getByText('used', { exact: true }).first()).toBeVisible()
-  await expect(diag).toContainText('Critic selection')
+  await expect(diag).toContainText('Transition ranking')
   await expect(diag).toContainText('Track order')
   await page.screenshot({ path: 'test-results/mixgen-player.png', fullPage: true })
   console.log('console warnings/errors:', logs.slice(0, 20).join('\n'))
