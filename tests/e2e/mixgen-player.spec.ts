@@ -20,8 +20,12 @@ test('stored mix plays, seeks and navigates', async ({ users }) => {
     })
   await expect.poll(async () => (await state())?.ready ?? 0, { timeout: 120_000 }).toBeGreaterThanOrEqual(1)
   console.log('audio state', JSON.stringify(await state()))
+  const performance = page.getByRole('region', { name: 'AI DJ performance' })
+  await expect(performance).toBeVisible()
+  await expect(page.getByRole('slider', { name: /Mix timeline/ })).toBeVisible()
   await page.getByTestId('mix-play').click()
   await expect.poll(async () => (await state())?.t ?? 0, { timeout: 60_000 }).toBeGreaterThan(1)
+  await expect(performance.locator('[data-k$=".jog"][data-playing="1"]').first()).toBeVisible()
   await page.getByTestId('track-seek-5').click()
   await expect.poll(async () => (await state())?.t ?? 0, { timeout: 30_000 }).toBeGreaterThan(60)
   const t = (await state())!.t

@@ -61,8 +61,10 @@ test('describe → generate → listen: a real continuous mix in the browser', a
 
   // Player: waveform canvas, tracklist, timeline.
   await expect(page.getByTestId('mix-play')).toBeVisible({ timeout: 20 * 60_000 })
-  await expect(page.getByRole('slider', { name: /Mix waveform/ })).toBeVisible()
+  await expect(page.getByRole('slider', { name: /Mix timeline/ })).toBeVisible()
   await expect(page.locator('[data-testid^="track-seek-"]')).toHaveCount(12)
+  await expect(page.getByRole('region', { name: 'AI DJ performance' })).toBeVisible()
+  await page.getByText('Audio checks, licences and downloads', { exact: true }).click()
   await expect(page.getByText('continuous audio (no silence > 1 s)')).toBeVisible()
 
   // Playback actually advances, seeking and track navigation move the playhead.

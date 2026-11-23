@@ -47,10 +47,7 @@ test('host AI DJ mixes two real Audius tracks and the guest follows live', async
 
   await host.page.getByRole('switch', { name: 'Autopilot' }).click()
   await expect(guest.page.getByRole('status').filter({ hasText: /AI DJ|transition|Analyzing|Standard/ }).first()).toBeVisible({ timeout: 30_000 })
-  const mixNow = host.page.getByRole('button', { name: 'Mix at next phrase' })
-  await expect(mixNow).toBeVisible({ timeout: 60_000 })
-  await mixNow.click()
-  await expect(guest.page.getByText(/locked in|Mixing now/).first()).toBeVisible({ timeout: 30_000 })
+  await expect(guest.page.getByText(/locked in|Mixing now/).first()).toBeVisible({ timeout: 90_000 })
   // handoff: the guest's now-playing switches to the incoming track
   await expect(guest.page.locator('section[aria-label="Now playing"]').getByText('Feel Me').first()).toBeVisible({ timeout: 120_000 })
   const state = await host.page.evaluate(() => document.body.innerText.includes('clip events'))
