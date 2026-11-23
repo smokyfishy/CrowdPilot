@@ -32,7 +32,7 @@ export default function ResearchViewer() {
   }, [job])
   if (!import.meta.env.DEV) return <div className="mx-auto max-w-3xl p-10 text-muted-foreground">Not found.</div>
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8">
+    <div className="mx-auto grid w-full min-w-0 max-w-5xl grid-cols-[minmax(0,1fr)] gap-6 [overflow-wrap:anywhere] px-4 py-8">
       <title>{`Research ${job} · CrowdPilot (local)`}</title>
       <div className="rounded-xl border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-200" role="note">
         <strong>Research mode — local only, not for distribution.</strong> Audio was acquired from YouTube for private, noncommercial research on this machine. Nothing here is uploaded or served by crowdpilot.app.space.

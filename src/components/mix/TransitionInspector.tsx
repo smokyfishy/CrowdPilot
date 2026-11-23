@@ -34,8 +34,8 @@ export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransit
     ['Beat alignment', `splice refined ${t.beatAlignment.spliceLagMs} ms (correlation ${t.beatAlignment.spliceCorrelation}); beat-grid confidence ${t.beatAlignment.outBpmConf} → ${t.beatAlignment.inBpmConf}; downbeat ${t.beatAlignment.outDownbeatConf} → ${t.beatAlignment.inDownbeatConf}`],
   ]
   return (
-    <section aria-label="Transition details" className="grid gap-4 rounded-xl border border-primary/40 bg-card p-4" data-testid="transition-inspector">
-      <div className="flex items-start justify-between gap-3">
+    <section aria-label="Transition details" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl border border-primary/40 bg-card p-4" data-testid="transition-inspector">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.14em] text-primary">Transition {t.index + 1}</p>
           <h3 className="font-semibold text-foreground">

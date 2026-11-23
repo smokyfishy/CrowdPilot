@@ -6,6 +6,7 @@
  * zoom; only the playhead moves per frame (via `setPlayhead`).
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { ZoomIn, ZoomOut } from 'lucide-react'
 import type { MixManifest } from '@/mixgen/manifest'
 import type { PerformanceEvaluator } from '@/mixgen/performance'
 import { fmtTime } from './mapping'
@@ -14,10 +15,14 @@ export interface TimelineHandle {
   setPlayhead(t: number): void
 }
 
-const H = 132
-const LANE_A = 10
-const LANE_B = 24
-const WAVE_TOP = 40
+const H = 156
+const LANE_A = 12
+const LANE_B = 30
+const WAVE_TOP = 52
+const DECK_A = '#92c9bd'
+const DECK_B = '#bbacd7'
+const OVERLAP = '#e8b04a'
+const DROP = '#f08074'
 
 /** Mix times where each track's drops actually play (found on the evaluated deck positions). */
 function dropTimes(ev: PerformanceEvaluator): Array<{ t: number; track: number }> {
@@ -56,7 +61,7 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
   useEffect(() => {
     const el = wrap.current
     if (!el) return
-    const ro = new ResizeObserver(() => setWidth(Math.max(280, el.clientWidth)))
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -94,9 +99,9 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
       const b = x(tout ? tout.mixStartSec + tout.durationSec : perf.durationSec)
       if (b < 0 || a > width) return
       const y = tr.deck === 'A' ? LANE_A : LANE_B
-      g.fillStyle = tr.deck === 'A' ? 'rgba(236,230,220,0.55)' : 'rgba(163,155,143,0.55)'
+      g.fillStyle = tr.deck === 'A' ? DECK_A : DECK_B
       g.beginPath()
-      g.roundRect(a, y, Math.max(2, b - a - 1), 9, 3)
+      g.roundRect(a, y, Math.max(2, b - a - 2), 12, 4)
       g.fill()
       if (b - a > 60) {
         g.fillStyle = '#151413'
@@ -104,9 +109,9 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
         const label = `${i + 1}  ${tr.title}`
         g.save()
         g.beginPath()
-        g.rect(a + 4, y, b - a - 8, 9)
+        g.rect(a + 4, y, b - a - 8, 12)
         g.clip()
-        g.fillText(label, a + 5, y + 7.5)
+        g.fillText(label, a + 5, y + 9)
         g.restore()
       }
     })
@@ -117,7 +122,7 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
       const a = x(tt.mixStartSec)
       const b = x(tt.mixStartSec + tt.durationSec)
       if (b < 0 || a > width) continue
-      g.fillStyle = 'rgba(232,176,74,0.10)'
+      g.fillStyle = '#e8b04a22'
       g.fillRect(a, WAVE_TOP - 4, Math.max(2, b - a), H - WAVE_TOP + 4)
     }
     // rendered waveform
@@ -125,6 +130,12 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
     const per = w.secPerBucket
     const mid = WAVE_TOP + (H - WAVE_TOP - 18) / 2
     const amp = (H - WAVE_TOP - 18) / 2
+    g.fillStyle = '#ffffff13'
+    g.fillRect(0, Math.round(mid), width, 1)
+    const wavePaint = g.createLinearGradient(0, WAVE_TOP, 0, H - 18)
+    wavePaint.addColorStop(0, '#c2b196')
+    wavePaint.addColorStop(0.5, '#eee1c9')
+    wavePaint.addColorStop(1, '#8d7f6c')
     for (let px = 0; px < width; px++) {
       const ta = view.start + (px / width) * span
       const tb = view.start + ((px + 1) / width) * span
@@ -134,7 +145,7 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
         if (w.min[k] < lo) lo = w.min[k]
         if (w.max[k] > hi) hi = w.max[k]
       }
-      g.fillStyle = 'rgba(163,155,143,0.75)'
+      g.fillStyle = wavePaint
       const y0 = mid - (hi / 127) * amp
       const y1 = mid - (lo / 127) * amp
       g.fillRect(px, y0, 1, Math.max(1, y1 - y0))
@@ -165,7 +176,7 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
     for (const tt of perf.transitions) {
       const a = x(tt.mixStartSec)
       if (a < -100 || a > width + 10) continue
-      g.fillStyle = '#e8b04a'
+      g.fillStyle = OVERLAP
       g.fillRect(Math.round(a), WAVE_TOP - 4, 1, H - WAVE_TOP - 14)
       g.beginPath()
       g.moveTo(a - 4, WAVE_TOP - 4)
@@ -184,9 +195,14 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
     for (const d of drops) {
       const a = x(d.t)
       if (a < 0 || a > width) continue
-      g.fillStyle = '#e5604d'
+      g.fillStyle = DROP
+      const y = mid + amp + 6
       g.beginPath()
-      g.arc(a, mid + amp + 6, 2.5, 0, Math.PI * 2)
+      g.moveTo(a, y - 3)
+      g.lineTo(a + 3, y)
+      g.lineTo(a, y + 3)
+      g.lineTo(a - 3, y)
+      g.closePath()
       g.fill()
     }
   }, [m, ev, width, view.start, view.end, span, zoom, drops])
@@ -200,28 +216,38 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
   )
 
   return (
-    <div className="grid gap-2">
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2 w-4 rounded-sm bg-[rgba(236,230,220,0.55)]" />Deck A</span>
-          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2 w-4 rounded-sm bg-[rgba(163,155,143,0.55)]" />Deck B</span>
-          <span className="hidden items-center gap-1.5 sm:inline-flex"><i className="inline-block h-2 w-4 rounded-sm bg-[rgba(232,176,74,0.35)]" />Overlap</span>
-          <span className="hidden items-center gap-1.5 sm:inline-flex"><i className="inline-block size-2 rounded-full bg-[#e5604d]" />Drop</span>
-        </div>
+    <section aria-label="Waveform and deck timeline" className="grid min-w-0 gap-3 rounded-2xl border border-border bg-card p-2.5 sm:p-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <ul aria-label="Timeline legend" className="flex min-w-0 flex-wrap gap-1.5 text-[11px] text-foreground sm:text-xs">
+          {[
+            ['Deck A', DECK_A],
+            ['Deck B', DECK_B],
+            ['Overlap', OVERLAP],
+            ['Drop', DROP],
+          ].map(([label, color]) => (
+            <li key={label} className="inline-flex items-center gap-1.5 rounded-full bg-background/70 px-2 py-1 sm:px-2.5">
+              <span aria-hidden className={label === 'Drop' ? 'size-1.5 rotate-45 rounded-[1px]' : 'h-1.5 w-2.5 rounded-full'} style={{ backgroundColor: color }} />
+              {label}
+            </li>
+          ))}
+        </ul>
         <button
           type="button"
-          className="rounded-full px-3 py-1 text-foreground hover:bg-accent"
+          aria-pressed={!!zoom}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-background/70 px-2.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
           onClick={() => {
             const t = timeRef.current
-            setZoom(zoom ? null : { start: Math.max(0, t - 15), end: Math.min(m.durationSec, Math.max(0, t - 15) + 60) })
+            const start = Math.max(0, Math.min(t - 15, m.durationSec - 60))
+            setZoom(zoom ? null : { start, end: Math.min(m.durationSec, start + 60) })
           }}
         >
+          {zoom ? <ZoomOut aria-hidden className="size-3.5" /> : <ZoomIn aria-hidden className="size-3.5" />}
           {zoom ? 'Show whole mix' : 'Zoom in'}
         </button>
       </div>
       <div
         ref={wrap}
-        className="relative w-full cursor-pointer overflow-hidden rounded-xl bg-[#100f0e] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative w-full min-w-0 cursor-pointer overflow-hidden rounded-lg border border-border bg-[#100f0e] outline-none focus-visible:ring-2 focus-visible:ring-ring"
         style={{ height: H }}
         role="slider"
         tabIndex={0}
@@ -249,14 +275,13 @@ export const Timeline = forwardRef<TimelineHandle, { m: MixManifest; ev: Perform
       >
         <div ref={played} className="pointer-events-none absolute inset-y-0 left-0 bg-[rgba(236,230,220,0.06)]" />
         <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
-        <div ref={head} className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-foreground shadow-[0_0_8px_rgba(236,230,220,0.6)]" />
+        <div ref={head} className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary shadow-[0_0_8px_rgba(232,176,74,0.65)]" />
       </div>
-      {zoom && (
-        <div className="flex justify-between text-[11px] tabular-nums text-muted-foreground">
-          <span>{fmtTime(view.start)}</span>
-          <span>{fmtTime(view.end)}</span>
-        </div>
-      )}
-    </div>
+      <div aria-hidden className="flex justify-between px-0.5 text-[11px] tabular-nums text-muted-foreground">
+        {[0, 0.25, 0.5, 0.75, 1].map((position) => (
+          <span key={position}>{fmtTime(view.start + position * (view.end - view.start))}</span>
+        ))}
+      </div>
+    </section>
   )
 })

@@ -80,7 +80,7 @@ export default function MixCreate() {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-14 px-[max(16px,env(safe-area-inset-left))] pb-20 pt-10 sm:pt-16">
+    <div className="mx-auto grid w-full min-w-0 max-w-3xl grid-cols-[minmax(0,1fr)] gap-14 px-[max(16px,env(safe-area-inset-left))] pb-20 pt-10 sm:pt-16">
       <title>Create your mix · CrowdPilot</title>
       <section className="grid gap-7" aria-labelledby="create-title">
         <header className="grid gap-3">

@@ -190,10 +190,10 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
   const genres = m.genres.filter(Boolean)
 
   return (
-    <div className="grid gap-8" ref={live}>
+    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-8 [overflow-wrap:anywhere]" ref={live}>
       {/* ── mix info + transport ── */}
-      <header className="grid gap-5">
-        <div className="grid gap-2">
+      <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
           <h1 className="font-display text-[clamp(2.25rem,5.5vw,3.75rem)] leading-[0.95] text-foreground">{m.title}</h1>
           <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
             {genres.length > 0 && <span className="text-foreground">{genres.join(', ')}</span>}
@@ -246,8 +246,8 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
       </header>
 
       {/* ── the AI DJ's performance ── */}
-      <section aria-label="AI DJ performance" className="grid gap-3">
-        <div className="-mx-4 overflow-hidden px-4 sm:mx-0 sm:px-0">
+      <section aria-label="AI DJ performance" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
+        <div className="min-w-0">
           <DjController perf={perf} decks={coarse.decks} onReady={bindController} />
         </div>
         <p className="sr-only" aria-live="polite">
@@ -273,7 +273,7 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
       {pick && <TransitionInspector t={pick} onClose={() => setPick(null)} onSeek={seek} />}
 
       {/* ── tracklist ── */}
-      <section aria-labelledby="tracklist" className="grid gap-3">
+      <section aria-labelledby="tracklist" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
         <h2 id="tracklist" className="font-display text-3xl text-foreground">Tracklist</h2>
         <ol className="grid">
           {m.tracks.map((t, i) => {
@@ -312,7 +312,7 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
       </section>
 
       {/* ── details ── */}
-      <section aria-label="Mix details" className="grid gap-3 text-sm text-muted-foreground">
+      <section aria-label="Mix details" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 text-sm text-muted-foreground">
         {footer}
         <details className="group rounded-xl bg-card px-5 py-4">
           <summary className="flex cursor-pointer list-none items-center justify-between text-foreground">
@@ -363,17 +363,17 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
 function TechniqueStrip({ current, next, m, open, onToggle, onInspect }: { current: ManifestTransition | null; next: ManifestTransition | null; m: MixManifest; open: boolean; onToggle: () => void; onInspect: (t: ManifestTransition) => void }) {
   const t = current ?? next
   return (
-    <div className="grid gap-3 rounded-xl bg-card px-4 py-3 sm:px-5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 rounded-xl bg-card px-4 py-3 sm:px-5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <span className={`size-2 shrink-0 rounded-full ${current ? 'bg-primary shadow-[0_0_10px_rgba(232,176,74,0.8)]' : 'bg-muted-foreground/40'}`} aria-hidden />
         <div className="min-w-0 flex-1">
           {current ? (
-            <p className="truncate text-sm text-foreground">
+            <p className="text-sm text-foreground sm:truncate">
               <span className="font-semibold">{current.label}</span>
               <span className="text-muted-foreground"> into {m.tracks[current.index + 1]?.title}</span>
             </p>
           ) : next ? (
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground sm:truncate">
               Next: <span className="text-foreground">{next.label}</span> into {m.tracks[next.index + 1]?.title} <span className="tabular-nums" data-lk="countdown" />
             </p>
           ) : (

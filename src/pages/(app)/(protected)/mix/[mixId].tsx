@@ -18,7 +18,7 @@ import { ElsewhereNotice } from '@/components/mix/status/ElsewhereNotice'
 import { TrackReview } from '@/components/mix/status/TrackReview'
 import { TechnicalDetails } from '@/components/mix/status/TechnicalDetails'
 
-const page = 'mx-auto grid w-full max-w-5xl gap-8 px-[max(16px,env(safe-area-inset-left))] pb-16 pt-6 sm:pt-8'
+const page = 'mx-auto grid w-full min-w-0 max-w-5xl grid-cols-[minmax(0,1fr)] gap-8 px-[max(16px,env(safe-area-inset-left))] pb-16 pt-6 sm:pt-8'
 
 function RefineMix({ mixId, d, tracks }: { mixId: string; d: MixData; tracks: Array<{ key: string }> }) {
   const navigate = useNavigate()
