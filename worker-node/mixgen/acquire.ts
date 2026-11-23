@@ -279,7 +279,7 @@ function sequential<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
-function runYtDlp(args: string[]): Promise<{ code: number; out: string; err: string }> {
+export function runYtDlp(args: string[]): Promise<{ code: number; out: string; err: string }> {
   const full = [...YTDLP_SAFE_ARGS, ...args]
   assertSafeYtDlpArgs(full)
   return new Promise((resolve, reject) => {

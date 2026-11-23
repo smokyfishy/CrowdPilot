@@ -9,6 +9,7 @@
 import { summarize, type TrackAnalysis } from '../dsp/analyze'
 import { describeEnergy, energyScores, type EnergyDescriptor } from './energy'
 import { decideAccess, mixPermissions, type PolicyContext } from './policy'
+import { matchesSongRequest } from './identity'
 import { discover, relevant, type DiscoveryProvider } from './discovery'
 import { orderSet, preselect, type OrderTrack, type ScoredCandidate } from './select'
 import { planMix, type MixPlan, type PlannedTrack } from './mixplan'
@@ -198,7 +199,17 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     queue.push(...batch)
     await pool(batch, host.concurrency ?? 2, work)
   }
-  const usable = [...analyses.values()].filter((e) => !excluded.has(e.candidate.trackKey))
+  let usable = [...analyses.values()].filter((e) => !excluded.has(e.candidate.trackKey))
+  // Exact song list: keep one analyzed recording per requested song (preference order from preselect).
+  if (!spec.allowSubstitutions && spec.songs.length) {
+    const rank = new Map(pre.ranked.map((s, i) => [s.candidate.trackKey, i]))
+    const keep: AnalyzedEntry[] = []
+    for (const req of spec.songs) {
+      const m = usable.filter((e) => matchesSongRequest(req, e.candidate)).sort((a, b) => (rank.get(a.candidate.trackKey) ?? 1e9) - (rank.get(b.candidate.trackKey) ?? 1e9))
+      if (m[0] && !keep.includes(m[0])) keep.push(m[0])
+    }
+    usable = keep
+  }
   if (usable.length < 2) throw new Error(`Only ${usable.length} recording(s) could be acquired and analyzed — not enough for a mix. ${acquisition.filter((a) => a.status !== 'acquired').map((a) => `${a.title}: ${a.reason}`).join('; ')}`)
 
   // ── 6+7. selection and ordering ──

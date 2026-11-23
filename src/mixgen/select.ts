@@ -145,6 +145,20 @@ export function preselect(spec: ResolvedSpec, pool: TrackCandidate[], mixable: (
       })
     }
   }
+  // Exact song list: one recording per requested song — the original unless a version was asked for
+  // (official uploads and higher scores first); other versions follow as fallbacks only.
+  if (exactSongs) {
+    const pref = (req: ResolvedSpec['songs'][number], s: ScoredCandidate) =>
+      (req.version ? 0 : s.candidate.identity.version ? 4 : 0) + (s.candidate.versionClues.some((v) => /extended|club/.test(v)) && !req.version ? -1 : 0) - (s.candidate.official ? 1 : 0) - s.score / 100
+    const firsts: ScoredCandidate[] = []
+    const rest: ScoredCandidate[] = []
+    for (const req of spec.songs) {
+      const m = ranked.filter((s) => matchesSongRequest(req, s.candidate)).sort((a, b) => pref(req, a) - pref(req, b))
+      if (m[0] && !firsts.includes(m[0])) firsts.push(m[0])
+      for (const x of m.slice(1)) if (!firsts.includes(x) && !rest.includes(x)) rest.push(x)
+    }
+    return { toAcquire: firsts, ranked: [...firsts, ...rest], unavailable }
+  }
   // Diversity: at most 2 tracks per artist unless the user asked for that artist.
   const perArtist = new Map<string, number>()
   const want = Math.ceil(spec.songCount * (1 + spares))

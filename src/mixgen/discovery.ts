@@ -292,7 +292,8 @@ export function youtubeCandidate(v: YtVideo, why: string): TrackCandidate | null
   }
 }
 
-export function createYouTubeDiscovery(apiKey: string | undefined, fetchImpl: typeof fetch = fetch): DiscoveryProvider {
+/** `onError` receives API failures (quota/rate limit/auth) so callers can report them instead of "not found". */
+export function createYouTubeDiscovery(apiKey: string | undefined, fetchImpl: typeof fetch = fetch, onError?: (status: number, reason: string) => void): DiscoveryProvider {
   const API = 'https://www.googleapis.com/youtube/v3'
   return {
     id: 'youtube',
@@ -306,7 +307,8 @@ export function createYouTubeDiscovery(apiKey: string | undefined, fetchImpl: ty
         if (q.ccOnly) sp.set('videoLicense', 'creativeCommon')
         const sr = await fetchImpl(`${API}/search?${sp.toString()}`, { signal })
         if (!sr.ok) {
-          await sr.body?.cancel().catch(() => undefined)
+          const reason = ((await sr.json().catch(() => null)) as { error?: { errors?: Array<{ reason?: string }> } } | null)?.error?.errors?.[0]?.reason ?? `HTTP ${sr.status}`
+          onError?.(sr.status, reason)
           return []
         }
         const ids = (((await sr.json()) as { items?: Array<{ id?: { videoId?: string } }> }).items ?? []).map((i) => i.id?.videoId).filter(Boolean)

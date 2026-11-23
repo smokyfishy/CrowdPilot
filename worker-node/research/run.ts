@@ -69,8 +69,9 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
     for (const c of disc.pool) if (!evidenced.includes(c)) disc.rejected.push({ title: c.rawTitle ?? c.title, uploader: c.uploader, reason: `no ${resolved.genres.join('/')} evidence in title/tags/channel` })
     disc.pool = evidenced
   }
+  for (const e of disc.apiErrors) log(`search problem: ${e}`)
   log(`discovery: ${disc.queries} queries → ${disc.pool.length} recordings, ${disc.rejected.length} uploads rejected`)
-  o.onProgress?.({ stage: 'discovering', done: disc.queries, total: disc.queries, detail: `${disc.pool.length} verified recordings (${disc.rejected.length} uploads rejected)` })
+  o.onProgress?.({ stage: 'discovering', done: disc.queries, total: disc.queries, detail: `${disc.pool.length} verified recordings (${disc.rejected.length} uploads rejected)${disc.apiErrors.length ? `; search problems: ${disc.apiErrors.slice(0, 2).join(' | ')}` : ''}` })
 
   const jobStart = Date.now()
   const attempts = new Map<string, Attempt[]>()
@@ -163,7 +164,7 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
   writeFileSync(
     reportPath,
     JSON.stringify(
-      { jobId: o.jobId, mode: 'research', prompt: o.prompt, specSource: o.specSource, spec: resolved, durationSec: res.manifest.durationSec, validation: res.validation, songs, rejectedUploads: disc.rejected.slice(0, 200), unavailable: res.unavailable, notice: RESEARCH_COMMENT },
+      { jobId: o.jobId, mode: 'research', prompt: o.prompt, specSource: o.specSource, searchProblems: disc.apiErrors, spec: resolved, durationSec: res.manifest.durationSec, validation: res.validation, songs, rejectedUploads: disc.rejected.slice(0, 200), unavailable: res.unavailable, notice: RESEARCH_COMMENT },
       null,
       1,
     ),

@@ -12,12 +12,15 @@ import { matchesSongRequest, sameRecording } from '../../src/mixgen/identity'
 import { isContinuousMix } from '../../src/mixgen/select'
 import type { ResolvedSpec } from '../../src/mixgen/spec'
 import type { TrackCandidate } from '../../src/mixgen/types'
+import { ytdlpSearch } from './ytdlp-search'
 
 export interface ResearchPool {
   pool: TrackCandidate[]
   alternates: Map<string, TrackCandidate[]>
   rejected: Array<{ title: string; uploader?: string; reason: string }>
   queries: number
+  /** Search failures (API quota/rate limit/auth, yt-dlp search errors) — reported, never hidden. */
+  apiErrors: string[]
 }
 
 const LYRIC = /\b(lyrics?|lyric video|letra|paroles)\b/i
@@ -88,11 +91,40 @@ export function researchQueries(spec: ResolvedSpec): Array<{ text: string; why: 
   return q
 }
 
-export async function discoverResearch(spec: ResolvedSpec, apiKey: string | undefined, yt: DiscoveryProvider = createYouTubeDiscovery(apiKey)): Promise<ResearchPool> {
-  if (!apiKey) throw new Error('YOUTUBE_API_KEY is required for research discovery')
+export async function discoverResearch(
+  spec: ResolvedSpec,
+  apiKey: string | undefined,
+  yt?: DiscoveryProvider,
+  search: (query: string, n: number, why: string) => Promise<TrackCandidate[]> = ytdlpSearch,
+): Promise<ResearchPool> {
+  const apiErrors: string[] = []
+  const provider = yt ?? createYouTubeDiscovery(apiKey, fetch, (status, reason) => apiErrors.push(`YouTube Data API ${status} ${reason}`))
   const queries = researchQueries(spec)
   const all: TrackCandidate[] = []
-  for (const q of queries) all.push(...(await yt.searchTracks({ text: q.text, popular: q.popular, limit: 25, why: q.why })))
+  let apiDown = !apiKey
+  for (const q of queries) {
+    // Exact song requests use yt-dlp's public search (no API quota); everything else tries the Data
+    // API first and falls back to yt-dlp search once the API fails (quota / rate limit / auth).
+    if (q.why.startsWith('song:') || apiDown) {
+      try {
+        all.push(...(await search(q.text, q.why.startsWith('song:') ? 10 : 15, q.why)))
+      } catch (e) {
+        apiErrors.push(`yt-dlp search "${q.text}": ${(e as Error).message}`)
+      }
+      continue
+    }
+    const before = apiErrors.length
+    const got = await provider.searchTracks({ text: q.text, popular: q.popular, limit: 25, why: q.why })
+    all.push(...got)
+    if (apiErrors.length > before) {
+      apiDown = true
+      try {
+        all.push(...(await search(q.text, 15, q.why)))
+      } catch (e) {
+        apiErrors.push(`yt-dlp search "${q.text}": ${(e as Error).message}`)
+      }
+    }
+  }
   // merge duplicates of the same video
   const byKey = new Map<string, TrackCandidate>()
   for (const c of all) {
@@ -125,5 +157,5 @@ export async function discoverResearch(spec: ResolvedSpec, apiKey: string | unde
     pool.push(best)
     alternates.set(best.trackKey, rest)
   }
-  return { pool, alternates, rejected, queries: queries.length }
+  return { pool, alternates, rejected, queries: queries.length, apiErrors: [...new Set(apiErrors)] }
 }
