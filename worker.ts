@@ -129,10 +129,6 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   STEMS_QUEUE_URL?: string
   STEMS_BLOB_BASE?: string
   STEMS_BLOB_SAS?: string
-  /** Prompt interpreter: Gemini over the OpenAI-compatible API (Google AI Studio by default; a FreeLLMAPI router locally). */
-  GEMINI_API_KEY?: string
-  GEMINI_BASE_URL?: string
-  GEMINI_MODEL?: string
 }
 
 export type AppContext = { Bindings: Env }

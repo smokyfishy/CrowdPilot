@@ -1,18 +1,18 @@
 /**
  * Request-interpretation accuracy: real LLM calls on a fixed set of varied mix requests with expected
  * fields. Compares
- *   gemini+guard   Gemini 3.8 Flash, new interpreter prompt + JSON schema + repair + deterministic guard
- *   gemini-old     Gemini 3.8 Flash with the previous interpreter prompt (no schema, no guard)
+ *   claude+guard   Claude, new interpreter prompt + repair + deterministic guard
+ *   claude-old     Claude with the previous interpreter prompt (no guard)
  *   heuristic      the rule-based fallback
  * Scoring: each expected field is right or wrong (numbers within tolerance, lists by case-insensitive
  * containment). Reports per-system accuracy and every miss.
  *
- *   GEMINI_API_KEY=… [GEMINI_BASE_URL=http://localhost:3001/v1] npx vitest run -c vitest.eval.config.ts evaluation/interpret.eval.ts
+ *   ANTHROPIC_API_KEY=… npx vitest run -c vitest.eval.config.ts evaluation/interpret.eval.ts
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { it } from 'vitest'
 import { interpretPrompt } from '../src/server/mixgen-routes'
-import { geminiClient } from '../src/server/llm'
+import type { LlmCall } from '../src/server/llm'
 import { extractJson, heuristicSpec, MixSpec, parseSpec } from '../src/mixgen/spec'
 
 type Exp = Partial<{
@@ -107,12 +107,21 @@ Schema (all keys required; use null or [] when the user did not say it — NEVER
  "allow_reordering": boolean|null, "allow_song_substitutions": boolean|null, "explicit": string[], "summary": string }`
 
 it('request interpretation accuracy (real LLM)', async () => {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) throw new Error('set GEMINI_API_KEY (Google AI Studio key, or a FreeLLMAPI key with GEMINI_BASE_URL)')
-  const g = geminiClient({ apiKey: key, baseUrl: process.env.GEMINI_BASE_URL, model: process.env.GEMINI_MODEL })
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) throw new Error('set ANTHROPIC_API_KEY')
+  const model = process.env.MIXGEN_MODEL ?? 'claude-sonnet-5-5'
+  const g: LlmCall = {
+    name: model,
+    async call(system, prompt) {
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model, max_tokens: 2500, system, messages: [{ role: 'user', content: prompt }] }) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const j = (await r.json()) as { content?: Array<{ type: string; text?: string }> }
+      return (j.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('')
+    },
+  }
   const systems: Record<string, (p: string) => Promise<MixSpec>> = {
-    'gemini+guard': async (p) => (await interpretPrompt([g], { prompt: p })).spec,
-    'gemini-old': async (p) => parseSpec(extractJson(await g.call(OLD_SYSTEM, p))),
+    'claude+guard': async (p) => (await interpretPrompt([g], { prompt: p })).spec,
+    'claude-old': async (p) => parseSpec(extractJson(await g.call(OLD_SYSTEM, p))),
     heuristic: async (p) => heuristicSpec(p),
   }
   const report: Record<string, { ok: number; total: number; failures: number; misses: string[] }> = {}

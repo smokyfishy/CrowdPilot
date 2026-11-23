@@ -23,7 +23,7 @@ import { ccLabel } from '../providers/catalog/jamendo'
 import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery, discover, relevant } from '../mixgen/discovery'
 import { decideAccess, POLICY_VERSION, type PolicyContext } from '../mixgen/policy'
 import { EditOp, extractJson, guardSpec, heuristicSpec, INTERPRET_SYSTEM, MIX_SPEC_JSON_SCHEMA, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
-import { geminiClient, type LlmCall } from './llm'
+import type { LlmCall } from './llm'
 import { STAGES } from '../mixgen/types'
 import { appScope, createRoomTools } from './room-tools'
 import type { VerifyResult } from 'deepspace/worker'
@@ -62,7 +62,7 @@ async function body<T>(c: C, max = 64 * 1024): Promise<T | null> {
 }
 
 /**
- * Prompt → MixSpec. Interpreters are tried in order (Gemini 3.8 Flash, then Claude); each gets one
+ * Prompt → MixSpec. Interpreters are tried in order (Claude); each gets one
  * repair round with its validation errors. A valid interpretation passes the deterministic guard
  * (stated duration / track count / BPM / genres / "Title by Artist" songs win over the model). If every
  * model fails, the conservative heuristic is used and labelled.
@@ -192,14 +192,13 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const edit = typeof b?.edit === 'string' ? b.edit.trim().slice(0, 1000) : undefined
     if (!prompt && !edit) return err(c, 400, 'INVALID', 'Describe the mix you want.')
     const jwt = c.req.header('Authorization')!.slice(7)
-    // Gemini 3.8 Flash first (Google AI Studio, or a FreeLLMAPI router locally), Claude as backup
+    // Claude interprets the request (the heuristic is the fallback)
     const chain: LlmCall[] = []
-    if (c.env.GEMINI_API_KEY) chain.push(geminiClient({ apiKey: c.env.GEMINI_API_KEY, baseUrl: c.env.GEMINI_BASE_URL, model: c.env.GEMINI_MODEL }))
     try {
       const model = createDeepSpaceAI(c.env, 'anthropic', { authToken: jwt })(MIXGEN_MODEL)
       chain.push({ name: MIXGEN_MODEL, call: async (system, p) => (await generateText({ model, system, prompt: p, maxOutputTokens: 2500, temperature: 0 })).text })
     } catch {
-      /* Claude unavailable: Gemini (if configured) then the heuristic */
+      /* Claude unavailable: the heuristic is used */
     }
     try {
       const r = await interpretPrompt(chain, { prompt, current: b?.current, edit })
