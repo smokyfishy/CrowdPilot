@@ -1,102 +1,33 @@
-# CrowdPilot
+﻿# CrowdPilot
 
-A shared queue for the room you're in. A host starts a room and shares a code or QR; guests search YouTube, add songs, vote and react from their phones; the host's device plays everything through YouTube's official player. Everyone sees the same queue update live.
+Describe the DJ mix you want. CrowdPilot finds recordings that allow mixing, analyzes their beats, key and energy, and renders one continuous set with beat-matched transitions. Create a mix at `/mix`, follow its generation progress, and use Listen to replay the AI DJ's recorded performance, seek to tracks and transitions, or refine the mix.
 
-Built on [DeepSpace](https://docs.deep.space) (React + Cloudflare Workers + Durable Objects).
+Built with React and [DeepSpace](https://docs.deep.space) on Cloudflare Workers and Durable Objects.
 
-**Phase 2: AI DJ** (branch `phase2`, live at https://crowdpilot.app.space). Songs from **Audius** and **Jamendo** stream full authorized audio. The host's browser analyzes them (tempo/beat grid, downbeats, key, phrases, loudness) and mixes them with real two-deck Web Audio transitions: beat-matched blends, bass swaps, EQ and fader automation, and pitch-preserving tempo matching. YouTube songs keep playing in YouTube's embedded player, labelled **Standard playback**, because YouTube gives no audio access. See [docs/DJ_AI_ARCHITECTURE.md](docs/DJ_AI_ARCHITECTURE.md) and [docs/PROFESSIONAL_DJ_CORPUS_STATUS.md](docs/PROFESSIONAL_DJ_CORPUS_STATUS.md). No learned model is trained yet; the live DJ is the deterministic baseline.
+- [Mix generator architecture, provider policies and research mode](docs/AI_MIX_GENERATOR.md)
+- [DJ engine and planning](docs/DJ_AI_ARCHITECTURE.md)
+- [Research corpus and rights](docs/PROFESSIONAL_DJ_CORPUS_STATUS.md)
 
-- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Decisions, provider limits, platform findings: [docs/DECISIONS.md](docs/DECISIONS.md)
-- Design and plan: [docs/superpowers/](docs/superpowers/)
+## Local development
 
-## Features
+Use Node 22.15+, 24, or 26 and npm 11.6+.
 
-- Rooms with a 6-character code, link and QR invite; "Your rooms" list for hosts
-- Guests join signed in (Google/GitHub) or anonymously with a name (host can require sign-in)
-- YouTube search with loading, empty, quota and not-configured states
-- Live FIFO queue: requester names, votes, duplicate protection ("Vote instead"), "Mine" filter, recently played
-- Host controls: play/pause/skip, drag or keyboard reorder, pin "play next", remove, pause requests, per-guest limit, kick, end room
-- One audio source: a single host tab holds the player lease; other devices can take over
-- Unavailable videos are skipped with a reason; autoplay blocks show "Tap to start the music"
-- Presence, emoji reactions, activity feed, screen-reader announcements, reduced-motion support
-- Desktop host console and a mobile-first guest view with bottom tabs
-
-## Setup
-
-Requirements: Node 22.15+/24/26 and npm 11.6+.
-
-```bash
-npm install
-npx deepspace auth login          # opens the browser (Google/GitHub); run in your own terminal
-npx deepspace app init --json     # registers the app; commit the DEEPSPACE_APP_ID it writes to wrangler.toml
+```sh
+npm ci
+npx deepspace auth login
+npx deepspace dev start
 ```
 
-Secrets (never commit them, never put them in `.dev.vars` by hand):
+The live catalog flow uses Jamendo. Configure `JAMENDO_CLIENT_ID` through DeepSpace secrets. See the [mix generator documentation](docs/AI_MIX_GENERATOR.md) for provider and test setup.
 
-```bash
-npx deepspace secrets set YOUTUBE_API_KEY        # YouTube Data API v3 key (Google Cloud Console → enable "YouTube Data API v3")
-npx deepspace secrets set GUEST_TOKEN_SECRET     # any long random string; enables anonymous guests
+```sh
+npm run type-check
+npm run test:unit
+npm run build
+npx playwright test -c tests/playwright.config.ts tests/smoke.spec.ts tests/api.spec.ts
+npx playwright test -c tests/playwright.config.ts tests/e2e/mixgen.spec.ts
 ```
 
-Run `npx deepspace secrets set --help` for the stdin form so values stay out of shell history. Without `YOUTUBE_API_KEY`, search shows a "not set up" state instead of fake results. Without `GUEST_TOKEN_SECRET`, guests must sign in.
+The real-audio browser test requires a DeepSpace test account and access to the catalog. If Playwright misses files on Windows, run the tests from a worktree outside OneDrive.
 
-Restrict the YouTube key to the YouTube Data API v3 in Google Cloud Console.
-
-## Phase 2 commands
-
-```bash
-npx vitest run -c vitest.pure.config.ts           # 190+ unit tests incl. DSP, planner, renderer, DJ commands
-npx deepspace test run all                        # incl. real-audio DJ Lab + multi-user AI DJ E2E (needs network)
-npx deepspace secrets set JAMENDO_CLIENT_ID --stdin   # enables Jamendo search
-# DJ Lab (no room needed): /lab — audition the engine on real Audius tracks
-
-# research pipeline (Python, CPU; data in C:\crowdpilot-data, never in git)
-py -3.12 -m venv ml/.venv && ml/.venv/Scripts/python -m pip install -r ml/requirements.txt
-ml/.venv/Scripts/python -m pytest ml/tests
-ml/.venv/Scripts/python -m ml.datasets.acquire inventory     # see docs/DATA_ACQUISITION_AND_RIGHTS.md
-ml/.venv/Scripts/python -m ml.reports
-```
-
-## Commands
-
-```bash
-npx deepspace dev start                          # local dev (vite + miniflare)
-npx vitest run -c vitest.pure.config.ts          # domain/server/provider unit tests (no registration needed)
-npm run test:unit                                # all unit tests (needs a registered app id)
-npx deepspace test accounts create --email host@deepspace.test --name "Host" --password-stdin
-npx deepspace test run all                       # smoke + API + multi-user E2E (tests/e2e)
-npm run type-check && npm run lint && npm run build
-```
-
-## Deploy
-
-GitHub is this app's source authority — never run `npx deepspace push`.
-
-```bash
-git push origin main
-npx deepspace deploy        # → https://<name>.app.space
-npx deepspace logs --follow --json
-```
-
-## Status of verification
-
-Live at **https://crowdpilot.app.space** (release `rel_01M80X7E9SKQ6070B0HKPBEBW3`, deployed 2026-11-21 from `main`).
-
-| Area | Status |
-|---|---|
-| Unit tests (domain, claims/concurrency, guest tokens, YouTube adapter, host agent, client) | 141 passing |
-| Browser tests (smoke, API, collab, multi-user room flow, raw-HTTP permissions, responsive, phone host) | 19 passing (run from a clone outside OneDrive — see below) |
-| Platform checks on real Durable Objects | duplicate adds atomic under 8-way concurrency; live room-scope sync; anonymous presence |
-| Production check | real YouTube search; 10 s clip played to its end, server advanced exactly once, guest phone updated |
-| Final code review | independent reviewer: no critical issues; all important findings fixed with regression tests |
-
-**OneDrive note:** OneDrive "files on demand" turns project files into cloud placeholders that Playwright skips during discovery. Keep the repo outside OneDrive (or run browser tests from a clone elsewhere).
-
-## Known limitations
-
-- Rate limits are per worker isolate (best effort).
-- An anonymous guest who is kicked can rejoin under a new name unless the host switches the room to sign-in only.
-- YouTube's default quota allows roughly 100 uncached searches per day.
-- Room privacy relies on unguessable room ids (128-bit); codes are rate limited.
-- Progress on guest devices is estimated from server timestamps, not sample-accurate.
+GitHub is the source repository. Run `npx deepspace deploy` from the checked-out revision to publish a release.

@@ -94,7 +94,7 @@ export function GeneratingView({ title, facts, prompt, editPrompt, events, stage
       </header>
 
       <div className="grid gap-6 rounded-2xl border border-border bg-gradient-to-b from-card to-card/40 px-5 py-7 sm:px-8">
-        <GenerationPlatter active={!notice && (running || resuming)} artwork={selection.find((row) => row.selected && row.position === 1)?.artwork} />
+        <GenerationPlatter active={!notice && (running || resuming)} artwork={selection.find((row) => row.selected && row.position === 0)?.artwork} />
 
         <div className="grid gap-3">
           <div className="flex items-baseline justify-between gap-4">

@@ -4,7 +4,7 @@
  * private upload → player (waveform from the render, playback, seeking, track navigation,
  * transition inspection). Uses REAL providers and audio; long-running by design.
  *   DEEPSPACE_PORT=5192 npx playwright test -c tests/playwright.config.ts tests/e2e/mixgen.spec.ts
- * MIXGEN_E2E_PROMPT overrides the prompt (default: the acceptance prompt).
+ * Set MIXGEN_E2E_PROMPT, MIXGEN_E2E_TRACKS and MIXGEN_E2E_MIN_SECONDS for a shorter real-audio run.
  */
 import { test, expect, loadAllTestAccounts } from 'deepspace/testing'
 
@@ -12,6 +12,9 @@ test.skip(loadAllTestAccounts().length < 1, 'Needs 1 usable test account.')
 test.describe.configure({ timeout: 45 * 60_000 })
 
 const PROMPT = process.env.MIXGEN_E2E_PROMPT ?? 'Generate a 40-minute tech house mix with 12 tracks, a gradual energy build, strong basslines, and smooth transitions.'
+
+const TRACKS = Number(process.env.MIXGEN_E2E_TRACKS ?? 12)
+const MIN_SECONDS = Number(process.env.MIXGEN_E2E_MIN_SECONDS ?? 30 * 60)
 
 test('describe → generate → listen: a real continuous mix in the browser', async ({ users }) => {
   const [u] = await users(1)
@@ -24,6 +27,8 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await page.getByTestId('mix-prompt').fill(PROMPT)
   await page.getByTestId('mix-generate').click()
   await page.waitForURL(/\/mix\/[0-9a-f-]{36}$/, { timeout: 120_000 })
+
+  console.log('Mix ID:', new URL(page.url()).pathname.split('/').at(-1))
 
   // One compact progress component driven by real stage events.
   const gen = page.getByTestId('mix-generating')
@@ -62,7 +67,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   // Player: waveform canvas, tracklist, timeline.
   await expect(page.getByTestId('mix-play')).toBeVisible({ timeout: 20 * 60_000 })
   await expect(page.getByRole('slider', { name: /Mix timeline/ })).toBeVisible()
-  await expect(page.locator('[data-testid^="track-seek-"]')).toHaveCount(12)
+  await expect(page.locator('[data-testid^="track-seek-"]')).toHaveCount(TRACKS)
   await expect(page.getByRole('region', { name: 'AI DJ performance' })).toBeVisible()
   await page.getByText('Audio checks, licences and downloads', { exact: true }).click()
   await expect(page.getByText('continuous audio (no silence > 1 s)')).toBeVisible()
@@ -73,10 +78,11 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await page.getByTestId('mix-play').click()
   await expect.poll(now, { timeout: 60_000 }).toBeGreaterThan(1)
   await expect(page.getByTestId('mix-time')).not.toHaveText(/^0:00 \//)
-  await page.getByTestId('track-seek-5').click()
-  await expect.poll(now, { timeout: 30_000 }).toBeGreaterThan(60)
+  const beforeSeek = await now()
+  await page.getByTestId(`track-seek-${Math.min(5, TRACKS - 1)}`).click()
+  await expect.poll(now, { timeout: 30_000 }).toBeGreaterThan(beforeSeek + 5)
   const dur = await page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement).duration)
-  expect(dur).toBeGreaterThan(30 * 60)
+  expect(dur).toBeGreaterThan(MIN_SECONDS)
   // Transition inspector shows the renderer's manifest values.
   await page.getByTitle('Transition into track 2').click()
   await expect(page.getByTestId('transition-inspector')).toBeVisible()

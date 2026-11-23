@@ -1,20 +1,11 @@
 /**
- * Cron tasks — registered into the AppCronRoom DO (worker.ts). The schedule
- * arms on the app's first request (armCronRoom middleware).
+ * Cron tasks — registered into the AppCronRoom DO (worker.ts). None are needed since the
+ * collaborative rooms (and their idle-expiry maintenance) were removed; the stored room data is
+ * kept untouched.
  */
 import type { CronTask } from 'deepspace/worker'
 import type { Env } from '../worker'
-import { runMaintenance } from './server/maintenance'
-import { appScope, createRoomTools, roomScope } from './server/room-tools'
 
-export const tasks: CronTask[] = [{ name: 'maintenance', intervalMinutes: 60 }]
+export const tasks: CronTask[] = []
 
-export async function runTask(name: string, env: Env): Promise<void> {
-  if (name !== 'maintenance') return
-  const result = await runMaintenance(
-    createRoomTools(env, appScope(env), env.OWNER_USER_ID),
-    (roomId) => createRoomTools(env, roomScope(roomId), env.OWNER_USER_ID),
-    Date.now(),
-  )
-  console.info(`[cron] maintenance expired=${result.expired} pruned=${result.pruned}`)
-}
+export async function runTask(_name: string, _env: Env): Promise<void> {}

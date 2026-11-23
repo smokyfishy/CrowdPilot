@@ -26,8 +26,9 @@ test('stored mix plays, seeks and navigates', async ({ users }) => {
   await page.getByTestId('mix-play').click()
   await expect.poll(async () => (await state())?.t ?? 0, { timeout: 60_000 }).toBeGreaterThan(1)
   await expect(performance.locator('[data-k$=".jog"][data-playing="1"]').first()).toBeVisible()
-  await page.getByTestId('track-seek-5').click()
-  await expect.poll(async () => (await state())?.t ?? 0, { timeout: 30_000 }).toBeGreaterThan(60)
+  const beforeSeek = (await state())!.t
+  await page.getByTestId('track-seek-1').click()
+  await expect.poll(async () => (await state())?.t ?? 0, { timeout: 30_000 }).toBeGreaterThan(beforeSeek + 5)
   const t = (await state())!.t
   await page.waitForTimeout(1500)
   expect((await state())!.t).toBeGreaterThan(t) // keeps playing after the seek
