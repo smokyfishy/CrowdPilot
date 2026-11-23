@@ -18,7 +18,7 @@
 import { renderTransition } from '../dj/render'
 import { BEATMATCHED, type TransitionPlan } from '../dj/transitions'
 import { MasterLimiter, MixAnalyzer, type MixMetrics } from './meter'
-import { applyDeckEdits, applyReverbWash, routeStems, type TechniquePlan } from './techniques'
+import { applyDeckEdits, applyReverbWash, routeStems, type StemPcm, type TechniquePlan } from './techniques'
 
 import type { MixPlan } from './mixplan'
 import { deckOf, incomingPosAt, LevelRecorder, trackPeaks, type DeckId, type RenderTelemetry } from './performance'
@@ -32,7 +32,7 @@ export interface TrackLoader {
   load(key: string): Promise<PcmTrack>
   release?(key: string): void
   /** Vocal / instrumental stems at the mix rate (local worker with a separation model), or null. */
-  loadStems?(key: string): Promise<{ vocals: Float32Array[]; inst: Float32Array[] } | null>
+  loadStems?(key: string): Promise<StemPcm | null>
 }
 
 export interface AudioSink {

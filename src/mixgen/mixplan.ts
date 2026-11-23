@@ -67,13 +67,13 @@ export interface MixPlan {
   candidates: TransitionPlan[][]
 }
 
-const MIN_SOLO_BARS = 8
+export const MIN_SOLO_BARS = 8
 
-function abruptHandoff(plan: TransitionPlan): boolean {
+export function abruptHandoff(plan: TransitionPlan): boolean {
   return plan.style === 'cut' || SLAM.has(plan.style)
 }
 
-function stylePreference(style: TransitionStyle, spec: ResolvedSpec, pos: number, n: number): number {
+export function stylePreference(style: TransitionStyle, spec: ResolvedSpec, pos: number, n: number): number {
   const creative = new Set<TransitionStyle>(['filter_sweep', 'drop_swap', 'echo_out', 'loop_roll'])
   const blends = new Set<TransitionStyle>(['long_blend', 'bass_swap', 'percussion_led', 'short_fade'])
   let c = 0
@@ -141,7 +141,7 @@ function energyBetween(s: AnalysisSummary, t0: number, t1: number): number | nul
  * outgoing is gone (not a breakdown, stop or quiet intro), and the outgoing should not
  * start leaving from inside its own breakdown. Penalty in planner cost units.
  */
-function energyContinuity(p: TransitionPlan, outgoing: PlannedTrack, incoming: PlannedTrack): number {
+export function energyContinuity(p: TransitionPlan, outgoing: PlannedTrack, incoming: PlannedTrack): number {
   const a = outgoing.summary
   const b = incoming.summary
   let c = 0
@@ -194,35 +194,35 @@ export function localGrid(s: AnalysisSummary, beats: number[] | undefined, role:
 }
 
 /** Summary copy with earlier phrase boundaries offered as mix-out cues (for shortening). */
-function withEarlyOuts(s: AnalysisSummary): AnalysisSummary {
+export function withEarlyOuts(s: AnalysisSummary): AnalysisSummary {
   const early = s.phrasesSec.filter((t) => t >= s.durationSec * 0.3 && t < s.durationSec * 0.55)
   return { ...s, cueOut: [...early, ...s.cueOut] }
 }
 /** Summary copy offering only LATE phrase boundaries as mix-out cues (for lengthening). */
-function withLateOuts(s: AnalysisSummary): AnalysisSummary {
+export function withLateOuts(s: AnalysisSummary): AnalysisSummary {
   const late = s.phrasesSec.filter((t) => t >= s.durationSec * 0.7)
   return late.length ? { ...s, cueOut: late, phrasesSec: s.phrasesSec.filter((t) => t < s.durationSec * 0.55 || t >= s.durationSec * 0.7) } : s
 }
 /** Summary copy with later phrase boundaries offered as mix-in cues. */
-function withLateIns(s: AnalysisSummary): AnalysisSummary {
+export function withLateIns(s: AnalysisSummary): AnalysisSummary {
   const late = s.phrasesSec.filter((t) => t > s.durationSec * 0.1 && t <= s.durationSec * 0.45)
   return { ...s, cueIn: [...s.cueIn, ...late] }
 }
 
-function inTrackSpan(p: TransitionPlan): number {
+export function inTrackSpan(p: TransitionPlan): number {
   return p.durationSec * (BEATMATCHED.has(p.style) ? p.tempoRatio : 1)
 }
-function recovery(p: TransitionPlan): { mix: number; track: number } {
+export function recovery(p: TransitionPlan): { mix: number; track: number } {
   if (!BEATMATCHED.has(p.style) || p.tempoRecoveryBars <= 0 || Math.abs(p.tempoRatio - 1) < 1e-4) return { mix: 0, track: 0 }
   const mix = p.tempoRecoveryBars * 4 * p.beatSec
   return { mix, track: (mix * (p.tempoRatio + 1)) / 2 }
 }
 
 /** Track-time where the first audible content starts / ends. */
-function musicStart(s: AnalysisSummary): number {
+export function musicStart(s: AnalysisSummary): number {
   return Math.max(0, (s.silentLeadSec ?? 0) - 0.02)
 }
-function musicEnd(s: AnalysisSummary): number {
+export function musicEnd(s: AnalysisSummary): number {
   return s.durationSec - Math.max(0, (s.silentTailSec ?? 0) - 0.05)
 }
 
@@ -247,11 +247,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   const n = tracks.length
   const K = opts.candidatesPerPair ?? 18
   const notes: string[] = []
-  const preferLongDropBlends = opts.preferLongDropBlends
-    && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'smooth_creative')
-  const longDropBlend = (p: TransitionPlan) => p.style === 'long_blend' && p.incomingDropSec !== undefined
   if (n === 0) return { tracks: [], transitions: [], durationSec: 0, targetDurationSec: spec.targetDurationSec, totalCost: 0, notes: ['no tracks'], candidates: [] }
-  const pt = (t: PlannedTrack, s = t.summary): PlanTrack => ({ itemId: t.key, trackKey: t.key, title: t.title, mixable: true, summary: s, durationSec: s.durationSec })
 
   // Candidate edges per pair (default cues ∪ shortened variants), styled and diversified.
   const options: TransitionPlan[][] = []
@@ -260,99 +256,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   for (let i = 0; i < n - 1; i++) {
     const a = tracks[i]
     const b = tracks[i + 1]
-    // Energetic/creative sets may ride the tempo further for SHORT transitions (as DJs ride the pitch
-    // fader with key lock); long blends stay inside ±6 % (see the post-filter below).
-    const ride = spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : DEFAULT_OPTIONS.maxTempoDeviation
-    const popt: PlannerOptions = {
-      ...DEFAULT_OPTIONS,
-      maxTempoDeviation: ride,
-      preferDropLandings: !!preferLongDropBlends || spec.features.includes('big_drops') || spec.features.includes('drop_sections'),
-      ...opts.planner,
-      recentStyles: [...recent],
-      energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity),
-    }
-    // Tracks whose GLOBAL grid was rejected can still be beat-matched where Beat This! beats are
-    // regular around the mix point (outgoing: its last 40 %, incoming: its first 40 %).
-    const sa = localGrid(a.summary, a.netBeats, 'out')
-    const sb = localGrid(b.summary, b.netBeats, 'in')
-    const raw = [
-      ...candidateTransitions(pt(a, sa), pt(b, sb), popt),
-      ...candidateTransitions(pt(a, withEarlyOuts(sa)), pt(b, withLateIns(sb)), popt),
-      ...candidateTransitions(pt(a, withLateOuts(sa)), pt(b, sb), popt),
-    ].filter((p) => !BEATMATCHED.has(p.style) || Math.abs(p.tempoRatio - 1) <= DEFAULT_OPTIONS.maxTempoDeviation + 1e-9 || p.overlapBars <= 8)
-    for (const p of raw) if (BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) p.risks = [...p.risks, `tempo ride ${((p.tempoRatio - 1) * 100).toFixed(1)}% over ${p.overlapBars} bars (key lock)`]
-    // Local refinement with the tracks' Beat This! beats (cue snap + local tempo ratio), as the
-    // learned models were trained on refined plans and it tightens beat alignment for everyone.
-    for (let k = 0; k < raw.length; k++) {
-      if (!BEATMATCHED.has(raw[k].style)) continue
-      const r = refineWithLocalBeats(raw[k], a.netBeats, b.netBeats, ride)
-      if (r.localRefined) {
-        const { localRefined: _l, ...plan } = r
-        raw[k] = plan
-      }
-    }
-    if (opts.techniques?.enabled) {
-      raw.push(
-        ...techniqueCandidates(raw, { spec, a: sa, b: sb, stemsA: opts.techniques.stems?.get(a.key), stemsB: opts.techniques.stems?.get(b.key), gridA: beatmatchable(sa), gridB: beatmatchable(sb), maxTempo: ride }),
-      )
-    }
-    const variety = (p: TransitionPlan) => {
-      const t = (p as TechniquePlan).tech?.technique
-      return t && recentTech[0] === t ? 0.8 : t && recentTech.slice(0, 3).includes(t) ? 0.3 : 0
-    }
-    // On a smooth creative brief, an abrupt handoff needs a musical payoff
-    // when the grids support a blend at a similar tempo.
-    const blendFeasibility = beatmatchable(sa) && beatmatchable(sb)
-      ? Math.max(0, 1 - Math.abs(tempoMatch(sa.bpm, sb.bpm).ratio - 1) / 0.05)
-      : 0
-    const scored = raw.map((p) => {
-      const abruptCost = spec.transitionStyle === 'smooth_creative' && abruptHandoff(p)
-        ? (p.incomingDropSec === undefined ? 2 * blendFeasibility : 0.35)
-        : 0
-      return {
-        p,
-        c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b)
-          + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) + abruptCost
-          - (preferLongDropBlends && longDropBlend(p) ? 2 : 0),
-      }
-    })
-    scored.sort((x, y) => x.c - y.c)
-    // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
-    // region, so the duration DP can choose earlier exits / later entries even when they cost a
-    // little more. Pass 2: fill the remaining slots by cost (distinct style/cue/overlap).
-    const keep: TransitionPlan[] = []
-    const sig = new Set<string>()
-    const push = (p: TransitionPlan, c: number) => {
-      const k = `${p.style}|${(p as TechniquePlan).tech?.technique ?? ''}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
-      if (sig.has(k)) return
-      sig.add(k)
-      keep.push({ ...p, ruleCost: p.costs.total, costs: { ...p.costs, total: c } } as TransitionPlan)
-    }
-    const region = new Set<string>()
-    for (const { p, c } of scored) {
-      const r = `${Math.round(p.outCueSec / (16 * a.summary.barSec))}|${Math.round(p.inCueSec / (16 * b.summary.barSec))}`
-      if (region.has(r)) continue
-      region.add(r)
-      push(p, c)
-      if (keep.length >= Math.ceil(K * 0.6)) break
-    }
-    if (preferLongDropBlends && keep.length < K && !keep.some(longDropBlend)) {
-      const drop = scored.find(({ p }) => longDropBlend(p))
-      if (drop) push(drop.p, drop.c)
-    }
-    // Keep a choice of continuity and creative accents for the set-level search.
-    if (spec.transitionStyle === 'smooth_creative') {
-      for (const abrupt of [false, true]) {
-        if (keep.some((p) => abruptHandoff(p) === abrupt) || keep.length >= K) continue
-        const best = scored.find(({ p }) => abruptHandoff(p) === abrupt)
-        if (best) push(best.p, best.c)
-      }
-    }
-    for (const { p, c } of scored) {
-      if (keep.length >= K) break
-      push(p, c)
-    }
-    keep.sort((x, y) => x.costs.total - y.costs.total)
+    const keep = pairOptions(a, b, i, n, spec, opts, recent, recentTech)
     options.push(opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep)
     if (options[i][0]) {
       recent.unshift(options[i][0].style)
@@ -453,7 +357,126 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   }
   const plans = choices.map((c, i) => options[i][c])
 
-  // Build the exact timeline.
+  const { tracks: tl, transitions: tt, durationSec } = buildTimeline(tracks, plans)
+  if (Math.abs(durationSec - target) > tol) {
+    notes.push(
+      `Duration ${fmt(durationSec)} vs requested ${fmt(target)}: ${durationSec < target ? 'the selected recordings are not long enough even with long blends' : 'the shortest musically clean edits are still longer'}.`,
+    )
+  }
+  return { tracks: tl, transitions: tt, durationSec, targetDurationSec: target, totalCost: bestPick.total, notes, candidates: options }
+}
+
+/**
+ * Styled, diversified candidate edges for one ordered pair at set position `i` of `n` (cue pairs ×
+ * techniques × overlap lengths), as used by the legacy duration DP and by the global set planner.
+ */
+export function pairOptions(a: PlannedTrack, b: PlannedTrack, i: number, n: number, spec: ResolvedSpec, opts: PlanMixOptions, recent: TransitionStyle[] = [], recentTech: string[] = []): TransitionPlan[] {
+  const K = opts.candidatesPerPair ?? 18
+  const preferLongDropBlends = opts.preferLongDropBlends
+    && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'smooth_creative')
+  const longDropBlend = (p: TransitionPlan) => p.style === 'long_blend' && p.incomingDropSec !== undefined
+  const pt = (t: PlannedTrack, s = t.summary): PlanTrack => ({ itemId: t.key, trackKey: t.key, title: t.title, mixable: true, summary: s, durationSec: s.durationSec })
+  // Energetic/creative sets may ride the tempo further for SHORT transitions (as DJs ride the pitch
+  // fader with key lock); long blends stay inside ±6 % (see the post-filter below).
+  const ride = spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : DEFAULT_OPTIONS.maxTempoDeviation
+  const popt: PlannerOptions = {
+    ...DEFAULT_OPTIONS,
+    maxTempoDeviation: ride,
+    preferDropLandings: !!preferLongDropBlends || spec.features.includes('big_drops') || spec.features.includes('drop_sections'),
+    ...opts.planner,
+    recentStyles: [...recent],
+    energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity),
+  }
+  // Tracks whose GLOBAL grid was rejected can still be beat-matched where Beat This! beats are
+  // regular around the mix point (outgoing: its last 40 %, incoming: its first 40 %).
+  const sa = localGrid(a.summary, a.netBeats, 'out')
+  const sb = localGrid(b.summary, b.netBeats, 'in')
+  const raw = [
+    ...candidateTransitions(pt(a, sa), pt(b, sb), popt),
+    ...candidateTransitions(pt(a, withEarlyOuts(sa)), pt(b, withLateIns(sb)), popt),
+    ...candidateTransitions(pt(a, withLateOuts(sa)), pt(b, sb), popt),
+  ].filter((p) => !BEATMATCHED.has(p.style) || Math.abs(p.tempoRatio - 1) <= DEFAULT_OPTIONS.maxTempoDeviation + 1e-9 || p.overlapBars <= 8)
+  for (const p of raw) if (BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) p.risks = [...p.risks, `tempo ride ${((p.tempoRatio - 1) * 100).toFixed(1)}% over ${p.overlapBars} bars (key lock)`]
+  // Local refinement with the tracks' Beat This! beats (cue snap + local tempo ratio), as the
+  // learned models were trained on refined plans and it tightens beat alignment for everyone.
+  for (let k = 0; k < raw.length; k++) {
+    if (!BEATMATCHED.has(raw[k].style)) continue
+    const r = refineWithLocalBeats(raw[k], a.netBeats, b.netBeats, ride)
+    if (r.localRefined) {
+      const { localRefined: _l, ...plan } = r
+      raw[k] = plan
+    }
+  }
+  if (opts.techniques?.enabled) {
+    raw.push(
+      ...techniqueCandidates(raw, { spec, a: sa, b: sb, stemsA: opts.techniques.stems?.get(a.key), stemsB: opts.techniques.stems?.get(b.key), gridA: beatmatchable(sa), gridB: beatmatchable(sb), maxTempo: ride }),
+    )
+  }
+  const variety = (p: TransitionPlan) => {
+    const t = (p as TechniquePlan).tech?.technique
+    return t && recentTech[0] === t ? 0.8 : t && recentTech.slice(0, 3).includes(t) ? 0.3 : 0
+  }
+  // On a smooth creative brief, an abrupt handoff needs a musical payoff
+  // when the grids support a blend at a similar tempo.
+  const blendFeasibility = beatmatchable(sa) && beatmatchable(sb)
+    ? Math.max(0, 1 - Math.abs(tempoMatch(sa.bpm, sb.bpm).ratio - 1) / 0.05)
+    : 0
+  const scored = raw.map((p) => {
+    const abruptCost = spec.transitionStyle === 'smooth_creative' && abruptHandoff(p)
+      ? (p.incomingDropSec === undefined ? 2 * blendFeasibility : 0.35)
+      : 0
+    return {
+      p,
+      c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b)
+        + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) + abruptCost
+        - (preferLongDropBlends && longDropBlend(p) ? 2 : 0),
+    }
+  })
+  scored.sort((x, y) => x.c - y.c)
+  // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
+  // region, so the duration DP can choose earlier exits / later entries even when they cost a
+  // little more. Pass 2: fill the remaining slots by cost (distinct style/cue/overlap).
+  const keep: TransitionPlan[] = []
+  const sig = new Set<string>()
+  const push = (p: TransitionPlan, c: number) => {
+    const k = `${p.style}|${(p as TechniquePlan).tech?.technique ?? ''}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
+    if (sig.has(k)) return
+    sig.add(k)
+    keep.push({ ...p, ruleCost: p.costs.total, costs: { ...p.costs, total: c } } as TransitionPlan)
+  }
+  const region = new Set<string>()
+  for (const { p, c } of scored) {
+    const r = `${Math.round(p.outCueSec / (16 * a.summary.barSec))}|${Math.round(p.inCueSec / (16 * b.summary.barSec))}`
+    if (region.has(r)) continue
+    region.add(r)
+    push(p, c)
+    if (keep.length >= Math.ceil(K * 0.6)) break
+  }
+  if (preferLongDropBlends && keep.length < K && !keep.some(longDropBlend)) {
+    const drop = scored.find(({ p }) => longDropBlend(p))
+    if (drop) push(drop.p, drop.c)
+  }
+  // Keep a choice of continuity and creative accents for the set-level search.
+  if (spec.transitionStyle === 'smooth_creative') {
+    for (const abrupt of [false, true]) {
+      if (keep.some((p) => abruptHandoff(p) === abrupt) || keep.length >= K) continue
+      const best = scored.find(({ p }) => abruptHandoff(p) === abrupt)
+      if (best) push(best.p, best.c)
+    }
+  }
+  for (const { p, c } of scored) {
+    if (keep.length >= K) break
+    push(p, c)
+  }
+  keep.sort((x, y) => x.costs.total - y.costs.total)
+  return keep
+}
+
+/** Exact mix timeline for an ordered track list and its chosen transition plans (one per adjacent pair). */
+export function buildTimeline(tracks: PlannedTrack[], plans: TransitionPlan[]): { tracks: TimelineTrack[]; transitions: TimelineTransition[]; durationSec: number } {
+  const n = tracks.length
+  const start0 = musicStart(tracks[0].summary)
+  const lastEnd = musicEnd(tracks[n - 1].summary)
   const tl: TimelineTrack[] = []
   const tt: TimelineTransition[] = []
   let entry = start0
@@ -484,13 +507,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     recMix = rec.mix
     mixCursor = mixEnd
   }
-  const durationSec = mixCursor
-  if (Math.abs(durationSec - target) > tol) {
-    notes.push(
-      `Duration ${fmt(durationSec)} vs requested ${fmt(target)}: ${durationSec < target ? 'the selected recordings are not long enough even with long blends' : 'the shortest musically clean edits are still longer'}.`,
-    )
-  }
-  return { tracks: tl, transitions: tt, durationSec, targetDurationSec: target, totalCost: bestPick.total, notes, candidates: options }
+  return { tracks: tl, transitions: tt, durationSec: mixCursor }
 }
 
 function fmt(s: number): string {

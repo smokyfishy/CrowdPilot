@@ -24,6 +24,7 @@ FILES = {
     "mixgraph_quality": "mixgraph_quality.json",
     "mixgraph_human_cue": "mixgraph_human_cue.json",
     "transitionnet": "transitionnet.json",
+    "transitionnet_v2": "transitionnet_v2.json",
     "critic_quality": "critic_quality.json",
     "critic_artifact": "critic_artifact.json",
 }

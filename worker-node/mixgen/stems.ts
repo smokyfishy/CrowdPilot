@@ -1,5 +1,6 @@
 /**
- * Stem separation for local mixes (Demucs htdemucs, MIT, CPU): vocals / instrumental per recording,
+ * Stem separation for local mixes (Demucs htdemucs, MIT, CPU): 4 stems (vocals, drums, bass, other)
+ * per recording — the instrumental is their sum (older two-stem caches stay usable),
  * cached by content hash under C:\crowdpilot-data\mixgen\stems\<sha256>\. Also derives per-bar vocal
  * activity and a separation-artifact check (bass bleed into the vocal stem) used to decide whether
  * layering is safe. Local research worker only (too heavy for the browser).
@@ -8,7 +9,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { TrackAnalysis } from '../../src/dsp/analyze'
-import type { StemInfo } from '../../src/mixgen/techniques'
+import type { StemInfo, StemPcm } from '../../src/mixgen/techniques'
 import { decodePcm, ffmpegPath } from './ffmpeg'
 import { dir } from './storage'
 
@@ -24,21 +25,29 @@ function run(cmd: string, args: string[]): Promise<{ code: number; err: string }
 
 export interface StemFiles {
   vocals: string
-  inst: string
+  /** Two-stem cache: the instrumental file. 4-stem caches derive it from drums + bass + other. */
+  inst?: string
+  drums?: string
+  bass?: string
+  other?: string
 }
 
-/** Separates (or returns cached) vocals / instrumental WAVs for an audio file. */
+/**
+ * Separates (or returns cached) stems for an audio file. New separations are 4-stem (htdemucs computes
+ * all four sources either way); an existing two-stem cache is reused unless CP_STEMS4=1.
+ */
 export async function separate(audioPath: string, sha: string): Promise<StemFiles> {
   const out = dir('stems', sha)
-  const files = { vocals: join(out, 'vocals.wav'), inst: join(out, 'no_vocals.wav') }
-  if (existsSync(files.vocals) && existsSync(files.inst)) return files
+  const four = { vocals: join(out, 'vocals.wav'), drums: join(out, 'drums.wav'), bass: join(out, 'bass.wav'), other: join(out, 'other.wav') }
+  if (Object.values(four).every((f) => existsSync(f))) return four
+  const two = { vocals: join(out, 'vocals.wav'), inst: join(out, 'no_vocals.wav') }
+  if (existsSync(two.vocals) && existsSync(two.inst) && process.env.CP_STEMS4 !== '1') return two
   const tmp = join(out, 'input.wav')
   const dec = await run(ffmpegPath(), ['-hide_banner', '-v', 'error', '-y', '-i', audioPath, '-ac', '2', '-ar', '44100', tmp])
   if (dec.code !== 0) throw new Error(`stem prep failed: ${dec.err.slice(0, 200)}`)
   const work = join(out, 'work')
-  const r = await run(process.env.PYTHON ?? 'python', ['-m', 'demucs', '--two-stems', 'vocals', '-n', 'htdemucs', '-o', work, '--filename', '{stem}.{ext}', tmp])
+  const r = await run(process.env.PYTHON ?? 'python', ['-m', 'demucs', '-n', 'htdemucs', '-o', work, '--filename', '{stem}.{ext}', tmp])
   if (r.code !== 0) throw new Error(`demucs failed: ${r.err.split(/\r?\n/).filter((l) => /error/i.test(l)).slice(-2).join(' | ').slice(0, 300) || r.err.slice(-300)}`)
-  // demucs writes <work>/htdemucs/{vocals,no_vocals}.wav
   const found = (name: string): string | null => {
     const walk = (d: string): string | null => {
       for (const f of readdirSync(d)) {
@@ -52,23 +61,35 @@ export async function separate(audioPath: string, sha: string): Promise<StemFile
     }
     return walk(work)
   }
-  const v = found('vocals.wav')
-  const i = found('no_vocals.wav')
-  if (!v || !i) throw new Error('demucs produced no stems')
-  renameSync(v, files.vocals)
-  renameSync(i, files.inst)
+  for (const [k, dst] of Object.entries(four)) {
+    const src = found(`${k}.wav`)
+    if (!src) throw new Error(`demucs produced no ${k} stem`)
+    renameSync(src, dst)
+  }
   rmSync(work, { recursive: true, force: true })
   rmSync(tmp, { force: true })
-  return files
+  return four
 }
 
-export async function loadStems(files: StemFiles, rate = 44100): Promise<{ vocals: Float32Array[]; inst: Float32Array[] }> {
-  const [v, i] = await Promise.all([decodePcm(files.vocals, rate), decodePcm(files.inst, rate)])
+export async function loadStems(files: StemFiles, rate = 44100): Promise<StemPcm> {
+  const v = await decodePcm(files.vocals, rate)
+  if (files.drums && files.bass && files.other) {
+    const [d, b, o] = await Promise.all([decodePcm(files.drums, rate), decodePcm(files.bass, rate), decodePcm(files.other, rate)])
+    const inst = d.channels.map((c, ci) => {
+      const x = new Float32Array(c.length)
+      const bc = b.channels[Math.min(ci, b.channels.length - 1)]
+      const oc = o.channels[Math.min(ci, o.channels.length - 1)]
+      for (let i = 0; i < x.length; i++) x[i] = c[i] + (bc[i] ?? 0) + (oc[i] ?? 0)
+      return x
+    })
+    return { vocals: v.channels, inst, drums: d.channels, bass: b.channels, other: o.channels }
+  }
+  const i = await decodePcm(files.inst!, rate)
   return { vocals: v.channels, inst: i.channels }
 }
 
 /** Per-bar vocal activity and a bass-bleed artifact check from the vocal stem. */
-export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis): StemInfo {
+export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis, extra?: { stems?: StemPcm; mix?: Float32Array[] }): StemInfo {
   const m = vocals[0]
   const r = vocals[1] ?? vocals[0]
   const barSec = a.barSec
@@ -95,7 +116,24 @@ export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis)
     vocalDb.push(Math.round(10 * Math.log10(e / Math.max(1, s1 - s0) + 1e-12) * 10) / 10)
   }
   const bleed = allE > 0 ? lowE / allE : 0
-  return { vocalDb, barStartSec: start, barSec, clean: bleed < 0.25, bleed: Math.round(bleed * 1000) / 1000 }
+  const st = extra?.stems
+  const elements: StemInfo['elements'] = st?.drums && st.bass && st.other ? ['vocals', 'drums', 'bass', 'other'] : ['vocals']
+  // reconstruction check: the stems must sum back to the original (large residual = separation artifacts)
+  let residualDb: number | undefined
+  if (st && extra?.mix) {
+    const mix = extra.mix[0]
+    const n = Math.min(mix.length, st.vocals[0].length, st.inst[0].length)
+    let e = 0
+    let m = 0
+    for (let i = 0; i < n; i += 4) {
+      const d = mix[i] - st.vocals[0][i] - st.inst[0][i]
+      e += d * d
+      m += mix[i] * mix[i]
+    }
+    residualDb = Math.round(10 * Math.log10(e / Math.max(1e-12, m) + 1e-12) * 10) / 10
+  }
+  const clean = bleed < 0.25 && (residualDb === undefined || residualDb < -15)
+  return { vocalDb, barStartSec: start, barSec, clean, bleed: Math.round(bleed * 1000) / 1000, elements, ...(residualDb !== undefined ? { residualDb } : {}) }
 }
 
 export { decodePcm }

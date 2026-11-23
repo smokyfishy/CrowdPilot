@@ -15,10 +15,13 @@ import { orderSet, preselect, type OrderTrack, type ScoredCandidate } from './se
 import { planMix, type MixPlan, type PlannedTrack } from './mixplan'
 import { renderMix, type AudioSink, type PcmTrack, type RenderResult } from './mix-render'
 import { beatmatchable, candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
-import { applyDeckEdits, routeStems, type StemInfo, type TechniquePlan } from './techniques'
+import { applyDeckEdits, routeStems, type StemInfo, type StemPcm, type TechniquePlan } from './techniques'
 import { resample } from '../dsp/resample'
 import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, sameTransitionSlot, traceAutomation, type CriticAudio, type MlRuntime, type ScoredPlan } from './ml'
 import { buildManifest, type MixManifest } from './manifest'
+import { planProDj, proDjDecisions, type ProDjModes, type ProDjTrace } from './prodj'
+import { newClosedLoopMemory, PREVIEW_RATE, type ClosedLoopMemory, type Proposal } from './closedloop'
+import type { SetTrack } from './setplan'
 import { validateMix, type ValidationReport } from './validate'
 import { resolveSpec, type MixSpec, type ResolvedSpec } from './spec'
 import type { AccessDecision, AcquiredAudio, ProgressEvent, TrackCandidate, Unavailability } from './types'
@@ -52,8 +55,14 @@ export interface PipelineHost {
   /** Learned-DJ runtime (src/mixgen/ml.ts). Absent = rules only (logged in the manifest). */
   ml?: MlRuntime
   /** Stem separation (local worker): vocal activity + separation check, and a loader for the stems. */
-  stems?: (audio: AcquiredAudio, analysis: TrackAnalysis) => Promise<{ info: StemInfo; load: () => Promise<{ vocals: Float32Array[]; inst: Float32Array[] }> } | null>
+  stems?: (audio: AcquiredAudio, analysis: TrackAnalysis) => Promise<{ info: StemInfo; load: () => Promise<StemPcm> } | null>
   concurrency?: number
+  /** Closed-loop preview budget (rendered candidate transitions per mix). */
+  previewBudget?: number
+  /** Closed-loop measurements shared across calls of the same job (review → render). */
+  closedLoopMemory?: ClosedLoopMemory
+  /** TransitionNet v2 proposer (when its checkpoint is loaded). */
+  propose?: (ctx: { a: SetTrack; b: SetTrack; base: TransitionPlan }) => Proposal | null
 }
 
 export interface AnalyzedEntry {
@@ -109,6 +118,14 @@ export interface RunOptions {
   /** Stop after planning (review step) without rendering. */
   planOnly?: boolean
   title?: string
+  /**
+   * 'global' (default): professional DJ intelligence — global set planning, long-form staged
+   * performances, closed-loop render/evaluate/re-plan (src/mixgen/prodj.ts).
+   * 'legacy': the previous beam order + per-pair cue DP + DJCritic same-slot selection.
+   */
+  planner?: 'global' | 'legacy'
+  /** Component switches for the global planner (controlled comparisons). */
+  proDj?: Partial<ProDjModes>
 }
 
 export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: RunOptions = {}): Promise<PipelineResult | { planOnly: true; spec: ResolvedSpec; order: string[]; plan: MixPlan; analyses: Map<string, AnalyzedEntry>; acquisition: PipelineResult['acquisition']; unavailable: Unavailability[]; pool: TrackCandidate[] }> {
@@ -242,110 +259,196 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const count = Math.min(spec.songCount, orderTracks.length)
   host.progress({ stage: 'selecting', done: 1, total: 1, detail: `${count} of ${orderTracks.length} analyzed recordings` })
   const fixed = opts.fixedOrder ?? (!spec.allowReordering && spec.songs.length ? undefined : undefined)
-  // Learned pair compatibility (MixGraph) for the beam search, traced against the rule-only order.
   const ml = host.ml
-  let pairExtra: ((a: OrderTrack, b: OrderTrack) => number) | undefined
-  if (ml?.on.ordering && !fixed) {
-    const summaries = new Map(usable.map((e) => [e.candidate.trackKey, summarize(e.analysis)]))
-    const pt = (s: ReturnType<typeof summarize>, k: string): PlanTrack => ({ itemId: k, trackKey: k, title: k, mixable: true, summary: s, durationSec: s.durationSec })
-    const sev = pairSeverity(ml, [...summaries.keys()], summaries, (sa, sb) => candidateTransitions(pt(sa, 'a'), pt(sb, 'b'), DEFAULT_OPTIONS))
-    if (sev.size) pairExtra = (a, b) => ml.options.orderWeight * (sev.get(`${a.key}|${b.key}`) ?? 0.05)
-  }
-  const ord = orderSet(orderTracks, spec, { count, fixedOrder: fixed, pairExtra })
-  if (ml && pairExtra) {
-    const rulesOnly = orderSet(orderTracks, spec, { count })
-    const changed = rulesOnly.order.join('|') !== ord.order.join('|')
-    const name = (k: string) => analyses.get(k)?.candidate.title ?? k
-    ml.trace.decisions.push({
-      stage: 'ordering',
-      model: 'mixgraph_quality',
-      inputs: { tracks: orderTracks.length, scoredPairs: ml.trace.counts.ordering_pairs ?? 0, weight: ml.options.orderWeight },
-      prediction: { learnedPairCost: Math.round(ord.parts.learned * 1000) / 1000, rulesOnlyCost: Math.round(rulesOnly.cost * 1000) / 1000 },
-      decision: changed ? `order changed by the model: ${ord.order.map(name).join(' → ')} (rules alone: ${rulesOnly.order.map(name).join(' → ')})` : 'same order as rules alone',
-    })
-  }
-  host.progress({ stage: 'ordering', done: 1, total: 1, detail: `beam search explored ${ord.explored} states` })
-  log(`ordering: cost ${ord.cost.toFixed(2)} parts ${JSON.stringify(ord.parts)}`)
-
-  // ── 8. transitions + duration ──
-  const planned: PlannedTrack[] = ord.order.map((k) => {
-    const e = analyses.get(k)!
-    const s = summarize(e.analysis)
-    return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp), netBeats: e.analysis.netBeats }
-  })
+  const planner = opts.planner ?? 'global'
+  let order: string[]
+  let plan: MixPlan
+  let proTrace: ProDjTrace | undefined
   // Stems (local worker only): separated for the ordered set, used for layering/mashup techniques.
   const stemInfo = new Map<string, StemInfo>()
-  const stemLoad = new Map<string, () => Promise<{ vocals: Float32Array[]; inst: Float32Array[] }>>()
-  if (host.stems) {
-    for (const [i, t] of planned.entries()) {
-      host.progress({ stage: 'transitions', done: i, total: planned.length, detail: `separating stems ${i + 1}/${planned.length} (vocals / instrumental)` })
+  const stemLoad = new Map<string, () => Promise<StemPcm>>()
+  const separate = async (keys: string[]) => {
+    if (!host.stems) return
+    for (const [i, k] of keys.entries()) {
+      if (stemInfo.has(k)) continue
+      const e = analyses.get(k)!
+      host.progress({ stage: 'transitions', done: i, total: keys.length, detail: `separating stems ${i + 1}/${keys.length} (vocals / instrumental)` })
       try {
-        const e = analyses.get(t.key)!
         const r = await host.stems(e.audio, e.analysis)
         if (r) {
-          stemInfo.set(t.key, r.info)
-          stemLoad.set(t.key, r.load)
-          if (!r.info.clean) log(`stems: ${t.title} failed the separation check (bass bleed ${r.info.bleed}); no layering on this track`)
+          stemInfo.set(k, r.info)
+          stemLoad.set(k, r.load)
+          if (!r.info.clean) log(`stems: ${e.candidate.title} failed the separation check (bass bleed ${r.info.bleed}); no layering on this track`)
         }
       } catch (err) {
-        log(`stems: ${t.title}: ${(err as Error).message}`)
+        log(`stems: ${e.candidate.title}: ${(err as Error).message}`)
       }
     }
   }
-  const plan = planMix(planned, spec, {
-    ...(ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {}),
-    preferLongDropBlends: ml?.on.transitionNet,
-    techniques: { enabled: true, stems: stemInfo },
-  })
-  // DJCritic: choose among same-cue alternatives using rendered previews of the real audio.
-  if (ml?.on.critic && plan.transitions.length) {
+  if (planner === 'global') {
+    const modes: ProDjModes = { global: true, longform: true, closedLoop: true, ...opts.proDj }
+    const entries = usable.map((e) => ({
+      key: e.candidate.trackKey,
+      title: `${e.candidate.artist} – ${e.candidate.title}`,
+      artist: e.candidate.identity.artist,
+      genres: [...e.candidate.genres, ...spec.genres],
+      analysis: e.analysis,
+      energy: e.energy,
+      pref: 2.0 * ((prefBy.get(e.candidate.trackKey) ?? 0) / maxPref) + (include.has(e.candidate.trackKey) ? 50 : 0),
+      trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp),
+    }))
+    // Stems need an order first: plan without rendering, separate the likely set, then plan with stems.
+    if (host.stems) {
+      const pre = await planProDj({ entries, spec, count, fixedOrder: fixed, ml, modes: { ...modes, closedLoop: false }, log })
+      await separate(pre.order)
+    }
+    // Preview audio for the closed loop: 16 kHz mono, small LRU (browser memory).
     const mono = new Map<string, Float32Array>()
-    const monoOf = async (k: string) => {
-      if (!mono.has(k)) {
-        const pcm = await host.decode(analyses.get(k)!.audio)
-        mono.set(k, monoAt(pcm.channels, pcm.rate, 16000))
-        if (mono.size > 3) mono.delete(mono.keys().next().value!)
+    const stems16 = new Map<string, { vocals: Float32Array; inst: Float32Array }>()
+    const audio = async (k: string) => {
+      const hit = mono.get(k)
+      if (hit) {
+        mono.delete(k)
+        mono.set(k, hit)
+        return hit
       }
-      return mono.get(k)!
+      const pcm = await host.decode(analyses.get(k)!.audio)
+      const m = monoAt(pcm.channels, pcm.rate, PREVIEW_RATE)
+      mono.set(k, m)
+      if (mono.size > 6) mono.delete(mono.keys().next().value!)
+      return m
     }
-    const lively = spec.transitionStyle === 'creative' || spec.transitionStyle === 'energetic'
-    const allow = (s: string) =>
-      !(s === 'filter_sweep' && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal')) &&
-      !((s === 'loop_roll' || s === 'brake') && !lively) &&
-      !(s === 'scratch_cut' && !spec.features.includes('scratching'))
-    for (const [i, tr] of plan.transitions.entries()) {
-      host.progress({ stage: 'transitions', done: i, total: plan.transitions.length, detail: `DJCritic ${i + 1}/${plan.transitions.length}` })
-      const a = planned[i]
-      const b = planned[i + 1]
-      const chosen = tr.plan as TechniquePlan
-      const standard = buildAlternatives(ml, chosen as ScoredPlan, a.summary, b.summary, allow)
-      const creative = plan.candidates[i].find((p) => {
-        const tech = (p as TechniquePlan).tech
-        return tech && tech.technique !== chosen.tech?.technique && sameTransitionSlot(chosen, p)
+    const stemsAt = async (k: string) => {
+      const load = stemLoad.get(k)
+      if (!load) return null
+      let hit = stems16.get(k)
+      if (!hit) {
+        const st = await load()
+        hit = { vocals: monoAt(st.vocals, 44100, PREVIEW_RATE), inst: monoAt(st.inst, 44100, PREVIEW_RATE) }
+        stems16.set(k, hit)
+        if (stems16.size > 4) stems16.delete(stems16.keys().next().value!)
+      }
+      return hit
+    }
+    host.progress({ stage: 'ordering', done: 0, total: 1, detail: 'global set planning (order × cues × overlap)' })
+    const res = await planProDj({
+      entries,
+      spec,
+      count,
+      fixedOrder: fixed,
+      ml,
+      stems: stemInfo,
+      audio: { audio, stems: host.stems ? stemsAt : undefined },
+      modes,
+      budget: host.previewBudget ?? 64,
+      propose: host.propose,
+      memory: host.closedLoopMemory ?? newClosedLoopMemory(),
+      log,
+      progress: (d, t, detail) => host.progress({ stage: 'transitions', done: d, total: t, detail }),
+      signal: host.signal,
+    })
+    order = res.order
+    plan = res.plan
+    proTrace = res.trace
+    if (ml) {
+      ml.trace.decisions.push(...proDjDecisions(res.trace))
+      // honesty: the global planner never executes TransitionNet v1 trajectories
+      const tn = ml.trace.models.find((x) => x.name === 'transitionnet')
+      if (tn?.used) {
+        tn.used = false
+        ml.trace.fallbacks.push('TransitionNet v1 (short-blend trajectories) not used: long-form transitions come from the staged performance generator' + (host.propose ? ' with TransitionNet v2 proposals' : ' (rule solver)'))
+      }
+    }
+    host.progress({ stage: 'ordering', done: 1, total: 1, detail: `global plan: ${order.length} tracks${res.trace.closedLoop ? `, ${res.trace.closedLoop.previews} rendered previews, ${res.trace.closedLoop.rounds} round(s)` : ''}` })
+    host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, plan.transitions.length), detail: plan.transitions.map((t) => (t.plan.performance ? `${t.plan.overlapBars}-bar ${t.plan.performance.strategy}` : t.plan.style)).join(', ') })
+  } else {
+    // Learned pair compatibility (MixGraph) for the beam search, traced against the rule-only order.
+    let pairExtra: ((a: OrderTrack, b: OrderTrack) => number) | undefined
+    if (ml?.on.ordering && !fixed) {
+      const summaries = new Map(usable.map((e) => [e.candidate.trackKey, summarize(e.analysis)]))
+      const pt = (s: ReturnType<typeof summarize>, k: string): PlanTrack => ({ itemId: k, trackKey: k, title: k, mixable: true, summary: s, durationSec: s.durationSec })
+      const sev = pairSeverity(ml, [...summaries.keys()], summaries, (sa, sb) => candidateTransitions(pt(sa, 'a'), pt(sb, 'b'), DEFAULT_OPTIONS))
+      if (sev.size) pairExtra = (a, b) => ml.options.orderWeight * (sev.get(`${a.key}|${b.key}`) ?? 0.05)
+    }
+    const ord = orderSet(orderTracks, spec, { count, fixedOrder: fixed, pairExtra })
+    if (ml && pairExtra) {
+      const rulesOnly = orderSet(orderTracks, spec, { count })
+      const changed = rulesOnly.order.join('|') !== ord.order.join('|')
+      const name = (k: string) => analyses.get(k)?.candidate.title ?? k
+      ml.trace.decisions.push({
+        stage: 'ordering',
+        model: 'mixgraph_quality',
+        inputs: { tracks: orderTracks.length, scoredPairs: ml.trace.counts.ordering_pairs ?? 0, weight: ml.options.orderWeight },
+        prediction: { learnedPairCost: Math.round(ord.parts.learned * 1000) / 1000, rulesOnlyCost: Math.round(rulesOnly.cost * 1000) / 1000 },
+        decision: changed ? `order changed by the model: ${ord.order.map(name).join(' → ')} (rules alone: ${rulesOnly.order.map(name).join(' → ')})` : 'same order as rules alone',
       })
-      // Keep a template in the preview budget when a creative or learned control plan is chosen.
-      const alts = creative ? [...standard.slice(0, 1), creative, ...standard.slice(1)] : standard
-      if (!alts.length) continue
-      const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
-      let audioFor: CriticAudio | ((p: TransitionPlan) => CriticAudio) = audio
-      const techniques = [chosen, ...alts].map((p) => (p as TechniquePlan).tech)
-      if (techniques.some(Boolean)) {
-        const [pa, pb] = [await host.decode(analyses.get(a.key)!.audio), await host.decode(analyses.get(b.key)!.audio)]
-        const [sa, sb] = techniques.some((tech) => tech?.stems)
-          ? [await stemLoad.get(a.key)?.(), await stemLoad.get(b.key)?.()]
-          : [undefined, undefined]
-        audioFor = (p) => ((p as TechniquePlan).tech ? techPreview(p as TechniquePlan, pa, pb, sa, sb) : audio)
-      }
-      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audioFor, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)
     }
+    host.progress({ stage: 'ordering', done: 1, total: 1, detail: `beam search explored ${ord.explored} states` })
+    log(`ordering: cost ${ord.cost.toFixed(2)} parts ${JSON.stringify(ord.parts)}`)
+
+    // ── 8. transitions + duration ──
+    const planned: PlannedTrack[] = ord.order.map((k) => {
+      const e = analyses.get(k)!
+      const s = summarize(e.analysis)
+      return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp), netBeats: e.analysis.netBeats }
+    })
+    await separate(ord.order)
+    plan = planMix(planned, spec, {
+      ...(ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {}),
+      preferLongDropBlends: ml?.on.transitionNet,
+      techniques: { enabled: true, stems: stemInfo },
+    })
+    // DJCritic: choose among same-cue alternatives using rendered previews of the real audio.
+    if (ml?.on.critic && plan.transitions.length) {
+      const mono = new Map<string, Float32Array>()
+      const monoOf = async (k: string) => {
+        if (!mono.has(k)) {
+          const pcm = await host.decode(analyses.get(k)!.audio)
+          mono.set(k, monoAt(pcm.channels, pcm.rate, 16000))
+          if (mono.size > 3) mono.delete(mono.keys().next().value!)
+        }
+        return mono.get(k)!
+      }
+      const lively = spec.transitionStyle === 'creative' || spec.transitionStyle === 'energetic'
+      const allow = (s: string) =>
+        !(s === 'filter_sweep' && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal')) &&
+        !((s === 'loop_roll' || s === 'brake') && !lively) &&
+        !(s === 'scratch_cut' && !spec.features.includes('scratching'))
+      for (const [i, tr] of plan.transitions.entries()) {
+        host.progress({ stage: 'transitions', done: i, total: plan.transitions.length, detail: `DJCritic ${i + 1}/${plan.transitions.length}` })
+        const a = planned[i]
+        const b = planned[i + 1]
+        const chosen = tr.plan as TechniquePlan
+        const standard = buildAlternatives(ml, chosen as ScoredPlan, a.summary, b.summary, allow)
+        const creative = plan.candidates[i].find((p) => {
+          const tech = (p as TechniquePlan).tech
+          return tech && tech.technique !== chosen.tech?.technique && sameTransitionSlot(chosen, p)
+        })
+        // Keep a template in the preview budget when a creative or learned control plan is chosen.
+        const alts = creative ? [...standard.slice(0, 1), creative, ...standard.slice(1)] : standard
+        if (!alts.length) continue
+        const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
+        let audioFor: CriticAudio | ((p: TransitionPlan) => CriticAudio) = audio
+        const techniques = [chosen, ...alts].map((p) => (p as TechniquePlan).tech)
+        if (techniques.some(Boolean)) {
+          const [pa, pb] = [await host.decode(analyses.get(a.key)!.audio), await host.decode(analyses.get(b.key)!.audio)]
+          const [sa, sb] = techniques.some((tech) => tech?.stems)
+            ? [await stemLoad.get(a.key)?.(), await stemLoad.get(b.key)?.()]
+            : [undefined, undefined]
+          audioFor = (p) => ((p as TechniquePlan).tech ? techPreview(p as TechniquePlan, pa, pb, sa, sb) : audio)
+        }
+        tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audioFor, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)
+      }
+    }
+    if (ml) plan.transitions.forEach((tr, i) => traceAutomation(ml, tr.plan, `${i + 1}→${i + 2}`))
+    host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, planned.length - 1), detail: plan.transitions.map((t) => t.plan.style).join(', ') })
+    for (const n of plan.notes) log(`plan: ${n}`)
+    order = ord.order
   }
-  if (ml) plan.transitions.forEach((tr, i) => traceAutomation(ml, tr.plan, `${i + 1}→${i + 2}`))
-  host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, planned.length - 1), detail: plan.transitions.map((t) => t.plan.style).join(', ') })
-  for (const n of plan.notes) log(`plan: ${n}`)
 
   // Unavailability, including substitution notes.
-  const unavailable = pre.unavailable.map((u) => (spec.allowSubstitutions ? { ...u, substitutedWith: ord.order.slice(0, 3).map((k) => analyses.get(k)!.candidate.artist) } : u))
-  if (opts.planOnly) return { planOnly: true, spec, order: ord.order, plan, analyses, acquisition, unavailable, pool: pool0 }
+  const unavailable = pre.unavailable.map((u) => (spec.allowSubstitutions ? { ...u, substitutedWith: order.slice(0, 3).map((k) => analyses.get(k)!.candidate.artist) } : u))
+  if (opts.planOnly) return { planOnly: true, spec, order, plan, analyses, acquisition, unavailable, pool: pool0 }
 
   // ── 9. render ──
   const loaded = new Map<string, PcmTrack>()
@@ -372,18 +475,19 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   )
 
   // ── 10. validate ──
-  const perms = mixPermissions(ord.order.map((k) => analyses.get(k)!.access))
-  const manifest = buildManifest({ spec, plan, render, analyses, order: ord.order, unavailable, permissions: perms, acquisition, title: opts.title })
+  const perms = mixPermissions(order.map((k) => analyses.get(k)!.access))
+  const manifest = buildManifest({ spec, plan, render, analyses, order, unavailable, permissions: perms, acquisition, title: opts.title })
   manifest.ml = ml?.trace ?? { mode: 'off', options: undefined, models: [], decisions: [], fallbacks: ['no ML runtime provided by this host: rule-based planner only'], timingsMs: {}, counts: {} }
+  if (proTrace) manifest.prodj = proTrace
   const validation = validateMix(manifest, render)
   host.progress({ stage: 'validating', done: 1, total: 1, detail: validation.ok ? 'passed' : validation.failures.join('; ') })
   manifest.validation = validation
   host.progress({ stage: 'ready', done: 1, total: 1 })
-  return { spec, pool: pool0, acquisition, analyses, order: ord.order, plan, render, manifest, validation, unavailable }
+  return { spec, pool: pool0, acquisition, analyses, order, plan, render, manifest, validation, unavailable }
 }
 
 /** 16 kHz mono preview audio of a technique plan (stem routing + deck edits applied, cropped). */
-function techPreview(p: TechniquePlan, a: PcmTrack, b: PcmTrack, sa?: { vocals: Float32Array[]; inst: Float32Array[] }, sb?: { vocals: Float32Array[]; inst: Float32Array[] }): CriticAudio {
+function techPreview(p: TechniquePlan, a: PcmTrack, b: PcmTrack, sa?: StemPcm, sb?: StemPcm): CriticAudio {
   const tech = p.tech!
   let outDeck = a.channels
   let inDeck = b.channels

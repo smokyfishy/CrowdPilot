@@ -31,12 +31,14 @@ export interface RegistryEntry {
   promoted: boolean
   version: string
 }
-export type Registry = Record<'mixgraph_quality' | 'mixgraph_human_cue' | 'transitionnet' | 'critic_quality' | 'critic_artifact', RegistryEntry>
+export type Registry = Record<'mixgraph_quality' | 'mixgraph_human_cue' | 'transitionnet' | 'critic_quality' | 'critic_artifact', RegistryEntry> & { transitionnet_v2?: RegistryEntry }
 
 export interface DjModels {
   mixgraph?: { quality: GbdtModel & { alpha: number; beta: number }; human: GbdtModel }
   transitionNet?: MlpModel & { echoSubs: number[] }
   critic?: { quality: GbdtModel; artifact: GbdtModel }
+  /** TransitionNet v2: long-form strategy + stage parameters + cue shift (src/ml/transitionnet-v2.ts). */
+  transitionNetV2?: MlpModel
   /** Which components are active (promoted, or all in experimental mode). */
   active: { mixgraph: boolean; transitionNet: boolean; critic: boolean }
 }
@@ -48,26 +50,28 @@ export async function loadDjModels(mode: MlMode, base = '/models/ml/', fetchFn: 
   if (mode === 'off') return none
   try {
     const reg = (await (await fetchFn(`${base}registry.json`)).json()) as Registry
-    const enabled = (k: keyof Registry) => !!reg[k] && (mode === 'experimental' || reg[k].promoted)
+    const enabled = (k: keyof Registry) => !!reg[k] && (mode === 'experimental' || !!reg[k]?.promoted)
     const get = async <T>(k: keyof Registry): Promise<T | undefined> => {
       if (!enabled(k)) return undefined
       try {
-        return (await (await fetchFn(base + reg[k].file)).json()) as T
+        return (await (await fetchFn(base + reg[k]!.file)).json()) as T
       } catch {
         return undefined
       }
     }
-    const [mq, mh, tn, cq, ca] = await Promise.all([
+    const [mq, mh, tn, cq, ca, tn2] = await Promise.all([
       get<GbdtModel & { alpha: number; beta: number }>('mixgraph_quality'),
       get<GbdtModel>('mixgraph_human_cue'),
       get<MlpModel & { echoSubs: number[] }>('transitionnet'),
       get<GbdtModel>('critic_quality'),
       get<GbdtModel>('critic_artifact'),
+      get<MlpModel>('transitionnet_v2'),
     ])
     const m: DjModels = { active: { mixgraph: !!(mq && mh), transitionNet: !!tn, critic: !!(cq && ca) } }
     if (mq && mh) m.mixgraph = { quality: mq, human: mh }
     if (tn) m.transitionNet = tn
     if (cq && ca) m.critic = { quality: cq, artifact: ca }
+    if (tn2) m.transitionNetV2 = tn2
     return m
   } catch {
     return none
@@ -189,6 +193,15 @@ export function criticScore(
   if (r.clippedSamples > 0 || r.channels[0].some((sample) => Math.abs(sample) >= 1)) previewDefects.push('clipped preview')
   if (r.limiterGainReductionDb > 6) previewDefects.push('limiter reduction over 6 dB')
   return { quality: gbdtPredict(m.quality, x), artifact: gbdtPredict(m.artifact, x), previewDefects, ms: performance.now() - t0 }
+}
+
+/** DJCritic on an already-rendered mono preview (the closed loop renders once and reuses it). */
+export function criticFromMix(m: NonNullable<DjModels['critic']>, plan: TransitionPlan, mix: Float32Array, rate: number, t0: number, t1: number): { quality: number; artifact: number } {
+  const c0 = Math.max(0, t0 - Math.round(8.5 * rate))
+  const c1 = Math.min(mix.length, Math.max(t1, t0 + rate) + Math.round(8.5 * rate))
+  const f = criticFeatures({ mix: mix.subarray(c0, c1), rate, t0: t0 - c0, t1: t1 - c0, beatSec: plan.beatSec })
+  const x = [...featureVector(f), SLAM.has(plan.style) ? 1 : 0, BEATMATCHED.has(plan.style) ? 1 : 0, Math.min(32, plan.overlapBars)]
+  return { quality: gbdtPredict(m.quality, x), artifact: gbdtPredict(m.artifact, x) }
 }
 
 /** Audio window a preview needs from each deck (seconds in each track's own timeline). */

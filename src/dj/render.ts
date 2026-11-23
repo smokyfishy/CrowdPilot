@@ -87,11 +87,15 @@ export function renderTransition(input: RenderInput): RenderOutput {
   let incoming: Float32Array[]
   const dropOutputSample = Math.round((plan.incomingDropOffsetSec ?? plan.durationSec) * rate)
   const needsDropAnchor = dropSample !== undefined && dropOutputSample > 0 && inCue + dropOutputSample !== dropSample
-  if (Math.abs(plan.tempoRatio - 1) > 1e-4 || needsDropAnchor) {
+  const tempoLane = plan.tempo?.length ? plan.tempo : null
+  if (Math.abs(plan.tempoRatio - 1) > 1e-4 || needsDropAnchor || (tempoLane && tempoLane.some((p) => Math.abs(p.value - 1) > 1e-4))) {
     const rec = plan.tempoRecoveryBars * 4 * plan.beatSec * rate
     const r = plan.tempoRatio
     const frame = rate >= 44100 ? 2048 : 2 * Math.round((2048 * rate) / 44100 / 2)
-    const st = wsola(input.in, inCue, needLen, (s) => (s <= overlap ? r : rec > 0 ? (s >= overlap + rec ? 1 : r + (1 - r) * ((s - overlap) / rec)) : r), {
+    const rateAt = tempoLane
+      ? (s: number) => curveAt(tempoLane, s / rate / plan.beatSec, 1)
+      : (s: number) => (s <= overlap ? r : rec > 0 ? (s >= overlap + rec ? 1 : r + (1 - r) * ((s - overlap) / rec)) : r)
+    const st = wsola(input.in, inCue, needLen, rateAt, {
       frame, tolerance: Math.round(frame / 8), ...input.stretch,
       ...(dropSample !== undefined ? { anchor: { outputSample: dropOutputSample, inputSample: dropSample } } : {}),
     })
@@ -127,20 +131,77 @@ export function renderTransition(input: RenderInput): RenderOutput {
   const fA = Array.from({ length: nch }, mkF)
   const fB = Array.from({ length: nch }, mkF)
   const echo = plan.echo ? Array.from({ length: nch }, () => new OfflineEcho(plan.echo!.delayBeats * plan.beatSec * rate, plan.echo!.feedback)) : null
+  const echoB = plan.echoIn ? Array.from({ length: nch }, () => new OfflineEcho(plan.echoIn!.delayBeats * plan.beatSec * rate, plan.echoIn!.feedback)) : null
+  // Outgoing loop: output sample i ≥ loopFrom (until loopTo) reads the `loopLen` samples before loopFrom.
+  const loop = plan.outLoop && plan.outLoop.lengthBeats > 0 && plan.outLoop.endBeat > plan.outLoop.startBeat
+    ? {
+        from: tStart + Math.round(plan.outLoop.startBeat * plan.beatSec * rate),
+        to: tStart + Math.round(plan.outLoop.endBeat * plan.beatSec * rate),
+        len: Math.max(1, Math.round(plan.outLoop.lengthBeats * plan.beatSec * rate)),
+      }
+    : null
+  const seam = Math.max(1, Math.round(0.004 * rate))
+  // Outgoing source position for output sample i (loop-aware): writes srcIdx / srcPrev / srcW (no allocation).
+  let srcIdx = 0
+  let srcPrev = -1
+  let srcW = 1
+  const srcIndexA = (i: number) => {
+    srcPrev = -1
+    srcW = 1
+    if (!loop || i < loop.from) {
+      srcIdx = outStart + i
+      return
+    }
+    if (i >= loop.to) {
+      // after the loop the deck continues from where the loop region ended (as a DJ releasing a loop)
+      srcIdx = outStart + loop.from + (i - loop.to)
+      return
+    }
+    const rel = (i - loop.from) % loop.len
+    srcIdx = outStart + loop.from - loop.len + rel
+    // crossfade the first `seam` samples of each repeat with the continuation of the previous pass
+    if (rel < seam) {
+      srcPrev = srcIdx + loop.len
+      srcW = rel / seam
+    }
+  }
   const stemA = input.stems ? new Float32Array(total) : undefined
   const stemB = input.stems ? new Float32Array(total) : undefined
   let peak = 0
   let clipped = 0
   let env = 1
   let minEnv = 1
+  // Controls evaluated at block edges and interpolated per sample (click-free, no zipper steps).
+  // Layout: [gA, gB, aL, aM, aH, bL, bM, bH, send, sendB]
+  const NCTL = 10
+  const ctl = (i: number, o: Float64Array) => {
+    const beat = beatOf(i)
+    const inTransition = i >= tStart
+    const xf = inTransition && plan.crossfader?.length ? curveAt(plan.crossfader, beat, 0) : 0
+    o[0] = (inTransition ? curveAt(plan.out.gain, beat) : 1) * Math.min(1, 1 - xf)
+    o[1] = (inTransition ? curveAt(plan.in.gain, beat) : 0) * Math.min(1, 1 + xf)
+    o[2] = inTransition ? band(curveAt(plan.out.low, beat)) : 1
+    o[3] = inTransition ? band(curveAt(plan.out.mid, beat)) : 1
+    o[4] = inTransition ? band(curveAt(plan.out.high, beat)) : 1
+    o[5] = inTransition ? band(curveAt(plan.in.low, beat)) : 1
+    o[6] = inTransition ? band(curveAt(plan.in.mid, beat)) : 1
+    o[7] = inTransition ? band(curveAt(plan.in.high, beat)) : 1
+    o[8] = inTransition && plan.echo ? curveAt(plan.echo.send, beat) : 0
+    o[9] = inTransition && plan.echoIn ? curveAt(plan.echoIn.send, beat) : 0
+  }
+  const c1 = new Float64Array(NCTL)
+  const dC = new Float64Array(NCTL)
+  const cur = new Float64Array(NCTL)
+  const c0 = new Float64Array(NCTL)
+  ctl(0, c0)
   for (let blk = 0; blk < total; blk += BLOCK) {
     const beat = beatOf(blk + BLOCK / 2)
     const inTransition = blk + BLOCK > tStart
-    const gA = inTransition ? curveAt(plan.out.gain, beat) : 1
-    const gB = inTransition ? curveAt(plan.in.gain, beat) : 0
-    const bandsOf = (d: TransitionPlan['out']) => (inTransition ? [band(curveAt(d.low, beat)), band(curveAt(d.mid, beat)), band(curveAt(d.high, beat))] : [1, 1, 1])
-    const [aL, aM, aH] = bandsOf(plan.out)
-    const [bL, bM, bH] = bandsOf(plan.in)
+    ctl(Math.min(total, blk + BLOCK), c1)
+    for (let k = 0; k < NCTL; k++) {
+      dC[k] = (c1[k] - c0[k]) / BLOCK
+      cur[k] = c0[k]
+    }
     const knobA = inTransition && plan.filter?.out ? curveAt(plan.filter.out, beat) : 0
     const knobB = inTransition && plan.filter?.in ? curveAt(plan.filter.in, beat) : 0
     for (const [fs, k] of [[fA, knobA], [fB, knobB]] as const) {
@@ -151,15 +212,17 @@ export function renderTransition(input: RenderInput): RenderOutput {
         f.hp.set('highpass', cut.hp, rate)
       }
     }
-    const send = inTransition && plan.echo ? curveAt(plan.echo.send, beat) : 0
     const end = Math.min(total, blk + BLOCK)
     for (let i = blk; i < end; i++) {
-      const aIdx = outStart + i
+      const gA = cur[0], gB = cur[1], aL = cur[2], aM = cur[3], aH = cur[4], bL = cur[5], bM = cur[6], bH = cur[7], send = cur[8], sendB = cur[9]
+      for (let k = 0; k < NCTL; k++) cur[k] += dC[k]
+      srcIndexA(i)
       const bIdx = i - tStart
       const pIdx = perf ? i - perf.from : -1
       for (let c = 0; c < nch; c++) {
         const srcA = ch(input.out, c)
-        let xa = aIdx < srcA.length ? srcA[aIdx] * trimA : 0
+        let xa = (srcIdx >= 0 && srcIdx < srcA.length ? srcA[srcIdx] : 0) * trimA
+        if (srcPrev >= 0) xa = xa * srcW + (srcPrev < srcA.length ? srcA[srcPrev] : 0) * trimA * (1 - srcW)
         if (perf && pIdx >= 0 && pIdx < perf.data[0].length) xa = ch(perf.data, c)[pIdx] * trimA
         const ia = isoA[c]
         let a = run(ia.l, xa) * aL + run(ia.m, xa) * aM + run(ia.h, xa) * aH
@@ -173,10 +236,11 @@ export function renderTransition(input: RenderInput): RenderOutput {
         let b = run(ib.l, xb) * bL + run(ib.m, xb) * bM + run(ib.h, xb) * bH
         if (knobB !== 0) b = fB[c].hp.process(fB[c].lp.process(b))
         const wet = echo ? echo[c].process(a * send) : 0
-        out[c][i] = a * gA + b * gB + wet
+        const wetB = echoB ? echoB[c].process(b * sendB) : 0
+        out[c][i] = a * gA + b * gB + wet + wetB
         if (stemA) {
           stemA[i] += (a * gA + wet) / nch
-          stemB![i] += (b * gB) / nch
+          stemB![i] += (b * gB + wetB) / nch
         }
       }
       // safety limiter: instant attack, 100 ms release, ceiling −1 dBFS
@@ -193,6 +257,7 @@ export function renderTransition(input: RenderInput): RenderOutput {
         if (v >= 0.999) clipped++
       }
     }
+    c0.set(c1)
   }
   return { channels: out, rate, transitionStartSample: tStart, peak, clippedSamples: clipped, limiterGainReductionDb: -20 * Math.log10(minEnv), ...(stemA ? { stemA, stemB } : {}) }
 }

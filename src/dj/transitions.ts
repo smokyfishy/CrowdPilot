@@ -24,6 +24,8 @@ export type TransitionStyle =
   | 'loop_roll'
   | 'brake'
   | 'scratch_cut'
+  // long-form, multi-stage performance (src/mixgen/longform.ts)
+  | 'staged_blend'
 
 export const STYLE_LABEL: Record<TransitionStyle, string> = {
   cut: 'Phrase-aligned cut',
@@ -39,6 +41,7 @@ export const STYLE_LABEL: Record<TransitionStyle, string> = {
   loop_roll: 'Loop roll into the drop',
   brake: 'Vinyl brake',
   scratch_cut: 'Scratch + echo cut',
+  staged_blend: 'Long-form staged blend',
 }
 
 export interface PlanTrack {
@@ -107,6 +110,39 @@ export interface TransitionPlan {
   echo?: { send: CurvePoint[]; delayBeats: number; feedback: number }
   /** Performance moves on the outgoing deck (roll/brake/spinback/scratch), beats relative to the transition start. */
   outPerf?: { startBeat: number; beats: number; ops: PerfOp[] }
+  /**
+   * Crossfader position (−1 = deck A/outgoing only … 0 = centre … +1 = deck B/incoming only), dipless
+   * curve: A gain = min(1, 1 − x), B gain = min(1, 1 + x). Multiplies the channel faders.
+   */
+  crossfader?: CurvePoint[]
+  /**
+   * Incoming playback-rate lane (beats from the transition start → ratio). When present the renderer
+   * follows it instead of `tempoRatio` + `tempoRecoveryBars`; it must equal `tempoRatio` over the
+   * overlap (validated) so the mix timeline stays exact.
+   */
+  tempo?: CurvePoint[]
+  /** Tempo-synced echo send on the INCOMING deck (e.g. echoing an incoming vocal stab in). */
+  echoIn?: { send: CurvePoint[]; delayBeats: number; feedback: number }
+  /**
+   * Loop on the outgoing deck: from `startBeat` until `endBeat` the outgoing repeats the
+   * `lengthBeats` beats that precede `startBeat` (seamless, 4 ms seam crossfades) — extends an
+   * instrumental phrase under a long blend.
+   */
+  outLoop?: { startBeat: number; lengthBeats: number; endBeat: number }
+  /** Cue triggers executed by the renderer/timeline (incoming start, drop, loop in/out), beats from the transition start. */
+  cues?: Array<{ deck: 'out' | 'in'; beat: number; trackSec: number; label: string }>
+  /** Multi-stage performance description (long-form TransitionNet / rule solver), for traces and the Listen page. */
+  performance?: StagedPerformanceInfo
+}
+
+/** Stage-level description of a long-form performance (the executable controls are the curves above). */
+export interface StagedPerformanceInfo {
+  source: 'transitionnet-v2' | 'rules'
+  strategy: string
+  stages: Array<{ kind: 'introduce' | 'layer' | 'develop' | 'transfer' | 'resolve'; startBar: number; endBar: number; actions: string[] }>
+  bassSwapBar: number
+  vocalMode: string
+  params?: Record<string, number>
 }
 
 export interface PlannerWeights {
@@ -355,6 +391,7 @@ export function automationFor(style: TransitionStyle, beats: number, p: StylePar
         handoffBeat: B * 0.6,
       }
     }
+    case 'staged_blend':
     case 'long_blend': {
       // Incoming layers in over the first ~40 % (no bass, mids tucked), 1-bar bass handoff at the
       // midpoint, then the outgoing loses mids/highs and fades over the last 40 %.
@@ -420,9 +457,10 @@ export const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
   loop_roll: [2],
   brake: [1],
   scratch_cut: [1],
+  staged_blend: [16, 32, 48, 64],
 }
 
-export const BEATMATCHED: ReadonlySet<TransitionStyle> = new Set(['short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep'])
+export const BEATMATCHED: ReadonlySet<TransitionStyle> = new Set(['short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep', 'staged_blend'])
 /** Styles where the incoming starts on a downbeat after the outgoing's flourish (no overlap of beats). */
 export const SLAM: ReadonlySet<TransitionStyle> = new Set(['echo_out', 'loop_roll', 'brake', 'scratch_cut'])
 export const ALL_STYLES: TransitionStyle[] = ['cut', 'short_fade', 'long_blend', 'bass_swap', 'percussion_led', 'unmatched_fade', 'drop_swap', 'filter_sweep', 'echo_out', 'loop_roll', 'brake', 'scratch_cut']

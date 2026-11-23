@@ -18,6 +18,7 @@
 import type { AnalysisSummary } from '../dsp/analyze'
 import { resample } from '../dsp/resample'
 import { automationFor, BEATMATCHED, OVERLAP_BARS, type TransitionPlan } from '../dj/transitions'
+import { curveAt } from '../dj/automation'
 import { CTRL_CHANNELS, type ParamVector } from '../ml/controls'
 import type { TechniquePlan } from './techniques'
 import { applyTransitionNet, criticScore, mixgraphRank, transitionNetPredict, type DjModels, type MlMode, type Registry } from '../ml/dj-brain'
@@ -37,6 +38,8 @@ export interface MlOptions {
   orderWeight: number
   /** DJCritic: max alternatives rendered per transition. */
   criticAlternatives: number
+  /** TransitionNet v2 proposals for long-form performances (used only when its checkpoint loads). */
+  transitionNetV2: boolean
 }
 
 /**
@@ -54,6 +57,7 @@ export const ML_DEFAULTS: MlOptions = {
   beta: 0,
   orderWeight: 4,
   criticAlternatives: 4,
+  transitionNetV2: false,
 }
 
 export interface MlModelInfo {
@@ -68,7 +72,7 @@ export interface MlModelInfo {
 }
 
 export interface MlDecision {
-  stage: 'ordering' | 'ranking' | 'automation' | 'selection'
+  stage: 'ordering' | 'ranking' | 'automation' | 'selection' | 'planning' | 'performance' | 'closed_loop'
   model: string
   pair?: string
   inputs: Record<string, number | string>
@@ -92,7 +96,7 @@ export interface MlRuntime {
   options: MlOptions
   trace: MlTrace
   /** True when the component is loaded AND switched on. */
-  on: { mixgraph: boolean; transitionNet: boolean; critic: boolean; ordering: boolean }
+  on: { mixgraph: boolean; transitionNet: boolean; critic: boolean; ordering: boolean; transitionNetV2: boolean }
 }
 
 const KIND: Record<string, string> = {
@@ -101,6 +105,7 @@ const KIND: Record<string, string> = {
   transitionnet: 'MLP (automation trajectories + technique parameters)',
   critic_quality: 'LightGBM (rendered-preview quality)',
   critic_artifact: 'LightGBM (artifact probability)',
+  transitionnet_v2: 'MLP (long-form strategy + stage parameters + cue shift)',
 }
 
 export async function createMlRuntime(load: (mode: MlMode) => Promise<DjModels>, registry: () => Promise<Registry | null>, opts: Partial<MlOptions> = {}): Promise<MlRuntime> {
@@ -128,14 +133,15 @@ export async function createMlRuntime(load: (mode: MlMode) => Promise<DjModels>,
     transitionNet: options.mode !== 'off' && options.transitionNet && !!models.transitionNet,
     critic: options.mode !== 'off' && options.critic && !!models.critic,
     ordering: options.mode !== 'off' && options.ordering && !!models.mixgraph,
+    transitionNetV2: options.mode !== 'off' && options.transitionNetV2 && !!models.transitionNetV2,
   }
-  const names = ['mixgraph_quality', 'mixgraph_human_cue', 'transitionnet', 'critic_quality', 'critic_artifact'] as const
-  const loaded = (n: string) => (n.startsWith('mixgraph') ? !!models.mixgraph : n === 'transitionnet' ? !!models.transitionNet : !!models.critic)
-  const used = (n: string) => (n === 'mixgraph_quality' ? on.mixgraph || on.ordering : n === 'mixgraph_human_cue' ? (on.mixgraph || on.ordering) && options.beta !== 0 : n === 'transitionnet' ? on.transitionNet : on.critic)
+  const names = ['mixgraph_quality', 'mixgraph_human_cue', 'transitionnet', 'transitionnet_v2', 'critic_quality', 'critic_artifact'] as const
+  const loaded = (n: string) => (n.startsWith('mixgraph') ? !!models.mixgraph : n === 'transitionnet' ? !!models.transitionNet : n === 'transitionnet_v2' ? !!models.transitionNetV2 : !!models.critic)
+  const used = (n: string) => (n === 'mixgraph_quality' ? on.mixgraph || on.ordering : n === 'mixgraph_human_cue' ? (on.mixgraph || on.ordering) && options.beta !== 0 : n === 'transitionnet' ? on.transitionNet : n === 'transitionnet_v2' ? on.transitionNetV2 : on.critic)
   const trace: MlTrace = {
     mode: options.mode,
     options,
-    models: names.map((n) => ({ name: n, file: reg?.[n]?.file, version: reg?.[n]?.version, sha256: reg?.[n]?.sha256, promoted: reg?.[n]?.promoted, loaded: loaded(n), used: used(n), kind: KIND[n] })),
+    models: names.map((n) => ({ name: n, file: reg?.[n]?.file, version: reg?.[n]?.version, sha256: reg?.[n]?.sha256, promoted: reg?.[n]?.promoted, loaded: loaded(n), used: used(n), kind: KIND[n] })).filter((x) => x.name !== 'transitionnet_v2' || x.loaded),
     decisions: [],
     fallbacks,
     timingsMs: { load: Date.now() - t0 },
@@ -222,9 +228,23 @@ export function validPlan(p: TransitionPlan): boolean {
   if (!(p.durationSec >= 0) || !Number.isFinite(p.tempoRatio) || Math.abs(p.tempoRatio - 1) > 0.1001) return false // ±10 % = short tempo rides in energetic/creative sets
   for (const d of [p.out, p.in]) if (!ok(d.gain, 0, 1.0001) || !ok(d.low, -40, 6) || !ok(d.mid, -40, 6) || !ok(d.high, -40, 6)) return false
   if (p.filter && (!ok(p.filter.out, -1, 1) || !ok(p.filter.in, -1, 1))) return false
-  if (p.echo && (!ok(p.echo.send, 0, 1) || !(p.echo.feedback >= 0 && p.echo.feedback <= 0.9) || !(p.echo.delayBeats > 0 && p.echo.delayBeats <= 4))) return false
-  // the outgoing must end silent and the incoming at full level (no dropouts or stuck faders)
-  if (p.durationSec > 0 && (p.out.gain[p.out.gain.length - 1].value > 0.05 || p.in.gain[p.in.gain.length - 1].value < 0.9)) return false
+  for (const e of [p.echo, p.echoIn]) if (e && (!ok(e.send, 0, 1) || !(e.feedback >= 0 && e.feedback <= 0.9) || !(e.delayBeats > 0 && e.delayBeats <= 4))) return false
+  if (p.crossfader && !ok(p.crossfader, -1, 1)) return false
+  if (p.overlapBars > 64) return false
+  const B = p.overlapBars * 4
+  if (p.tempo) {
+    // the lane must hold the planned ratio over the overlap (the timeline depends on it) and stay within ±10 %
+    if (!ok(p.tempo, 0.899, 1.101)) return false
+    for (const beat of [0, B / 2, B]) if (Math.abs(curveAt(p.tempo, beat, 1) - p.tempoRatio) > 1e-3) return false
+  }
+  if (p.outLoop && !(p.outLoop.lengthBeats >= 1 && p.outLoop.lengthBeats <= 64 && p.outLoop.startBeat >= p.outLoop.lengthBeats - p.outCueSec / p.beatSec && p.outLoop.endBeat > p.outLoop.startBeat)) return false
+  // the outgoing must end silent and the incoming at full level (no dropouts or stuck faders); the crossfader counts
+  if (p.durationSec > 0) {
+    const xf = p.crossfader?.length ? curveAt(p.crossfader, B, 0) : 0
+    const outEnd = p.out.gain[p.out.gain.length - 1].value * Math.min(1, 1 - xf)
+    const inEnd = p.in.gain[p.in.gain.length - 1].value * Math.min(1, 1 + xf)
+    if (outEnd > 0.05 || inEnd < 0.9) return false
+  }
   return true
 }
 

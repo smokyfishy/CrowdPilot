@@ -18,7 +18,7 @@ import { curveAt } from '../dj/automation'
 import { automationFor, BEATMATCHED, tempoMatch, type CurvePoint, type DeckAutomation, type TransitionPlan } from '../dj/transitions'
 import type { ResolvedSpec } from './spec'
 
-export type Technique = 'acapella_layer' | 'mashup_swap' | 'double_drop' | 'spinback' | 'stab_build' | 'beat_juggle' | 'tone_play' | 'reverb_wash'
+export type Technique = 'acapella_layer' | 'mashup_swap' | 'double_drop' | 'spinback' | 'stab_build' | 'beat_juggle' | 'tone_play' | 'reverb_wash' | 'stem_handoff'
 
 export const TECHNIQUE_LABEL: Record<Technique, string> = {
   acapella_layer: 'Acapella layer (incoming vocal over outgoing instrumental)',
@@ -29,6 +29,7 @@ export const TECHNIQUE_LABEL: Record<Technique, string> = {
   beat_juggle: 'Beat juggle',
   tone_play: 'Tone play',
   reverb_wash: 'Reverb wash-out',
+  stem_handoff: 'Stem-level vocal/element handoff (long-form)',
 }
 
 export type DeckEdit =
@@ -39,10 +40,28 @@ export type DeckEdit =
   /** Re-triggered, re-pitched copies of a tonal hit on beats (semitone offsets from the hit's pitch). */
   | { kind: 'tone'; startSec: number; beats: number; beatSec: number; sourceSec: number; hitBeats: number; semitones: number[]; mix: number }
 
+/** Gain curves (0..1) of one deck's stems. With 4-stem separations drums/bass/other replace `inst`. */
+export interface StemGains {
+  vocals: CurvePoint[]
+  inst: CurvePoint[]
+  drums?: CurvePoint[]
+  bass?: CurvePoint[]
+  other?: CurvePoint[]
+}
+
 export interface StemRoute {
   /** Gain curves (0..1) over the transition (beats relative to its start) for each deck's stems. */
-  out: { vocals: CurvePoint[]; inst: CurvePoint[] }
-  in: { vocals: CurvePoint[]; inst: CurvePoint[] }
+  out: StemGains
+  in: StemGains
+}
+
+/** Separated stems at the mix rate: vocals + instrumental, and (4-stem Demucs) drums / bass / other. */
+export interface StemPcm {
+  vocals: Float32Array[]
+  inst: Float32Array[]
+  drums?: Float32Array[]
+  bass?: Float32Array[]
+  other?: Float32Array[]
 }
 
 export interface TechniqueControls {
@@ -144,21 +163,30 @@ const stemGainAt = (c: CurvePoint[], beat: number) => curveAt(c, beat, 1)
  * vocals·gV + inst·gI (gains evaluated in transition beats via `beatAt(trackSec)`), crossfading
  * 50 ms at the window edges so the original mixture continues seamlessly outside it.
  */
-export function routeStems(mix: Float32Array[], stems: { vocals: Float32Array[]; inst: Float32Array[] }, rate: number, startSec: number, endSec: number, beatAt: (trackSec: number) => number, gains: { vocals: CurvePoint[]; inst: CurvePoint[] }): Float32Array[] {
+export function routeStems(mix: Float32Array[], stems: StemPcm, rate: number, startSec: number, endSec: number, beatAt: (trackSec: number) => number, gains: StemGains): Float32Array[] {
   const out = mix.map((c) => c.slice())
   const a = Math.max(0, Math.round(startSec * rate))
   const b = Math.min(mix[0].length, Math.round(endSec * rate))
   const xf = Math.round(0.05 * rate)
+  // element-level routing when 4 stems AND element curves exist; otherwise vocals + instrumental
+  const four = !!(stems.drums && stems.bass && stems.other && (gains.drums || gains.bass || gains.other))
+  const pick = (x: Float32Array[] | undefined, ci: number) => (x ? x[Math.min(ci, x.length - 1)] : undefined)
   for (let ci = 0; ci < out.length; ci++) {
-    const v = stems.vocals[Math.min(ci, stems.vocals.length - 1)]
-    const s = stems.inst[Math.min(ci, stems.inst.length - 1)]
+    const v = pick(stems.vocals, ci)!
+    const s = pick(stems.inst, ci)!
+    const d = pick(stems.drums, ci)
+    const bs = pick(stems.bass, ci)
+    const o = pick(stems.other, ci)
     for (let i = a; i < b; i += 64) {
       const beat = beatAt(i / rate)
       const gv = stemGainAt(gains.vocals, beat)
       const gi = stemGainAt(gains.inst, beat)
+      const gd = four ? stemGainAt(gains.drums ?? [], beat) : 0
+      const gb = four ? stemGainAt(gains.bass ?? [], beat) : 0
+      const go = four ? stemGainAt(gains.other ?? [], beat) : 0
       for (let k = i; k < Math.min(b, i + 64); k++) {
         const edge = Math.min(1, (k - a) / xf, (b - k) / xf)
-        const routed = (v[k] ?? 0) * gv + (s[k] ?? 0) * gi
+        const routed = four ? (v[k] ?? 0) * gv + (d![k] ?? 0) * gd + (bs![k] ?? 0) * gb + (o![k] ?? 0) * go : (v[k] ?? 0) * gv + (s[k] ?? 0) * gi
         out[ci][k] = routed * edge + mix[ci][k] * (1 - edge)
       }
     }
@@ -228,9 +256,13 @@ export interface StemInfo {
   vocalDb: number[]
   barStartSec: number
   barSec: number
-  /** Separation passed the artifact check (low bass bleed into the vocal stem). */
+  /** Separation passed the artifact check (low bass bleed into the vocal stem; 4-stem: reconstruction residual). */
   clean: boolean
   bleed: number
+  /** Separated elements available (4-stem Demucs: vocals, drums, bass, other). */
+  elements?: Array<'vocals' | 'drums' | 'bass' | 'other'>
+  /** Stem-sum reconstruction residual vs the original mix (dB, lower = cleaner), when measured. */
+  residualDb?: number
 }
 
 const vocalAt = (s: StemInfo, t0: number, t1: number) => {

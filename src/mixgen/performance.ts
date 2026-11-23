@@ -79,6 +79,10 @@ export interface PerfTransition {
   technique?: string
   /** Mix time (s, final audio timeline) of automation beat 0. */
   mixStartSec: number
+  /** Crossfader lane of a long-form performance (−1 A … +1 B, dipless); folded into the displayed channel gains. */
+  crossfader?: CurvePoint[]
+  /** Multi-stage description of a long-form performance (stages, bass-swap bar, vocal mode). */
+  performance?: TransitionPlan['performance']
   /** Automation beat unit (outgoing beat period). */
   beatSec: number
   overlapBars: number
@@ -144,7 +148,7 @@ export interface PerformanceManifest {
   fidelity: 'full' | 'reduced'
   durationSec: number
   latencySec: number
-  /** The renderer has no crossfader (channel-fader mixing, assign THRU). */
+  /** No global crossfader widget: per-transition crossfader lanes (long-form performances) are folded into channel gains. */
   crossfader: null
   tracks: PerfTrack[]
   transitions: PerfTransition[]
@@ -362,6 +366,8 @@ export function buildPerformance(input: {
       out: lanes(p.out, p.filter?.out, tech?.stems?.out),
       in: lanes(p.in, p.filter?.in, tech?.stems?.in),
       ...(p.echo ? { echo: p.echo } : {}),
+      ...(p.crossfader ? { crossfader: p.crossfader } : {}),
+      ...(p.performance ? { performance: p.performance } : {}),
       ...(tech?.reverb && sp?.reverbApplied ? { reverb: tech.reverb } : {}),
       ...(p.outPerf ? { outPerf: p.outPerf } : {}),
       ...(tech?.deckEdits && sp?.deckEditsApplied ? { deckEdits: tech.deckEdits } : {}),
@@ -740,7 +746,9 @@ export function createEvaluator(perf: PerformanceManifest): PerformanceEvaluator
   }
 
   function lanesAt(c: ChannelState, l: PerfChannelLanes, beat: number, tt: PerfTransition, outgoing: boolean): ChannelState {
-    c.gain = curveAt(l.gain, beat)
+    // the renderer multiplies the channel fader by the dipless crossfader curve; show the level it applies
+    const xf = tt.crossfader ? curveAt(tt.crossfader, beat, 0) : 0
+    c.gain = curveAt(l.gain, beat) * Math.min(1, outgoing ? 1 - xf : 1 + xf)
     c.low = curveAt(l.low, beat)
     c.mid = curveAt(l.mid, beat)
     c.high = curveAt(l.high, beat)

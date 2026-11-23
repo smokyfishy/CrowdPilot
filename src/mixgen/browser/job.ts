@@ -13,6 +13,7 @@ import { ANALYZER_VERSION, type TrackAnalysis } from '../../dsp/analyze'
 import type { WorkerRequest, WorkerResponse } from '../../dj/engine/analysis.worker'
 import { decideAccess, mixPermissions } from '../policy'
 import { AcquisitionError, runPipeline, type AnalyzedEntry, type PipelineHost } from '../pipeline'
+import { newClosedLoopMemory } from '../closedloop'
 import type { MixManifest } from '../manifest'
 import type { MixSpec } from '../spec'
 import type { AcquiredAudio, ProgressEvent, Stage, TrackCandidate } from '../types'
@@ -192,6 +193,8 @@ export class BrowserMixJob {
 
   private mlRuntime: Promise<MlRuntime> | null = null
   private lastMl: MlRuntime | null = null
+  /** Closed-loop measurements shared by the review pass and the render pass of this job. */
+  private loopMemory = newClosedLoopMemory()
   private orderingDecisions: { decisions: MlRuntime['trace']['decisions']; counts: Record<string, number>; timings: Record<string, number> } = { decisions: [], counts: {}, timings: {} }
   /** Learned-DJ options for this job (default: every model with weights). */
   mlOptions: Partial<MlOptions> = {}
@@ -219,6 +222,8 @@ export class BrowserMixJob {
       policy: DEPLOYED_POLICY,
       previous: { pool, analyses },
       concurrency: 3,
+      previewBudget: 64,
+      closedLoopMemory: job.loopMemory,
       async acquire(c, access): Promise<AcquiredAudio> {
         if (!access.acquire) throw new AcquisitionError(access.reason, 'not_permitted')
         const buf = await job.fetchAudio(c)
@@ -331,7 +336,8 @@ export class BrowserMixJob {
     const t = this.lastMl?.trace
     if (t) {
       this.orderingDecisions = {
-        decisions: t.decisions.filter((d) => d.stage === 'ordering'),
+        // the review pass chose the order (global planning + closed loop); keep its decisions in the final trace
+        decisions: t.decisions.filter((d) => d.stage === 'ordering' || d.stage === 'planning' || d.stage === 'closed_loop').map((d) => (d.stage === 'ordering' ? d : { ...d, decision: `review pass: ${d.decision}` })),
         counts: t.counts.ordering_pairs ? { ordering_pairs: t.counts.ordering_pairs } : {},
         timings: t.timingsMs.ordering ? { ordering: t.timingsMs.ordering } : {},
       }

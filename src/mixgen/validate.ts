@@ -79,6 +79,17 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   const badSplice = r.transitions.filter((t) => t.spliceCorrelation < 0.5)
   add('sample-aligned splices', badSplice.length === 0, badSplice.length ? badSplice.map((t) => `#${t.index + 1}: r=${t.spliceCorrelation}`).join(', ') : 'all r ≥ 0.5', 'correlation ≥ 0.5')
   add('waveform matches length', Math.abs(m.waveform.min.length * m.waveform.secPerBucket - m.durationSec) < m.waveform.secPerBucket * 2 + 0.1, `${(m.waveform.min.length * m.waveform.secPerBucket).toFixed(1)} s`, `${m.durationSec.toFixed(1)} s`)
+  // Unintended abrupt cuts: on a smooth / minimal brief an abrupt handoff must be a planned, justified
+  // technique (a drop landing or an un-beat-matchable pair), never a fallback.
+  const smoothBrief = /smooth|minimal/.test(m.spec?.transitionStyle ?? '')
+  const unjustified = m.transitions.filter((t) => ABRUPT.has(t.style) && smoothBrief && !t.risks.some((x) => /tempo|grid/.test(x)) && !/drop/i.test(t.label + ' ' + (t.reasons ?? []).join(' ')))
+  add('no unintended abrupt cuts', unjustified.length === 0, unjustified.map((t) => `#${t.index + 1} ${t.style}`).join(', ') || 'none', 'cuts only when justified')
+  // Closed-loop rendered checks of the final transitions (vocal clash, bass masking, beat offset, clipping, silence …).
+  const measured = m.prodj?.transitions.filter((t) => t.measured?.score !== undefined) ?? []
+  if (measured.length) {
+    const bad = measured.filter((t) => t.measured?.hardFail)
+    add('transitions pass rendered-audio checks', bad.length === 0, bad.map((t) => `#${t.pair}`).join(', ') || `${measured.length}/${m.transitions.length} rendered, none failed`, 'no hard failure')
+  }
   for (const t of m.transitions) {
     if (Math.abs(t.tempoAdjustPct) > 6.0001) warnings.push(`transition ${t.index + 1}: tempo adjustment ${t.tempoAdjustPct}% exceeds ±6 %`)
     if (t.risks.length) warnings.push(`transition ${t.index + 1} (${t.label}): ${t.risks.join('; ')}`)

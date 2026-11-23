@@ -286,5 +286,5 @@ describe('creativity defaults and local grids', () => {
     expect(g.bpm).toBeCloseTo(141, 0)
     const irregular = beats.map((t, k) => t + (k % 3) * 0.06)
     expect(localGrid(failed, irregular, 'out').stable).toBe(false)
-  })
+  }, 30_000) // synthesises + analyses a 64-bar track: slow on a loaded CPU
 })

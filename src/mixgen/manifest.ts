@@ -12,6 +12,7 @@ import type { ResolvedSpec } from './spec'
 import type { Unavailability } from './types'
 import type { ValidationReport } from './validate'
 import type { MlTrace, ScoredPlan } from './ml'
+import type { ProDjTrace } from './prodj'
 import type { TechniquePlan } from './techniques'
 import { buildPerformance, type PerformanceManifest } from './performance'
 
@@ -126,6 +127,8 @@ export interface MixManifest {
   performance?: PerformanceManifest
   /** Learned-DJ inference trace (models, inputs, predictions, decisions, DSP params, fallbacks). */
   ml?: Omit<MlTrace, 'options'> & { options?: MlTrace['options'] }
+  /** Professional DJ planner trace (global plan, long-form performances, closed-loop measurements). */
+  prodj?: ProDjTrace
 }
 
 function curveSec(c: CurvePoint[] | undefined, beatSec: number): ManifestCurve | undefined {

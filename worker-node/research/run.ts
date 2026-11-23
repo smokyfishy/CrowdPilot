@@ -99,6 +99,7 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
     policy,
     previous: { pool: disc.pool },
     concurrency: 2, // yt-dlp itself is serialized with a gap between downloads
+    previewBudget: Number(process.env.MIXGEN_PREVIEW_BUDGET ?? 200),
     async acquire(c) {
       // 1) best verified upload, 2) other verified uploads of the same recording, 3) Jamendo same recording
       for (const cand of [c, ...(disc.alternates.get(c.trackKey) ?? [])]) {
@@ -124,8 +125,9 @@ export async function runResearch(spec: MixSpec, o: { jobId: string; repoRoot: s
     stems: (o.stems ?? resolved.songCount <= 8)
       ? async (audio, analysis) => {
           const files = await separate(sources.pathOf(audio), audio.sha256)
-          const v = await decodePcm(files.vocals, 44100)
-          return { info: stemInfo(v.channels, 44100, analysis), load: () => loadStems(files) }
+          const st = await loadStems(files)
+          const mix = await decodePcm(sources.pathOf(audio), 44100)
+          return { info: stemInfo(st.vocals, 44100, analysis, { stems: st, mix: mix.channels }), load: () => loadStems(files) }
         }
       : undefined,
   }

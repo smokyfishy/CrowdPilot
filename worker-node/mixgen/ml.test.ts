@@ -28,7 +28,7 @@ const pt = (s: PlannedTrack): PlanTrack => ({ itemId: s.key, trackKey: s.key, ti
 describe('learned-DJ integration (real checkpoints)', () => {
   it('loads the real exported weights and records their provenance', async () => {
     const rt = await nodeMlRuntime(process.cwd(), { transitionNet: true })
-    expect(rt.on).toEqual({ mixgraph: true, transitionNet: true, critic: true, ordering: true })
+    expect(rt.on).toEqual({ mixgraph: true, transitionNet: true, critic: true, ordering: true, transitionNetV2: false })
     const reg = JSON.parse(readFileSync('public/models/ml/registry.json', 'utf8')) as Record<string, { file: string; sha256: string }>
     for (const m of rt.trace.models) {
       const file = readFileSync(`public/models/ml/${reg[m.name].file}`)
@@ -93,13 +93,13 @@ describe('learned-DJ integration (real checkpoints)', () => {
 
   it('defaults follow the ablation: MixGraph + DJCritic on, TransitionNet off (logged)', async () => {
     const d = await nodeMlRuntime(process.cwd())
-    expect(d.on).toEqual({ mixgraph: true, transitionNet: false, critic: true, ordering: true })
+    expect(d.on).toEqual({ mixgraph: true, transitionNet: false, critic: true, ordering: true, transitionNetV2: false })
     expect(d.trace.models.find((m) => m.name === 'transitionnet')).toMatchObject({ loaded: true, used: false })
   })
 
   it('mode off runs rules only and says so', async () => {
     const off = await nodeMlRuntime(process.cwd(), { mode: 'off' })
-    expect(off.on).toEqual({ mixgraph: false, transitionNet: false, critic: false, ordering: false })
+    expect(off.on).toEqual({ mixgraph: false, transitionNet: false, critic: false, ordering: false, transitionNetV2: false })
     expect(off.trace.fallbacks.join(' ')).toMatch(/off/)
   })
 

@@ -150,6 +150,7 @@ export async function runNodeJob(spec: MixSpec, o: NodeRunOptions): Promise<Node
     },
     log,
     concurrency: 3,
+    previewBudget: Number(process.env.MIXGEN_PREVIEW_BUDGET ?? 160),
     previous: o.previousPool ? { pool: o.previousPool } : undefined,
     ml: await nodeMlRuntime(o.repoRoot, o.ml),
   }

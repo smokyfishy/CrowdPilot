@@ -3,7 +3,7 @@ import { Activity } from 'lucide-react'
 import { MixDisclosure } from './MixDisclosure'
 import type { MixManifest } from '@/mixgen/manifest'
 
-const STAGE: Record<string, string> = { ordering: 'Track order', ranking: 'Transition ranking', automation: 'Automation', selection: 'Critic selection' }
+const STAGE: Record<string, string> = { ordering: 'Track order', ranking: 'Transition ranking', automation: 'Automation', selection: 'Critic selection', planning: 'Set planning', performance: 'Long-form performance', closed_loop: 'Closed-loop evaluation' }
 
 export function MlDiagnostics({ m }: { m: MixManifest }) {
   const ml = m.ml

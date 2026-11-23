@@ -110,7 +110,8 @@ export function useMixJob(mixId: string, rec: { recordId: string; data: MixData 
       quality,
     )
     const automationModel = rec?.data.spec.automation_model
-    if (automationModel === 'transitionnet') job.mlOptions = { transitionNet: true }
+    // 'transitionnet' (the UI default) now means the long-form performance generator of the global
+    // planner (src/mixgen/prodj.ts); TransitionNet v1 short-blend trajectories are not used by it.
     if (automationModel === 'transitionnet-only') job.mlOptions = { transitionNet: true, mixgraph: false, ordering: false, critic: false }
     const carry = flag(`mix-carry:${mixId}`)
     l = { job, running: false, events: {}, listeners: new Set([rerender]), carry: carry ? JSON.parse(carry) : undefined }
