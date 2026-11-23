@@ -196,14 +196,16 @@ def main():
         "strategies": STRATEGIES, "cueShifts": SHIFTS,
     }
     json.dump(model, open(os.path.join(OUT, "transitionnet_v2.json"), "w"))
-    json.dump(model, open(os.path.join(PUBLIC, "transitionnet_v2.json"), "w"))
+    if os.environ.get("V2_PUBLISH") == "1":  # only after a held-out rendered comparison justifies it
+        json.dump(model, open(os.path.join(PUBLIC, "transitionnet_v2.json"), "w"))
     # parity fixture for the TS runtime
     fx = {"x": split["train"][0]["x"].tolist()}
     with torch.no_grad():
         lg, pp, sl = net(norm(torch.tensor(split["train"][0]["x"])[None]))
     fx.update({"strategy": lg[0].numpy().round(6).tolist(), "params": pp[0].numpy().round(6).tolist(), "cueShift": sl[0].numpy().round(6).tolist()})
-    os.makedirs(os.path.join(os.path.dirname(__file__), "..", "..", "src", "ml", "__fixtures__"), exist_ok=True)
-    json.dump(fx, open(os.path.join(os.path.dirname(__file__), "..", "..", "src", "ml", "__fixtures__", "transitionnet_v2_parity.json"), "w"))
+    fixdir = os.path.join(os.path.dirname(__file__), "..", "..", "src", "ml", "__fixtures__") if os.environ.get("V2_PUBLISH") == "1" else os.path.join(OUT, "fixtures")
+    os.makedirs(fixdir, exist_ok=True)
+    json.dump(fx, open(os.path.join(fixdir, "transitionnet_v2_parity.json"), "w"))
     json.dump(report, open(os.path.join(OUT, "report.json"), "w"), indent=1)
     print(json.dumps(report, indent=1))
 
