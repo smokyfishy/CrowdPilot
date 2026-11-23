@@ -307,3 +307,27 @@ All numbers use the corrected alignment metric. "Quality" is the closed-loop exp
 - **Durations run short:** 26.7 / 30 min on misc (−11 %) and 40.8 / 45 on house-2 (−9 %). Longer overlaps shorten the set when the pool has few spare tracks.
 - **No listening evidence yet.** Blind A/B pages (existing vs full, global+longform vs full) are generated per set in `C:\crowdpilot-data\mixgen\prodj\<set>\index.html`, with the keys stored separately in `prodj\keys\`. Full mixes for listening are `prodj\<set>\{existing,full}\*.mp3`. **No claim of professional-level quality is made.**
 
+
+### Changes made after the held-out runs (disclosed)
+
+- **Duration:** a set more than 9 % off the requested length is near-hard-penalised in the planner. The mix validator fails sets outside ±10 %, and the held-out misc set had come out −11 %.
+  - Re-running misc gave 27.4 / 30 min (−8.7 %), with 0 hard fails and median quality 0.25 (was 0.23).
+  - DJCritic moved to 0.354 / 0.328. It is still worse than production's 0.315 / 0.254 on that set.
+- **Validator:**
+  - Level jumps in the seconds before a transition starts are the outgoing track alone and are no longer counted.
+  - An abrupt cut is justified when the planner had no clean beat-matched window for the pair, and the plan says so.
+  - Both were found in the real-audio end-to-end. The −16 dB break at 360–362 s is in the outgoing recording itself.
+
+### Real-audio end-to-end (production Node pipeline)
+
+`evaluation/mixgen.e2e.eval.ts`, job `prodj-e2e-2`: the default prompt (40-minute tech house, 12 tracks), using Jamendo audio.
+
+- Result: 39.7 min, 12 tracks, 11 transitions. 10 are long-form staged blends (16–48 bars); 1 is an echo-out on a pair with no clean beat-matched window.
+- The closed loop rendered 94 previews over 4 rounds.
+- **Every `validateMix` check passed:**
+  - no silence, no clipping;
+  - peak −1 dBFS, −11.9 LUFS;
+  - level jumps and loudness matching within limits;
+  - all splices sample-aligned;
+  - no unintended cuts;
+  - all rendered transitions passed.

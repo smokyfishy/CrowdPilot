@@ -139,3 +139,26 @@ Every technique is a set of time-stamped controls on top of a base TransitionPla
 - Cache: `<data>/mixgen/stems/<sha256>/`.
 - Artifact check: if bass bleeds into the vocal stem (low-band share ≥ 0.25), layering is disabled for that track.
 - Default: on for sets of 8 songs or fewer. Override with `--stems` / `--no-stems`, or with the selector on /research.
+
+
+## Professional DJ planning (global set planning, long-form performances, closed loop) — 2026-11-23
+
+The default planner is now `planner: 'global'` (`src/mixgen/prodj.ts`), in all hosts:
+
+1. Music analysis is turned into bar-level profiles: bass, vocal, percussion and harmony per bar, plus regions.
+2. A **global set planner** chooses order, cues, overlap (16–64 bars) and technique jointly, with lookahead through each track's entry point. It uses narrative roles from the prompt, MixGraph as a learned edge term, and Beat This! grid alignment to reject windows that would flam.
+3. Eligible transitions become **long-form staged performances** (introduce → layer → develop → transfer → resolve), solved from the recordings. They drive executable lanes: faders, crossfader, EQ, filters, echo on both decks, a tempo lane, loops, cues, and stems when available.
+4. The **closed loop** renders candidate previews with the production renderer and measures them with explicit metrics plus a capped DJCritic term. It rejects failures, refines, feeds measured costs back and re-plans. Preview budget: browser 64, Node 160, research 200.
+5. The final mix is checked by `validateMix`, which adds two checks:
+   - no unintended abrupt cuts;
+   - every rendered transition passed its checks.
+
+`planner: 'legacy'` keeps the previous beam order, cue DP and DJCritic same-slot path.
+
+The UI's `automation_model: 'transitionnet'` no longer forces TransitionNet v1 on.
+
+Evidence (held-out sets, controlled comparison, metric caveats, and the TransitionNet v2 and alignment-metric negative findings) is in **docs/PRO_DJ_REPORT.md**. Run the comparison with:
+
+```
+MIXGEN_REPORT=<research report> npx vitest run -c vitest.eval.config.ts evaluation/mixgen.prodj.eval.ts
+```
