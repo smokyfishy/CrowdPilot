@@ -22,7 +22,11 @@ function Curve({ c, color, db, total, label }: { c?: ManifestCurve; color: strin
 export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransition; onClose: () => void; onSeek: (s: number) => void }) {
   const total = Math.max(t.overlapSec, ...t.curves.out.gain.t, ...t.curves.in.gain.t, 0.5)
   const rows: Array<[string, string]> = [
-    ['Technique', t.label + (t.technique ? ` — chosen by rules from the analysis (no trained model for this technique); confidence ${t.technique.confidence}` : '')],
+    ['Technique', t.label + (t.technique
+      ? (t.reasons ?? []).some((r) => r.includes('TransitionNet v2'))
+        ? ` — strategy and shape proposed by TransitionNet v2, stage timing solved from the analysis, kept after rendered comparison; confidence ${t.technique.confidence}`
+        : ` — chosen by rules from the analysis (no trained model for this technique); confidence ${t.technique.confidence}`
+      : '')],
     ...(t.technique ? ([['Why', t.technique.rationale.join('; ')]] as Array<[string, string]>) : []),
     ['Starts at', `${fmtTime(t.mixStartSec)} (mix)`],
     ['Overlap', `${t.overlapBars} bars · ${t.overlapSec.toFixed(1)} s`],

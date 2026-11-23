@@ -78,6 +78,8 @@ export interface ClosedLoopMemory {
   pairPenalty: Map<string, number>
   extraEdges: Map<string, TransitionPlan[]>
   previews: number
+  /** Learned-model usage accumulated over every call that shares this memory (review + render passes). */
+  modelUse?: ClosedLoopResult['modelUse']
 }
 
 export function newClosedLoopMemory(): ClosedLoopMemory {
@@ -215,7 +217,12 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   const replans: ClosedLoopResult['replans'] = []
   const notes: string[] = []
   let previews = 0
-  const modelUse: ClosedLoopResult['modelUse'] = { transitionnetV2: { proposals: 0, rendered: 0, final: 0 }, transitionnetV1: { variants: 0, rendered: 0, final: 0 }, humanCue: { candidates: 0, rendered: 0, final: 0 }, critic: { scored: 0 } }
+  mem.modelUse ??= { transitionnetV2: { proposals: 0, rendered: 0, final: 0 }, transitionnetV1: { variants: 0, rendered: 0, final: 0 }, humanCue: { candidates: 0, rendered: 0, final: 0 }, critic: { scored: 0 } }
+  const modelUse = mem.modelUse
+  // "final" describes THIS call's final set
+  modelUse.transitionnetV2.final = 0
+  modelUse.transitionnetV1.final = 0
+  modelUse.humanCue.final = 0
   const humanSigs = new Set<string>()
   const isV1 = (p: TransitionPlan) => (p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet'
   const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
@@ -468,7 +475,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     if (isV1(e.plan)) modelUse.transitionnetV1.final++
     if (humanSigs.has(e.sig)) modelUse.humanCue.final++
   }
-  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes, modelUse }
+  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes, modelUse: structuredClone(modelUse) }
 }
 
 /** Hard failures always rank below clean candidates; then lower score wins. Length earns nothing. */

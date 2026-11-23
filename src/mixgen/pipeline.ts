@@ -381,9 +381,9 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
         if (m.used && !used) ml.trace.fallbacks.push(`${name} loaded but produced no rendered candidate in this mix (${why})`)
         m.used = m.loaded && used
       }
-      mark('transitionnet', (mu?.transitionnetV1.rendered ?? 0) > 0, 'no short beat-matched template needed a variant')
-      mark('transitionnet_v2', (mu?.transitionnetV2.rendered ?? 0) > 0, 'no long-form window reached the closed loop')
-      mark('mixgraph_human_cue', (mu?.humanCue.rendered ?? 0) > 0, 'no pair offered a distinct human-prior slot')
+      mark('transitionnet', (mu?.transitionnetV1.rendered ?? 0) + (mu?.transitionnetV1.final ?? 0) > 0, 'no short beat-matched template needed a variant')
+      mark('transitionnet_v2', (mu?.transitionnetV2.rendered ?? 0) + (mu?.transitionnetV2.final ?? 0) > 0, 'no long-form window reached the closed loop')
+      mark('mixgraph_human_cue', (mu?.humanCue.rendered ?? 0) + (mu?.humanCue.final ?? 0) > 0, 'no pair offered a distinct human-prior slot')
       // the two signal models outside the learned-DJ registry, with their real usage in this mix
       const beatnet = usable.filter((e) => e.analysis.grid.source === 'beatnet').length
       ml.trace.models = ml.trace.models.filter((x) => x.name !== 'beat_this_small0' && x.name !== 'demucs_htdemucs').map((x) => ({ ...x }))
