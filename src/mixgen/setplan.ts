@@ -329,7 +329,9 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
     parts.keyVariety = prevKey && prevKey === a.summary.camelot && a.summary.camelot === b.summary.camelot ? 0.2 : 0
     parts.artist = (a.artist && a.artist === b.artist ? 1.2 : 0) + 0.5 * st.order.filter((k) => byKey.get(k)!.artist === b.artist).length
     const tech = (e.plan as TechniquePlan).tech?.technique ?? e.plan.style
-    parts.techVariety = st.styles[0] === tech && !BEATMATCHED.has(e.plan.style) ? 0.8 : st.styles.slice(0, 3).includes(tech) && !BEATMATCHED.has(e.plan.style) ? 0.3 : 0
+    // variety of non-blend techniques: a repeated slam/creative move gets stale fast (dev-set tuning)
+    const recent3 = st.styles.slice(0, 3).filter((x) => x === tech).length
+    parts.techVariety = BEATMATCHED.has(e.plan.style) ? 0 : (st.styles[0] === tech ? 1.2 : 0) + 0.6 * recent3
     parts.accent = spec.transitionStyle === 'smooth_creative' && st.edges.length && abruptHandoff(st.edges[st.edges.length - 1].plan) && abruptHandoff(e.plan) ? 1.5 : 0
     if (spec.features.includes('festival_closer') && pos === n - 1 && e.plan.style === 'drop_swap') parts.closer = -1.2
     parts.pairPenalty = opts.pairPenalty?.get(pairKey(a.key, b.key)) ?? 0
