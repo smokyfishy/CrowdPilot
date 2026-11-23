@@ -293,6 +293,14 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
       const wide = alignLag(ref2, stereo(next), est - refLen2, Math.round(0.08 * rate))
       if (wide.corr > corr) ({ lag, corr } = wide)
     }
+    if (corr < 0.5) {
+      // still weak (long stretch + drop anchor): search up to ±¼ beat of the incoming track
+      const refLen3 = Math.min(32768, renderEnd)
+      const ref3 = mono(rch, renderEnd - refLen3, refLen3)
+      for (let k = 0; k < ref3.length; k++) ref3[k] /= nextG || 1
+      const wider = alignLag(ref3, stereo(next), est - refLen3, Math.round(Math.min(0.25, 0.25 * p.beatSec * 2) * rate))
+      if (wider.corr > corr) ({ lag, corr } = wider)
+    }
     const nextCursor = est + lag
     pendingXf = rch.map((c) => c.slice(renderEnd, renderEnd + xf))
     const mixStart = tStartEmitted / rate

@@ -136,6 +136,18 @@ describe('long-form staged performance', () => {
     expect(curveAt(p.in.mid, h - 6)).toBeLessThan(-10)
     expect(curveAt(p.out.mid, h + 1)).toBeLessThan(-10)
   })
+  for (const bars of [16, 32, 48]) {
+    it(`${bars}-bar drop lock is executable: the outgoing leaves on the drop and the plan validates`, () => {
+      const base = { ...basePlan(bars), incomingDropSec: bars * 4 * 0.5 }
+      const p = buildPerformance({ base, pa, pb, strategy: 'drop_lock' })
+      expect(p.performance!.bassSwapBar).toBe(bars)
+      expect(validPlan(p)).toBe(true)
+      const B = bars * 4
+      const eff = (beat: number) => curveAt(p.out.gain, beat) * Math.min(1, 1 - curveAt(p.crossfader!, beat, 0))
+      expect(eff(B - 2)).toBeGreaterThan(0.5) // still playing a beat before the drop
+      expect(eff(B)).toBeLessThanOrEqual(0.05) // gone on the drop
+    })
+  }
   it('loops the outgoing when it runs out of audio inside the window', () => {
     const shortA = profile(110)
     const p = buildPerformance({ base: basePlan(32, 100 * 2), pa: shortA, pb })

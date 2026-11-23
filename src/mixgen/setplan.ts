@@ -73,6 +73,8 @@ export interface SetPlanOptions {
   pairPenalty?: Map<string, number>
   /** Allow long-form windows (16–64 bars) in addition to the legacy candidates. */
   longform?: boolean
+  /** Pessimism for edges never rendered once measurements exist (closed-loop verification converges on rendered edges). */
+  unmeasuredPenalty?: number
   /** Extra candidate edges per pair ("a|b"), e.g. refined variants found by the closed loop. */
   extraEdges?: Map<string, TransitionPlan[]>
   log?: (m: string) => void
@@ -316,7 +318,7 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
   const transitionCost = (st: State, a: SetTrack, b: SetTrack, e: Edge, pos: number): { cost: number; parts: Record<string, number> } => {
     const parts: Record<string, number> = {}
     const m = opts.measured?.get(e.sig)
-    parts.edge = m ? m.cost : e.cost
+    parts.edge = m ? m.cost : e.cost + (opts.unmeasuredPenalty ?? 0)
     // position-dependent energy direction (the edge list is position-neutral)
     const dir = energyDirection(spec.energyCurve, pos - 1, n, spec.intensity)
     parts.direction = 0.16 * Math.max(0, -(b.summary.energyMean - a.summary.energyMean) * dir)

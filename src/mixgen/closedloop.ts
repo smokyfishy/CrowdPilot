@@ -380,8 +380,10 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   // Final plan + verification: render every transition of the final set that was never rendered;
   // a failing one is penalised and the set re-planned (bounded), so no unrendered edge slips through.
   let final: PlannedSet = current!
-  for (let vround = 0; vround < 4; vround++) {
-    final = planSet(tracks, spec, { ...setOpts, measured: plannerView(), pairPenalty, extraEdges }).sets[0] ?? final
+  for (let vround = 0; vround < 6; vround++) {
+    // growing pessimism for never-rendered edges, so verification settles on rendered transitions
+    const unmeasuredPenalty = vround === 0 ? 0 : lambda * 0.5 * 2 ** (vround - 1)
+    final = planSet(tracks, spec, { ...setOpts, measured: plannerView(), pairPenalty, extraEdges, unmeasuredPenalty }).sets[0] ?? final
     const fresh = final.edges.filter((e) => !measured.has(e.sig))
     if (!fresh.length) break
     if (previews >= budget) {
@@ -406,7 +408,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     }
     replans.push({ round: round + 1 + vround, order: final.order, cost: round3(final.cost), poorPairs: [] })
     if (!failed) {
-      final = planSet(tracks, spec, { ...setOpts, measured: plannerView(), pairPenalty, extraEdges }).sets[0] ?? final
+      final = planSet(tracks, spec, { ...setOpts, measured: plannerView(), pairPenalty, extraEdges, unmeasuredPenalty: lambda * 0.5 * 2 ** vround }).sets[0] ?? final
       if (final.edges.every((e) => measured.has(e.sig))) break
     }
   }
@@ -422,7 +424,9 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     const b = byKey.get(e.plan.toItemId)!
     const compat = e.compat ?? overlapCompat(a.profile, b.profile, e.plan.outCueSec, e.plan.inCueSec, e.plan.overlapBars)
     const st = feasibleStrategies(compat, { stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }, dropAtEnd: e.plan.incomingDropSec !== undefined })[0]
-    return { ...e, plan: buildPerformance({ base: e.plan, pa: a.profile, pb: b.profile, strategy: st, compat, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) } }) }
+    const perf = buildPerformance({ base: e.plan, pa: a.profile, pb: b.profile, strategy: st, compat, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) } })
+    // never ship a control plan the renderer validation rejects: keep the (validated) template instead
+    return validPlan(perf) ? { ...e, plan: perf } : e
   })
   const chosen = final.edges.map((e) => {
     const m = measured.get(e.sig)

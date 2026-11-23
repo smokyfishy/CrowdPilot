@@ -18,7 +18,7 @@ import { planSet, narrativeFor, type Edge, type SetTrack } from './setplan'
 import { buildPerformance, feasibleStrategies, longformEligible } from './longform'
 import { closedLoop, type ClosedLoopMemory, type ClosedLoopResult, type PreviewAudioHost, type Proposal } from './closedloop'
 import { orderSet, type OrderTrack } from './select'
-import { rankCandidatesWith, type MlDecision, type MlRuntime } from './ml'
+import { rankCandidatesWith, validPlan, type MlDecision, type MlRuntime } from './ml'
 import { criticFromMix, mixgraphRank } from '../ml/dj-brain'
 import { longformFeatures, transitionNetV2Predict } from '../ml/transitionnet-v2'
 import type { StemInfo } from './techniques'
@@ -193,7 +193,8 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
       const stems = { a: input.stems?.get(a.key), b: input.stems?.get(b.key) }
       const prop = propose?.({ a, b, base: p })
       const strategy = prop?.strategy ?? feasibleStrategies(compat, { stems, dropAtEnd: p.incomingDropSec !== undefined })[0]
-      return buildPerformance({ base: p, pa: a.profile, pb: b.profile, strategy, params: prop?.params, stems, source: prop ? 'transitionnet-v2' : 'rules', compat })
+      const perf = buildPerformance({ base: p, pa: a.profile, pb: b.profile, strategy, params: prop?.params, stems, source: prop ? 'transitionnet-v2' : 'rules', compat })
+      return validPlan(perf) ? perf : p
     })
   }
   const planned: PlannedTrack[] = order.map((k) => {

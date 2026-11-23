@@ -145,7 +145,8 @@ export function buildPerformance(ctx: LongformContext): TechniquePlan {
   const post = bars - swap
   const s4 = clamp(swap + Math.max(2, snap(post * 0.3)), swap, bars)
   const fadeBars = Math.max(2, Math.round(post * (0.35 + 0.5 * P.resolveLen)))
-  const fadeStart = clamp(bars - fadeBars, swap, bars - 1)
+  // drop lock: the outgoing leaves ON the drop (last bar), never after the window
+  const fadeStart = swap >= bars ? bars - 1 : clamp(bars - fadeBars, swap, bars - 1)
   const headroom = 0.82 + 0.1 * P.headroom // both decks at full level → −1…−1.7 dB each
   const bassBeats = strategy === 'drop_lock' || dropAtEnd ? 1 + 2 * P.bassLen : 1 + 7 * P.bassLen
   const swapBeat = swap * 4
@@ -263,8 +264,8 @@ export function buildPerformance(ctx: LongformContext): TechniquePlan {
   outHigh.ramp(hfStart, B, -14)
   const ride = strategy === 'filter_ride' ? 0.5 + 0.2 * P.filterRide : 0.25 * P.filterRide
   if (ride > 0.02) filterOut.ramp(fadeStart * 4, B, Math.min(0.75, ride))
-  outGain.ramp(fadeStart * 4, B, 0.25 + 0.0 * P.xfader, 'smooth')
-  const xStart = clamp(B - Math.max(4, (B - fadeStart * 4) * (0.3 + 0.5 * P.xfader)), fadeStart * 4, B - 1)
+  outGain.ramp(swap >= bars ? B - 1 : fadeStart * 4, B, 0.25, 'smooth')
+  const xStart = swap >= bars ? B - 1 : clamp(B - Math.max(4, (B - fadeStart * 4) * (0.3 + 0.5 * P.xfader)), fadeStart * 4, B - 1)
   const crossfader = new Lane(B, 0).ramp(xStart, B, 1).done()
   actions.resolve.push(`outgoing fades from bar ${fadeStart} (highs from beat ${hfStart.toFixed(0)}${ride > 0.02 ? `, high-pass ride to ${Math.min(0.75, ride).toFixed(2)}` : ''}); crossfader to the incoming over the last ${((B - xStart) / 4).toFixed(1)} bars`)
   // Echo tail on an outgoing vocal still present in the last bars.

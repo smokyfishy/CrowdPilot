@@ -331,3 +331,37 @@ All numbers use the corrected alignment metric. "Quality" is the closed-loop exp
   - all splices sample-aligned;
   - no unintended cuts;
   - all rendered transitions passed.
+
+### Owner listening (blind A/B, held-out misc set, 2026-11-23)
+
+One rater (the owner) compared 7 transition positions. Each compared position pairs two different transitions: the same set positions, but different planned pairs and cues.
+
+**Existing vs full:**
+- 3 preferred existing, 3 preferred full, 1 undecided.
+- Mean ratings on a 1–5 scale:
+
+| Dimension | Full | Existing |
+|---|---|---|
+| Smoothness | 2.86 | 2.71 |
+| Beat alignment | 2.71 | 2.71 |
+| Naturalness | 2.86 | 2.57 |
+| Energy | 2.71 | 2.43 |
+| Creativity | 2.50 | 1.80 |
+
+- **No clear human preference.**
+- The explicit metric favoured full on every position, but the owner preferred existing on 3 of them (positions 1, 3, 5). On this set, at least, **the closed-loop metric does not track the owner's taste**.
+
+**Global+longform vs full:** 3 preferred full, 1 preferred global+longform, 3 undecided. The closed loop helped by ear on this set.
+
+**Absolute ratings are low (about 2–3 out of 5) for every system.** The owner's earlier note on the previous blind set asks for more creative, DJ-like performance: turntablism and scratching, controller tricks, and transitions and drops that keep the energy up.
+
+**Conclusion:** the objective gains are real (failures, bass masking, level continuity), but they have **not** translated into a consistent listening win. "Consistently sounds better" is **not** supported yet.
+
+### Fix after release #14
+
+`drop_lock` performances scheduled the outgoing fade after the window, so the plan failed `validPlan`. The closed loop correctly refused to render them, but the final fallback used them anyway, which could produce a level jump at the drop. Two fixes:
+
+- The outgoing now leaves on the drop with a 1-beat fade and crossfade.
+- Unvalidated plans are never shipped; the template is kept instead.
+
+Verification now penalises unrendered edges with increasing weight until the final set consists of rendered transitions.
