@@ -48,7 +48,8 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   let worstMatchAt = ''
   const med = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : NaN)
   for (const t of m.transitions) {
-    const a = Math.max(1, Math.floor(t.mixStartSec) - 1)
+    // seconds before the transition start are the outgoing track playing alone (its own breaks/drops are the music)
+    const a = Math.max(1, Math.ceil(t.mixStartSec))
     const b = Math.min(rms.length - 1, Math.ceil(t.mixEndSec) + 2)
     const allowance = ABRUPT.has(t.style) ? 8 : 0
     for (let i = a; i <= b; i++) {
@@ -82,7 +83,7 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   // Unintended abrupt cuts: on a smooth / minimal brief an abrupt handoff must be a planned, justified
   // technique (a drop landing or an un-beat-matchable pair), never a fallback.
   const smoothBrief = /smooth|minimal/.test(m.spec?.transitionStyle ?? '')
-  const unjustified = m.transitions.filter((t) => ABRUPT.has(t.style) && smoothBrief && !t.risks.some((x) => /tempo|grid/.test(x)) && !/drop/i.test(t.label + ' ' + (t.reasons ?? []).join(' ')))
+  const unjustified = m.transitions.filter((t) => ABRUPT.has(t.style) && smoothBrief && !t.risks.some((x) => /tempo|grid/.test(x)) && !/drop|no clean beat-matched/i.test(t.label + ' ' + (t.reasons ?? []).join(' ')))
   add('no unintended abrupt cuts', unjustified.length === 0, unjustified.map((t) => `#${t.index + 1} ${t.style}`).join(', ') || 'none', 'cuts only when justified')
   // Closed-loop rendered checks of the final transitions (vocal clash, bass masking, beat offset, clipping, silence …).
   const measured = m.prodj?.transitions.filter((t) => t.measured?.score !== undefined) ?? []

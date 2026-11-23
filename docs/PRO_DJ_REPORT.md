@@ -173,7 +173,53 @@ A final verification pass renders any transition in the final set that was never
 
 ## Training and model integration
 
-<!-- results filled in from the runs below -->
+| Model | Status in the new system | Evidence |
+|---|---|---|
+| MixGraph quality ranker (LightGBM, existing, unpromoted) | **used**: a learned term in every edge cost (weight 4). Windows longer than 32 bars are scored as 32-bar blends. | Existing held-out ablation. It is not re-trained here. |
+| DJCritic quality + artifact (LightGBM, existing, unpromoted) | **used**: a capped term (≤ 0.6) in the closed-loop preview score | Existing held-out metrics. Trained on synthetic objective severity, so it says nothing about human taste. |
+| TransitionNet v1 (MLP, existing) | **not used** by the global planner. The UI no longer forces it on, and the manifest says it was not used. | It raised bass doubling 11× in the earlier ablation. |
+| **TransitionNet v2** (new MLP: strategy + 12 stage/shape parameters + incoming cue shift) | **trained, evaluated, not promoted, not shipped**. The runtime and loader exist but are off by default. | See below. |
+
+### TransitionNet v2: what was done and what it showed
+
+- **Data** (`evaluation/ml/synth_v2.eval.ts`): synthetic known-control renders on the private evaluation corpora (74 Jamendo tracks), with track-level splits (train 52 / val 8 / test 14 tracks; no track appears in two splits).
+  - Long-form windows come from the planner's own window generator: 316 windows in total (220 / 36 / 60).
+  - Each window was performed several ways, 3,678 renders in all:
+    - every feasible strategy with neutral parameters;
+    - two random parameter vectors per strategy;
+    - incoming cue shifts of ±8 bars.
+  - Each render was measured with the closed-loop metrics.
+- **Model** (`ml/transitionnet/train_v2.py`): a 2×32 MLP that imitates the render-verified best controls.
+- **Result: it did not generalise.**
+  - Validation loss was best at epoch 0–2.
+  - On the **held-out test windows** it chose the render-verified best strategy 22 % of the time. A constant rule ("layered_blend") managed 43 %.
+  - Random shape parameters did not beat neutral ones (median gain 0).
+  - Shifting the incoming cue did not help (median gain 0).
+- **What the sweep shows:**
+  - Within a window, strategies differ by small amounts (regret 0.02–0.05 score units).
+  - Hard failures are properties of the window: cue placement and beat-grid alignment fail at the same rate whatever the strategy.
+  - Window choice is exactly what the global planner and the closed loop optimise.
+  - A learned performance proposer is therefore not justified by this data, and the rule solver stays.
+- **An earlier sweep (`synth_v2`) is discarded.** It was labelled with a rendered onset cross-correlation alignment metric that turned out to be invalid (see below).
+
+### Negative finding: rendered-deck alignment metric
+
+The first closed-loop beat-alignment metric was an onset cross-correlation of the two post-fader decks. Run against Beat This! on the same renders (`evaluation/ml/align_check.eval.ts`), it disagreed in both directions:
+
+- 200+ ms where Beat This! found 0–20 ms;
+- about 0 ms where Beat This! found 140 ms.
+
+It was replaced by **grid alignment**: both tracks' Beat This! beats mapped through the executed cue and tempo controls. On the same 10 windows this agrees with Beat This! on the renders:
+
+| Grid alignment | Beat This! on renders |
+|---|---|
+| 136 ms | 120–140 ms |
+| 126 ms | 140 ms |
+| 133 ms | 140–180 ms |
+| 59 ms | 40–60 ms |
+| 6–22 ms | 0–20 ms |
+
+Strictly, this is an analysis-based prediction and not a measurement of the rendered audio. The planner now rejects windows predicted above 60 ms before rendering. All results below use the corrected metric.
 
 ## Evaluation protocol
 
@@ -204,4 +250,60 @@ A final verification pass renders any transition in the final set that was never
 
 All research sets are local research audio (owner's private, noncommercial research mode). The renders are never deployed or uploaded.
 
-<!-- RESULTS -->
+## Results
+
+All numbers use the corrected alignment metric. "Quality" is the closed-loop explicit score (lower = better). The full system optimises that score, so it is **circular for "full"**. The independent checks are:
+
+- **Beat This! > 40 ms:** transitions where Beat This! run on the rendered decks finds a median offset over 40 ms;
+- **bass doubling** and **level step:** legacy proxies;
+- **level change:** 8 bars before against 8 bars after;
+- **DJCritic:** a fixed referee, partly circular for "full".
+
+### Held-out sets (never used for tuning)
+
+| Set | Variant | Quality median | Hard fails | Beat This! > 40 ms | Bass doubling | Vocal clash | Max level step (dB) | Level change (dB) | Dip (dB) | Mean bars | DJCritic quality / artifact | Duration (min) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| techhouse-1 | existing | 1.42 | 4 / 11 | 2 | 0.014 | 0.012 | 6.6 | 4.3 | 3.2 | 11.3 | 0.421 / 0.326 | 39.8 / 40 |
+| | global | 0.94 | 3 | 0 | 0.004 | 0.008 | 7.5 | 1.0 | 6.3 | 26.2 | 0.495 / 0.257 | 39.1 |
+| | longform | 1.51 | 4 | 2 | 0.012 | 0.009 | 6.8 | 4.3 | 3.4 | 11.3 | 0.410 / 0.325 | 39.8 |
+| | global+longform | 0.94 | 1 | 0 | 0.002 | 0.010 | 6.8 | 1.0 | 3.9 | 26.2 | 0.392 / 0.278 | 39.1 |
+| | **full** | **0.49** | **0** | **0** | 0.002 | 0.011 | **5.8** | **0.9** | 3.2 | 20.7 | 0.374 / 0.310 | 39.0 |
+| house-2 | existing | 1.21 | 3 / 11 | 2 | 0.019 | 0.049 | 5.5 | 3.7 | 2.7 | 11.1 | 0.343 / 0.304 | 43.2 / 45 |
+| | global | 1.14 | 1 | 1 | 0.007 | 0.011 | 6.9 | 1.7 | 4.6 | 16.5 | 0.395 / 0.292 | 42.2 |
+| | longform | 1.36 | 3 | 2 | 0.013 | 0.049 | 5.6 | 3.7 | 2.9 | 11.1 | 0.340 / 0.288 | 43.2 |
+| | global+longform | 1.10 | 2 | 1 | 0.004 | 0.007 | 6.8 | 1.7 | 3.8 | 16.5 | 0.354 / 0.287 | 42.2 |
+| | **full** | **0.57** | **0** | 1 | 0.003 | **0.008** | **5.2** | 2.2 | **1.5** | 17.1 | **0.279** / 0.291 | 40.8 |
+| misc (8 songs) | existing | 1.54 | 3 / 7 | 2 | 0.026 | 0.010 | 6.9 | 3.8 | 3.4 | 15.4 | 0.315 / 0.254 | 27.6 / 30 |
+| | global | 0.82 | 0 | 2 | 0.011 | 0.005 | 5.0 | 3.4 | 2.1 | 12.3 | 0.367 / 0.252 | 27.9 |
+| | longform | 1.29 | 3 | 2 | 0.002 | 0.001 | 7.3 | 3.8 | 4.4 | 15.4 | 0.371 / 0.258 | 27.6 |
+| | global+longform | 0.68 | 1 | 2 | 0.010 | 0.005 | 5.2 | 3.4 | 2.9 | 12.3 | 0.408 / 0.247 | 27.9 |
+| | **full** | **0.23** | **0** | 1 | 0.006 | 0.003 | **4.2** | 2.3 | **1.4** | 18.6 | **0.403 / 0.379 (worse)** | 26.7 |
+
+### Dev sets (round 3, after metric correction)
+
+| Set | Variant | Quality median | Hard fails | Beat This! > 40 ms | Bass doubling | Level change (dB) | Dip (dB) | Mean bars | DJCritic |
+|---|---|---|---|---|---|---|---|---|---|
+| techhouse-4 | existing | 1.10 | 3 | 1 | 0.024 | 1.3 | 6.7 | 24.7 | 0.485 |
+| | full | 0.55 | 1 | 0 | 0.002 | 0.5 | 5.5 | 33.5 | 0.379 |
+| electronic (creative) | existing | 1.25 | 1 | 2 | 0.002 | 4.0 | 6.6 | 6.5 | 0.236 |
+| | full | 0.62 | 0 | 1 | 0.002 | 3.0 | 3.8 | 4.5 | 0.213 |
+
+### What the evidence supports
+
+- **Better on every held-out set:**
+  - **The full system beats production on every held-out set** for the closed-loop score (circular) and for independent hard-failure counts: 10 failing transitions → 0 across 29.
+  - Beat This! offsets over 40 ms: 6 → 2.
+  - Bass doubling: 3–8× lower.
+  - Vocal clash: lower or equal.
+  - Maximum level step: lower.
+  - Level change between the 8 bars before and after: lower.
+  - Energy dips: lower on 2 of 3 sets, equal on 1.
+- **Overlaps are longer and phrase-planned:** about 11–15 bars before, 17–21 bars after. The system uses 16, 32, 48 and 64 bars where compatible, and short techniques where the brief or the music calls for them (the creative brief keeps 2-bar creative moves).
+- **Each component contributes:**
+  - Global planning alone gives most of the hard-failure and level-continuity gain.
+  - Long-form performances alone, on production's cues, barely help: their windows were chosen for template blends.
+  - Together, plus the closed loop, gives the best result on every set.
+- **DJCritic referee is mixed:** better on techhouse-1, house-2 and both dev sets, but **worse on misc** (quality 0.315 → 0.403, artifact 0.254 → 0.379). DJCritic models synthetic severity, not taste. This disagreement is unresolved without listening.
+- **Durations run short:** 26.7 / 30 min on misc (−11 %) and 40.8 / 45 on house-2 (−9 %). Longer overlaps shorten the set when the pool has few spare tracks.
+- **No listening evidence yet.** Blind A/B pages (existing vs full, global+longform vs full) are generated per set in `C:\crowdpilot-data\mixgen\prodj\<set>\index.html`, with the keys stored separately in `prodj\keys\`. Full mixes for listening are `prodj\<set>\{existing,full}\*.mp3`. **No claim of professional-level quality is made.**
+

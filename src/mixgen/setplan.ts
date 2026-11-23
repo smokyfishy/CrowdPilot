@@ -291,6 +291,11 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       }
     }
     for (const p of opts.extraEdges?.get(k) ?? []) push(p, p.costs.total, BEATMATCHED.has(p.style) && p.overlapBars >= 16 ? 'window' : 'pair')
+    // An abrupt handoff is intentional when this pair has no clean beat-matched option left (tempo, grid,
+    // or predicted beat alignment > 60 ms rejected them): say so, for the manifest and the validator.
+    if (!list.some((e) => BEATMATCHED.has(e.plan.style) && e.plan.overlapBars >= 4)) {
+      for (const e of list) if (abruptHandoff(e.plan)) e.plan = { ...e.plan, reasons: [...e.plan.reasons, 'no clean beat-matched window for this pair (tempo, grid or predicted beat alignment)'] }
+    }
     list.sort((x, y) => x.cost - y.cost)
     edgeLists.set(k, list)
     return list
@@ -403,7 +408,9 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
     const tail = st.recMix + Math.max(0, musicEnd(last.summary) - st.entry - st.recTrack)
     const durationSec = st.dur + tail
     const err = Math.max(0, Math.abs(durationSec - target) - tol)
-    const durCost = (err / 60) * 3.5
+    // the mix validator fails a set more than 10 % off the requested length: treat > 9 % as near-hard
+    const rel = Math.abs(durationSec - target) / target
+    const durCost = (err / 60) * 3.5 + (rel > 0.09 ? 10 + 100 * (rel - 0.09) : 0)
     return { order: st.order, edges: st.edges, cost: st.cost + durCost, durationSec, parts: { ...st.parts, duration: durCost } }
   })
   finals.sort((x, y) => x.cost - y.cost)
