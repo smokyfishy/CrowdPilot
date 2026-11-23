@@ -14,7 +14,9 @@ import type { RecordingIdentity } from './types'
 const VERSION_RE =
   /[([]\s*([^)\]]*?\b(remix|mix|edit|bootleg|rework|vip|dub|version|remaster(?:ed)?|live|acoustic|instrumental|cover|sped up|slowed|nightcore|extended|radio|club|original)\b[^)\]]*)\s*[)\]]/gi
 const BAD_VARIANT = /\b(sped up|speed up|slowed|reverb|nightcore|8d audio|bass boosted|karaoke|cover|tribute|live (at|from|in)|reaction|tutorial|lyrics? video)\b/i
-const FEAT_RE = /\s*[([]?\b(?:feat|ft|featuring|with)\.?\s+([^)\]-]+)[)\]]?/i
+// Featured-artist credit. A hyphen inside a name ("Ne-Yo", "Jay-Z") is part of it; a spaced " - "
+// still ends it (that is the "Artist - Title" separator).
+const FEAT_RE = /\s*[([]?\b(?:feat|ft|featuring|with)\.?\s+((?:[^)\]\-]|-(?!\s))+)[)\]]?/i
 
 export interface VersionClues {
   version: string

@@ -260,3 +260,12 @@ describe('song-list prompts', () => {
     expect(heuristicSpec('A mix inspired by 90s rave').songs).toEqual([])
   })
 })
+
+describe('featured artists with hyphens', () => {
+  it('matches "Play Hard ft. Ne-Yo, Akon" to the requested "Play Hard"', () => {
+    const y = youtubeIdentity('David Guetta - Play Hard ft. Ne-Yo, Akon (Official Video)', 'David Guetta')
+    expect(y.identity.title).toBe('play hard')
+    expect(y.identity.featured).toEqual(expect.arrayContaining(['ne yo', 'akon']))
+    expect(matchesSongRequest({ artist: 'David Guetta', title: 'Play Hard', version: null }, y)).toBe(true)
+  })
+})
