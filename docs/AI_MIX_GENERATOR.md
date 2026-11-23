@@ -103,3 +103,37 @@ Options (`MlOptions`): `mode` off / promoted / experimental (default experimenta
 per-component switches; CLI: `--ml off|promoted|experimental`, `--no-mixgraph`, `--no-transitionnet`, `--no-critic`,
 `--no-ml-ordering`. Every decision (model → inputs → prediction → decision → DSP parameters) and every fallback is stored in
 `manifest.ml` and shown in the player under "Technical diagnostics". Ablation: `evaluation/mixgen.ablation.eval.ts`.
+
+## Advanced DJ techniques (src/mixgen/techniques.ts)
+
+Every technique is a set of time-stamped controls on top of a base TransitionPlan. The renderer (`renderMix`) executes those controls as real audio processing; the manifest and the transition inspector show the same controls.
+
+| Technique | Controls executed | Needs |
+|---|---|---|
+| Acapella layer | Stem routing: the incoming vocal over the outgoing instrumental, the beds swap at the midpoint, plus a bass handoff | Clean stems on both decks, key distance ≤ 1, reliable grids, an overlap of 16+ bars |
+| Mashup swap | Stem routing: the outgoing vocal rides the incoming instrumental | Same as acapella layer |
+| Double drop | Both drops aligned, the incoming lows held back for 16 bars, then a bass swap | Detected drops on both tracks, tempo within the ride limit |
+| Spin-back | `spinback` performance op (reverse playback with decaying speed) on the outgoing deck | A brake-style base plan |
+| Sample-stab build | The outgoing deck's downbeat hit as stabs at 8→4→2→1-beat intervals, with the rest ducked | A reliable outgoing grid |
+| Beat juggle | Beats alternate with a copy one bar back, in a pattern | A reliable outgoing grid |
+| Tone play | The downbeat hit re-pitched along the track's scale, on the beat | A reliable grid |
+| Reverb wash-out | Post-fader reverb send on the outgoing deck; the tail dies out inside the render window | An echo-out or unmatched-fade base plan |
+
+**Who decides.** No model has been trained on these techniques. Two rule-based steps choose them:
+
+- `techniqueCandidates` decides whether a technique is eligible. It uses the analysis: beats, drops, key, and vocal activity per bar from Demucs stems.
+- `genrePreference` adjusts the score by genre and by the brief: creative, energetic or smooth.
+
+**Guards.**
+
+- DJCritic scores a rendered preview of each technique, with the technique's own stem routing and deck edits applied. The plain transition is always one of the alternatives.
+- MixGraph ranks the base cue and overlap candidates.
+- TransitionNet never overrides technique automation.
+
+**Stems.**
+
+- Model: Demucs htdemucs, two stems, run on the CPU at about 0.6× real time.
+- Availability: local research worker only; there are no stems in the browser or in production.
+- Cache: `<data>/mixgen/stems/<sha256>/`.
+- Artifact check: if bass bleeds into the vocal stem (low-band share ≥ 0.25), layering is disabled for that track.
+- Default: on for sets of 8 songs or fewer. Override with `--stems` / `--no-stems`, or with the selector on /research.
