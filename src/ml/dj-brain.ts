@@ -175,7 +175,7 @@ export function criticScore(
   trims: { out: number; in: number },
 ): CriticScore {
   const t0 = performance.now()
-  const local: TransitionPlan = { ...plan, outCueSec: plan.outCueSec - outStartSec, inCueSec: plan.inCueSec - inStartSec }
+  const local: TransitionPlan = { ...plan, outCueSec: plan.outCueSec - outStartSec, inCueSec: plan.inCueSec - inStartSec, incomingDropSec: plan.incomingDropSec === undefined ? undefined : plan.incomingDropSec - inStartSec }
   const wash = (plan as TechniquePlan).tech?.reverb
   const r = renderTransition({ rate, out: [outAudio], in: [inAudio], plan: local, outTrimDb: trims.out, inTrimDb: trims.in, preRollSec: 8, postRollSec: 8, stems: !!wash })
   if (wash) applyReverbWash(r, plan.beatSec, wash)

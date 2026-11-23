@@ -82,6 +82,8 @@ export interface TransitionPlan {
   outCueSec: number
   /** Seconds into the incoming track (its own timeline) that align with outCueSec. */
   inCueSec: number
+  /** Detected incoming drop at the end of this transition, in source-track seconds. */
+  incomingDropSec?: number
   overlapBars: number
   /** Playback-rate ratio applied to the incoming track during the overlap (tempo match), 1 = none. */
   tempoRatio: number
@@ -513,7 +515,10 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
             ? drops.map((d) => d - overlapSec * ratio).filter((c) => c >= 0)
             : SLAM.has(style)
               ? uniqueSorted([...ins.slice(0, 3), ...drops.slice(0, 2)]).map((c) => c - (auto0.inStartBeat ?? 0) * inBeat).filter((c) => c >= 0)
-              : uniqueSorted([...ins.slice(0, 4), ...dropFinishCues])
+              : uniqueSorted([
+                  ...ins.slice(0, 4),
+                  ...(style === 'cut' && opts.preferDropLandings && beatmatchable(sb) && sb.downbeatConf >= 0.3 ? drops.slice(0, 2) : dropFinishCues),
+                ])
         for (const inCue of inCands) {
           const inDur = overlapSec * (BEATMATCHED.has(style) ? ratio : 1)
           if (inCue + inDur > sb.durationSec * 0.8) continue
@@ -556,11 +561,15 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           // tempo-free ones beat plain cuts/fades when the pair cannot be beat-matched.
           const energetic = opts.energyDirection > 0 ? -0.4 : 0
           const landsOnDrop = drops.some((d) => Math.abs(d - (inCue + (auto0.inStartBeat ?? 0) * inBeat)) < inBeat)
-          const finishesOnDrop = opts.preferDropLandings && BEATMATCHED.has(style) && sb.downbeatConf >= 0.3 && keyDist <= 2
-            && drops.some((drop) => Math.abs(drop - (inCue + inDur)) <= inBeat / 4)
-          if (finishesOnDrop && style !== 'drop_swap' && silence === 0) {
-            musical -= 0.6
-            reasons.push('incoming drop lands at the end of the blend')
+          const directDrop = style === 'cut' && opts.preferDropLandings && beatmatchable(sb) && sb.downbeatConf >= 0.3
+          const finishesOnDrop = BEATMATCHED.has(style) && sb.downbeatConf >= 0.3
+            && (style === 'drop_swap' || (opts.preferDropLandings && keyDist <= 2))
+          const incomingDropSec = (finishesOnDrop || directDrop) && silence === 0
+            ? drops.find((drop) => Math.abs(drop - (inCue + inDur)) <= 1e-6)
+            : undefined
+          if (incomingDropSec !== undefined && style !== 'drop_swap') {
+            musical -= directDrop ? 1.4 : 0.6
+            reasons.push(directDrop ? 'direct entry on the incoming drop' : 'incoming drop lands at the end of the blend')
           }
           if (style === 'echo_out') musical += canMatch ? 1.9 : 0.5
           if (style === 'loop_roll') musical += (canMatch ? 1.3 : 0.7) + (landsOnDrop ? -0.3 : 0.2) + energetic
@@ -588,6 +597,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
             style,
             outCueSec: outCue,
             inCueSec: inCue,
+            ...(incomingDropSec !== undefined ? { incomingDropSec } : {}),
             overlapBars: bars,
             tempoRatio: BEATMATCHED.has(style) ? ratio : 1,
             tempoRecoveryBars: BEATMATCHED.has(style) && deviation > 0.002 ? 16 : 0,

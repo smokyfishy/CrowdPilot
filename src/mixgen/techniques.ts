@@ -326,7 +326,7 @@ export function techniqueCandidates(bases: TransitionPlan[], ctx: TechniqueConte
             based(
               template,
               { technique: 'double_drop', label: TECHNIQUE_LABEL.double_drop, rationale: [`drops aligned at ${dropA.toFixed(1)}s / ${dropB.toFixed(1)}s`, '16 bars of shared drop, incoming lows held back, then a bass swap'], confidence: Math.min(a.downbeatConf, b.downbeatConf, 1) },
-              { style: 'bass_swap', outCueSec: outCue, inCueSec: inCue, overlapBars: B / 4, durationSec: B * beatA, beatSec: beatA, tempoRatio: ratio, tempoRecoveryBars: Math.abs(ratio - 1) > 0.002 ? 16 : 0, handoffBeat: pre + 16, ...auto, filter: undefined, echo: undefined, outPerf: undefined },
+              { style: 'bass_swap', outCueSec: outCue, inCueSec: inCue, incomingDropSec: undefined, overlapBars: B / 4, durationSec: B * beatA, beatSec: beatA, tempoRatio: ratio, tempoRecoveryBars: Math.abs(ratio - 1) > 0.002 ? 16 : 0, handoffBeat: pre + 16, ...auto, filter: undefined, echo: undefined, outPerf: undefined },
             ),
           )
         }

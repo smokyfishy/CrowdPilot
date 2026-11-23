@@ -68,6 +68,7 @@ export interface ManifestTransition {
   overlapSec: number
   outCueSec: number
   inCueSec: number
+  incomingDropSec?: number
   tempoRatio: number
   tempoAdjustPct: number
   tempoRecoverySec: number
@@ -241,6 +242,7 @@ export function buildManifest(input: {
       overlapSec: Math.round(p.durationSec * 1000) / 1000,
       outCueSec: p.outCueSec,
       inCueSec: p.inCueSec,
+      ...(p.incomingDropSec !== undefined ? { incomingDropSec: p.incomingDropSec } : {}),
       tempoRatio: Math.round(p.tempoRatio * 10000) / 10000,
       tempoAdjustPct: Math.round((p.tempoRatio - 1) * 10000) / 100,
       tempoRecoverySec: Math.round(tt.recoverySec * 10) / 10,

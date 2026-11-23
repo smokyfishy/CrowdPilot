@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
+import { refineWithLocalBeats } from '../dj/phase'
+import { wsola } from '../dsp/stretch'
 import { renderTransition } from '../dj/render'
 import { synthTrack } from '../dsp/synth'
 import { applyStyleParams, applyTrajectories, constrainTrajectories, CTRL_CHANNELS, CTRL_POINTS, DEFAULT_PARAMS, planToTrajectories, type Trajectories } from './controls'
@@ -38,8 +40,25 @@ describe('controls', () => {
       expect(plan, style).toBeDefined()
       expect(plan!.inCueSec + plan!.durationSec * plan!.tempoRatio).toBeCloseTo(drop, 5)
     }
+    const direct = candidateTransitions(track('a'), track('b', { dropsSec: [drop] }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: ['cut'] })
+    expect(direct.some((p) => p.inCueSec === drop && p.incomingDropSec === drop)).toBe(true)
     const uncertain = candidateTransitions(track('a'), track('b', { dropsSec: [drop], downbeatConf: 0.1 }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
     expect(uncertain.some((p) => p.reasons.includes('incoming drop lands at the end of the blend'))).toBe(false)
+  })
+
+  it('locks the drop through tempo refinement and overlapping stretch grains', () => {
+    const beatGrid = (period: number) => Array.from({ length: 200 }, (_, i) => i * period)
+    const plan = refineWithLocalBeats(
+      { outCueSec: 10, inCueSec: 20, beatSec: 0.5, tempoRatio: 1, durationSec: 8, incomingDropSec: 28 },
+      beatGrid(0.503), beatGrid(0.491),
+    )
+    expect(plan.localRefined).toBe(true)
+    expect(plan.inCueSec + plan.durationSec * plan.tempoRatio).toBeCloseTo(28, 10)
+
+    const pcm = new Float32Array(2000)
+    pcm[837] = 1
+    const result = wsola([pcm], 200, 1000, () => 1.04, { frame: 128, tolerance: 16, anchor: { outputSample: 611, inputSample: 837 } })
+    expect(result.channels[0][611]).toBeCloseTo(1, 5)
   })
 
   it('round-trips template automation through beat-aligned trajectories', () => {

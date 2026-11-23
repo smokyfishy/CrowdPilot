@@ -16,6 +16,8 @@ import { hann } from './fft'
 export interface StretchOptions {
   frame?: number
   tolerance?: number
+  /** Force every grain covering a musical landmark to read the same source sample there. */
+  anchor?: { outputSample: number; inputSample: number }
 }
 
 export interface StretchResult {
@@ -59,7 +61,11 @@ export function wsola(
     const natural = prevActual + Hs
     let best = 0
     let bestScore = -Infinity
-    if (m > 0) {
+    const anchorOffset = opts.anchor ? opts.anchor.outputSample - outPos : -1
+    const anchorStart = opts.anchor ? opts.anchor.inputSample - anchorOffset : -1
+    if (anchorOffset >= 0 && anchorOffset < N && anchorStart >= 0 && anchorStart + N <= inLen) {
+      best = anchorStart - Math.round(nominal)
+    } else if (m > 0) {
       for (let d = -tol; d <= tol; d += 2) {
         const cand = Math.round(nominal) + d
         if (cand < 0 || cand + N >= inLen) continue

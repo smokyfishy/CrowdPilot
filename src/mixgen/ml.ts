@@ -299,6 +299,7 @@ export function monoAt(channels: Float32Array[], rate: number, target = 16000): 
 export function sameTransitionSlot(a: TransitionPlan, b: TransitionPlan): boolean {
   return Math.abs(a.outCueSec - b.outCueSec) < 0.01
     && Math.abs(a.inCueSec - b.inCueSec) < 0.01
+    && a.incomingDropSec === b.incomingDropSec
     && a.overlapBars === b.overlapBars
     && Math.abs(a.durationSec - b.durationSec) < 0.01
     && Math.abs(a.tempoRatio - b.tempoRatio) < 1e-6

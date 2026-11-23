@@ -124,7 +124,7 @@ export function snapToBeat(beats: number[], t: number, maxDist: number): number 
  * beats near them, and the tempo ratio from the two tracks' local beat periods over the overlap
  * (a global grid can be 0.02–0.1 % off or the track may drift, which flams over a 16-bar blend).
  */
-export function refineWithLocalBeats<T extends { outCueSec: number; inCueSec: number; beatSec: number; tempoRatio: number; durationSec: number }>(
+export function refineWithLocalBeats<T extends { outCueSec: number; inCueSec: number; beatSec: number; tempoRatio: number; durationSec: number; incomingDropSec?: number }>(
   plan: T,
   outBeats: number[] | undefined,
   inBeats: number[] | undefined,
@@ -137,5 +137,10 @@ export function refineWithLocalBeats<T extends { outCueSec: number; inCueSec: nu
   const pb = localPeriod(inBeats, inCue, plan.durationSec * plan.tempoRatio, plan.beatSec * plan.tempoRatio)
   let ratio = pb / pa
   if (Math.abs(ratio - 1) > maxTempoDeviation) ratio = plan.tempoRatio
-  return { ...plan, outCueSec: outCue, inCueSec: inCue, beatSec: pa, tempoRatio: ratio, durationSec: (plan.durationSec / plan.beatSec) * pa, localRefined: true }
+  const durationSec = (plan.durationSec / plan.beatSec) * pa
+  // A drop is the endpoint of the blend, so the local tempo fit must move the
+  // cue backwards from that endpoint instead of letting the endpoint drift.
+  const anchoredCue = plan.incomingDropSec === undefined ? inCue : plan.incomingDropSec - durationSec * ratio
+  if (anchoredCue < 0) return { ...plan, localRefined: false }
+  return { ...plan, outCueSec: outCue, inCueSec: anchoredCue, beatSec: pa, tempoRatio: ratio, durationSec, localRefined: true }
 }

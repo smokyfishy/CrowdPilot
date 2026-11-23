@@ -28,6 +28,7 @@ export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransit
     ['Overlap', `${t.overlapBars} bars · ${t.overlapSec.toFixed(1)} s`],
     ['Outgoing cue', `${t.outCueSec.toFixed(2)} s into the outgoing track`],
     ['Incoming cue', `${t.inCueSec.toFixed(2)} s into the incoming track`],
+    ...(t.incomingDropSec !== undefined ? [['Incoming drop', `${t.incomingDropSec.toFixed(2)} s into the incoming track; lands at ${fmtTime(t.mixEndSec)} in the mix`] as [string, string]] : []),
     ['Tempo adjustment', t.tempoAdjustPct === 0 ? 'none' : `${t.tempoAdjustPct > 0 ? '+' : ''}${t.tempoAdjustPct}% (pitch preserved), back to original over ${t.tempoRecoverySec} s`],
     ['Controlled by', t.control ? `${t.control.automation === 'transitionnet' ? 'TransitionNet (learned automation)' : 'hand template'}${t.control.mixgraphSeverity !== undefined ? ` · MixGraph predicted severity ${t.control.mixgraphSeverity}` : ''}` : 'rules'],
     ['Beat alignment', `splice refined ${t.beatAlignment.spliceLagMs} ms (correlation ${t.beatAlignment.spliceCorrelation}); beat-grid confidence ${t.beatAlignment.outBpmConf} → ${t.beatAlignment.inBpmConf}; downbeat ${t.beatAlignment.outDownbeatConf} → ${t.beatAlignment.inDownbeatConf}`],

@@ -82,13 +82,18 @@ export function renderTransition(input: RenderInput): RenderOutput {
 
   // Incoming deck audio from its cue, tempo-matched with WSOLA if needed.
   const inCue = Math.round(plan.inCueSec * rate)
+  const dropSample = plan.incomingDropSec === undefined ? undefined : Math.round(plan.incomingDropSec * rate)
   const needLen = total - tStart
   let incoming: Float32Array[]
-  if (Math.abs(plan.tempoRatio - 1) > 1e-4) {
+  const needsDropAnchor = dropSample !== undefined && overlap > 0 && inCue + overlap !== dropSample
+  if (Math.abs(plan.tempoRatio - 1) > 1e-4 || needsDropAnchor) {
     const rec = plan.tempoRecoveryBars * 4 * plan.beatSec * rate
     const r = plan.tempoRatio
     const frame = rate >= 44100 ? 2048 : 2 * Math.round((2048 * rate) / 44100 / 2)
-    const st = wsola(input.in, inCue, needLen, (s) => (s <= overlap ? r : rec > 0 ? (s >= overlap + rec ? 1 : r + (1 - r) * ((s - overlap) / rec)) : r), { frame, tolerance: Math.round(frame / 8), ...input.stretch })
+    const st = wsola(input.in, inCue, needLen, (s) => (s <= overlap ? r : rec > 0 ? (s >= overlap + rec ? 1 : r + (1 - r) * ((s - overlap) / rec)) : r), {
+      frame, tolerance: Math.round(frame / 8), ...input.stretch,
+      ...(dropSample !== undefined ? { anchor: { outputSample: overlap, inputSample: dropSample } } : {}),
+    })
     incoming = st.channels
   } else {
     incoming = input.in.map((c) => c.subarray(inCue, inCue + needLen))
