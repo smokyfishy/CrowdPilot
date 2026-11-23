@@ -42,6 +42,8 @@ export interface SelectionRow {
   position?: number
   url?: string
   license?: string
+  /** Album artwork from the provider, when it has one. */
+  artwork?: string
 }
 
 export interface PreparedMix {
@@ -353,6 +355,7 @@ export class BrowserMixJob {
         position: pos.get(a.trackKey),
         url: c?.url,
         license: c?.license.label,
+        artwork: c?.thumbnailUrl,
       }
     })
     selection.sort((a, b) => (a.position ?? 999) - (b.position ?? 999))
