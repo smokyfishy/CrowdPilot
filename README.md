@@ -1,4 +1,4 @@
-﻿# CrowdPilot
+# CrowdPilot
 
 Describe the DJ mix you want. CrowdPilot finds recordings that allow mixing, analyzes their beats, key and energy, and renders one continuous set with beat-matched transitions. Create a mix at `/mix`, follow its generation progress, and use Listen to replay the AI DJ's recorded performance, seek to tracks and transitions, or refine the mix.
 
