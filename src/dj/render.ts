@@ -6,8 +6,9 @@
  * look-ahead-free safety limiter. Used for tests, benchmarks, A/B listening exports.
  */
 import { type StretchOptions, wsola } from '../dsp/stretch'
+import { curveAt } from './automation'
 import { filterCutoffs, OfflineBiquad, OfflineEcho, renderPerformance } from './fx'
-import type { CurvePoint, TransitionPlan } from './transitions'
+import type { TransitionPlan } from './transitions'
 
 export interface RenderInput {
   rate: number
@@ -35,20 +36,6 @@ export interface RenderOutput {
   /** Mono post-fader deck signals (outgoing incl. its echo) when `stems` was requested. */
   stemA?: Float32Array
   stemB?: Float32Array
-}
-
-function curveAt(curve: CurvePoint[], beat: number): number {
-  if (!curve.length) return 0
-  if (beat <= curve[0].beat) return curve[0].value
-  for (let i = 1; i < curve.length; i++) {
-    if (beat <= curve[i].beat) {
-      const a = curve[i - 1]
-      const b = curve[i]
-      const span = b.beat - a.beat
-      return span <= 0 ? b.value : a.value + ((b.value - a.value) * (beat - a.beat)) / span
-    }
-  }
-  return curve[curve.length - 1].value
 }
 
 type Coeffs = [number, number, number, number, number]

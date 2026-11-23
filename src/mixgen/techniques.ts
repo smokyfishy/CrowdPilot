@@ -13,6 +13,7 @@
  */
 import type { AnalysisSummary } from '../dsp/analyze'
 import { camelotDistance } from '../dsp/key'
+import { curveAt } from '../dj/automation'
 import { automationFor, BEATMATCHED, tempoMatch, type CurvePoint, type DeckAutomation, type TransitionPlan } from '../dj/transitions'
 import type { ResolvedSpec } from './spec'
 
@@ -65,6 +66,21 @@ const read = (x: Float32Array, pos: number) => {
   return x[i] * (1 - f) + x[i + 1] * f
 }
 
+/** Beats (from the edit start) at which a stab edit fires its slice — shared by the renderer and the UI. */
+export function stabHitBeats(e: { beats: number; intervals: number[] }): number[] {
+  const times: number[] = []
+  let t = 0
+  for (const iv of e.intervals) {
+    // each interval value is used for one bar's worth of beats (4 beats), accelerating into the drop
+    for (let k = 0; k < Math.max(1, Math.round(4 / iv)); k++) {
+      if (t >= e.beats) break
+      times.push(t)
+      t += iv
+    }
+  }
+  return times
+}
+
 /** Applies deck edits to a COPY of the channels (track time). Click-free: 3 ms ramps at every splice. */
 export function applyDeckEdits(channels: Float32Array[], rate: number, edits: DeckEdit[]): Float32Array[] {
   if (!edits.length) return channels
@@ -80,16 +96,7 @@ export function applyDeckEdits(channels: Float32Array[], rate: number, edits: De
       if (e.kind === 'stabs') {
         const hit = Math.max(ramp * 4, Math.round(e.hitBeats * beat))
         const src0 = Math.round(e.sourceSec * rate)
-        const times: number[] = []
-        let t = 0
-        for (const iv of e.intervals) {
-          // each interval value is used for one bar's worth of beats (4 beats), accelerating into the drop
-          for (let k = 0; k < Math.max(1, Math.round(4 / iv)); k++) {
-            if (t >= e.beats) break
-            times.push(t)
-            t += iv
-          }
-        }
+        const times = stabHitBeats(e)
         for (let i = 0; i < n; i++) dst[s0 + i] = (src[s0 + i] ?? 0) * e.duck
         for (const tb of times) {
           const at = s0 + Math.round(tb * beat)
@@ -128,12 +135,8 @@ export function applyDeckEdits(channels: Float32Array[], rate: number, edits: De
   return out
 }
 
-const curveAt = (c: CurvePoint[], beat: number) => {
-  if (!c.length) return 1
-  if (beat <= c[0].beat) return c[0].value
-  for (let i = 1; i < c.length; i++) if (beat <= c[i].beat) return c[i - 1].value + ((c[i].value - c[i - 1].value) * (beat - c[i - 1].beat)) / Math.max(1e-9, c[i].beat - c[i - 1].beat)
-  return c[c.length - 1].value
-}
+/** Stem gains default to 1 (unity) when a curve is empty. */
+const stemGainAt = (c: CurvePoint[], beat: number) => curveAt(c, beat, 1)
 
 /**
  * Stem routing for one deck: within [startSec, endSec) of the track, replaces the mixture with
@@ -150,8 +153,8 @@ export function routeStems(mix: Float32Array[], stems: { vocals: Float32Array[];
     const s = stems.inst[Math.min(ci, stems.inst.length - 1)]
     for (let i = a; i < b; i += 64) {
       const beat = beatAt(i / rate)
-      const gv = curveAt(gains.vocals, beat)
-      const gi = curveAt(gains.inst, beat)
+      const gv = stemGainAt(gains.vocals, beat)
+      const gi = stemGainAt(gains.inst, beat)
       for (let k = i; k < Math.min(b, i + 64); k++) {
         const edge = Math.min(1, (k - a) / xf, (b - k) / xf)
         const routed = (v[k] ?? 0) * gv + (s[k] ?? 0) * gi

@@ -100,6 +100,62 @@ export function renderPerformance(channels: Float32Array[], rate: number, perf: 
   })
 }
 
+/** What the deck is doing `x` seconds into a performance segment — the read head of `renderPerformance`. */
+export interface PerformanceState {
+  /** Track second being read (the platter position). */
+  pos: number
+  /** Playback speed and direction (1 = normal, 0 = stopped, < 0 = reverse). */
+  speed: number
+  /** Active op, if any (`silent` = after a roll, the deck outputs nothing until the incoming drop). */
+  op?: PerfOp['kind'] | 'silent'
+  /** Active loop for a roll: start (track s) and length in beats. */
+  loop?: { startSec: number; beats: number }
+}
+
+/**
+ * Closed-form mirror of `renderPerformance`'s read position. Ops are applied in beat order and a
+ * later op overwrites an earlier one where they overlap — exactly as the renderer writes them. The
+ * renderer integrates brake/spinback speed sample by sample; these are the integrals of the same
+ * speed laws (tested against the renderer with a ramp signal in fx.test.ts).
+ */
+export function performanceStateAt(perf: Performance, x: number): PerformanceState {
+  const B = perf.beatSec
+  const segEnd = perf.beats * B
+  let st: PerformanceState = { pos: perf.startSec + x, speed: 1 }
+  if (x < 0 || x >= segEnd) return st
+  const ops = [...perf.ops].sort((a, b) => a.atBeat - b.atBeat)
+  for (const op of ops) {
+    const o0 = op.atBeat * B
+    if (x < o0) continue
+    const k = x - o0
+    const at = perf.startSec + o0
+    if (op.kind === 'roll') {
+      const step = op.stepBeats * B
+      const s = Math.floor(k / step)
+      if (s < op.sizes.length) {
+        const len = Math.max(32 / 44100, op.sizes[s] * B)
+        st = { pos: at + ((k - s * step) % len), speed: 1, op: 'roll', loop: { startSec: at, beats: op.sizes[s] } }
+      } else st = { pos: at, speed: 0, op: 'silent' }
+    } else if (op.kind === 'brake') {
+      const len = op.beats * B
+      const u = Math.min(1, k / len)
+      st = { pos: at + (len * (1 - (1 - u) ** 2.6)) / 2.6, speed: u < 1 ? (1 - u) ** 1.6 : 0, op: 'brake' }
+    } else if (op.kind === 'spinback') {
+      const len = op.beats * B
+      const u = Math.min(1, k / len)
+      st = { pos: at - (3 * len * (1 - (1 - u) ** 2.3)) / 2.3, speed: u < 1 ? -3 * (1 - u) ** 1.3 : 0, op: 'spinback' }
+    } else if (op.kind === 'scratch') {
+      const len = op.beats * B
+      if (k >= len) continue
+      const stroke = len / Math.max(1, op.strokes)
+      const ph = (k % stroke) / stroke
+      const slice = 0.25 * B
+      st = { pos: at + Math.sin(ph * Math.PI) * slice, speed: ((Math.cos(ph * Math.PI) * Math.PI) / stroke) * slice, op: 'scratch' }
+    }
+  }
+  return st
+}
+
 // ───────────────────────── offline filter knob + echo ─────────────────────────
 
 /** Bipolar DJ filter knob: −1 = fully low-passed (≈120 Hz), 0 = off, +1 = fully high-passed (≈6 kHz). */

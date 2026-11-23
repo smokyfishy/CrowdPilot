@@ -19,15 +19,10 @@ import { renderTransition } from '../dj/render'
 import { BEATMATCHED, type TransitionPlan } from '../dj/transitions'
 import { MasterLimiter, MixAnalyzer, type MixMetrics } from './meter'
 import { applyDeckEdits, reverb, routeStems, type TechniquePlan } from './techniques'
-import type { CurvePoint } from '../dj/transitions'
+import { curveAt } from '../dj/automation'
 
-function curveAtBeat(c: CurvePoint[], beat: number): number {
-  if (!c.length) return 0
-  if (beat <= c[0].beat) return c[0].value
-  for (let i = 1; i < c.length; i++) if (beat <= c[i].beat) return c[i - 1].value + ((c[i].value - c[i - 1].value) * (beat - c[i - 1].beat)) / Math.max(1e-9, c[i].beat - c[i - 1].beat)
-  return c[c.length - 1].value
-}
 import type { MixPlan } from './mixplan'
+import { deckOf, incomingPosAt, LevelRecorder, trackPeaks, type DeckId, type RenderTelemetry } from './performance'
 
 export interface PcmTrack {
   channels: Float32Array[]
@@ -76,6 +71,8 @@ export interface RenderResult {
   transitions: RenderedTransition[]
   metrics: MixMetrics
   masterLimiterMaxReductionDb: number
+  /** What the renderer actually did, for the Listen page's DJ controller (levels, deck peaks, splices). */
+  telemetry?: RenderTelemetry
 }
 
 export interface RenderProgress {
@@ -88,23 +85,8 @@ const XF = 0.025 // s crossfade length
 const SEARCH = 0.025 // s correlation search radius at the incoming splice
 const TAIL_PAD = 2.0 // s after overlap/recovery the render continues before splicing back
 
-/** Incoming track-time reached `j` output samples after the transition start. */
-export function incomingPosAt(plan: TransitionPlan, jSec: number): number {
-  const stretched = BEATMATCHED.has(plan.style) && Math.abs(plan.tempoRatio - 1) > 1e-4
-  if (!stretched) return plan.inCueSec + jSec
-  const r = plan.tempoRatio
-  const ov = plan.durationSec
-  const rec = plan.tempoRecoveryBars * 4 * plan.beatSec
-  if (jSec <= ov) return plan.inCueSec + jSec * r
-  let pos = plan.inCueSec + ov * r
-  const k = jSec - ov
-  if (rec > 0 && k <= rec) {
-    // ratio goes linearly r → 1 over `rec`: ∫ = k·r + (1−r)·k²/(2·rec)
-    return pos + k * r + ((1 - r) * k * k) / (2 * rec)
-  }
-  if (rec > 0) pos += (rec * (r + 1)) / 2
-  return pos + (k - Math.max(0, rec))
-}
+/** The renderer's incoming position law lives in performance.ts so the Listen controller replays the same function. */
+export { incomingPosAt }
 
 function mono(ch: Float32Array[], from: number, len: number): Float32Array {
   const out = new Float32Array(len)
@@ -145,12 +127,25 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
   const limiter = new MasterLimiter(nch, rate)
   const analyzer = new MixAnalyzer(nch, rate)
   let emitted = 0 // samples written into the limiter (pre-latency)
+  let written = 0 // samples written to the sink (= the audio file timeline)
+  const levels = new LevelRecorder(rate)
+  const peaks: RenderTelemetry['peaks'] = { secPerBucket: 0.05, tracks: {} }
+  const splices: RenderTelemetry['splices'] = []
+  const notePeaks = (key: string, t: PcmTrack) => {
+    if (!peaks.tracks[key]) peaks.tracks[key] = trackPeaks(t.channels, t.rate)
+  }
+  notePeaks(plan.tracks[0].key, first)
+  /** Deck whose signal the next emitted body samples belong to (null = transition render; its stems are metered instead). */
+  let lane: DeckId | null = deckOf(0)
   const BLOCK = 8192
   const emit = async (block: Float32Array[]) => {
     for (let o = 0; o < block[0].length; o += BLOCK) {
       const chunk = block.map((c) => c.slice(o, Math.min(c.length, o + BLOCK)))
+      if (lane) levels.add(lane, emitted, chunk)
       emitted += chunk[0].length
       limiter.process(chunk)
+      levels.add('master', written, chunk)
+      written += chunk[0].length
       // drop the limiter's initial latency so mix time 0 = first audio sample
       analyzer.push(chunk)
       await sink.write(chunk)
@@ -187,6 +182,7 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const g = gain(tl.trimDb)
     const tr = plan.transitions[i]
     onProgress?.(i, n, `track ${i + 1}/${n}`)
+    lane = deckOf(i)
     if (!tr) {
       // Last track: body to its musical end with a gentle 1.5 s fade (no truncated tail).
       const end = Math.min(cur.channels[0].length, Math.round(tl.exitSec * rate))
@@ -208,6 +204,7 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     }
     // Load the incoming track (keep at most two decoded).
     const next = await loader.load(plan.tracks[i + 1].key)
+    notePeaks(plan.tracks[i + 1].key, next)
     tracks[i + 1] = next
     const nextTl = plan.tracks[i + 1]
     const p = tr.plan
@@ -218,12 +215,14 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const tech = (p as TechniquePlan).tech
     let outDeck = stereo(cur)
     let inDeck = stereo(next)
+    let stemsApplied = false
     if (tech?.stems && loader.loadStems) {
       const [so, si] = await Promise.all([loader.loadStems(tl.key), loader.loadStems(nextTl.key)])
       if (so && si) {
         const span = p.durationSec
         outDeck = routeStems(outDeck, so, rate, p.outCueSec - 0.1, p.outCueSec + span + 0.1, (t) => (t - p.outCueSec) / p.beatSec, tech.stems.out)
         inDeck = routeStems(inDeck, si, rate, p.inCueSec - 0.1, p.inCueSec + span * p.tempoRatio + 0.1, (t) => (t - p.inCueSec) / (p.beatSec * p.tempoRatio), tech.stems.in)
+        stemsApplied = true
       }
     }
     if (tech?.deckEdits?.out?.length) outDeck = applyDeckEdits(outDeck, rate, tech.deckEdits.out)
@@ -237,7 +236,8 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
       postRollSec: post,
       outTrimDb: tl.trimDb,
       inTrimDb: nextTl.trimDb,
-      stems: !!tech?.reverb,
+      // per-deck post-fader signals: the reverb send taps deck A, and the controller's channel meters read both
+      stems: true,
     })
     const rch = r.channels.length >= 2 ? r.channels : [r.channels[0], r.channels[0]]
     if (tech?.reverb && r.stemA) {
@@ -245,10 +245,11 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
       const send = new Float32Array(r.stemA.length)
       for (let k = 0; k < send.length; k++) {
         const beat = (k - r.transitionStartSample) / rate / p.beatSec
-        send[k] = r.stemA[k] * (beat < 0 ? 0 : curveAtBeat(tech.reverb.send, beat))
+        send[k] = r.stemA[k] * (beat < 0 ? 0 : curveAt(tech.reverb.send, beat))
       }
       const wet = reverb(send, rate, tech.reverb.decaySec)
       for (const ch of rch) for (let k = 0; k < ch.length; k++) ch[k] += wet[k] * tech.reverb.wet
+      for (let k = 0; k < r.stemA.length; k++) r.stemA[k] += wet[k] * tech.reverb.wet // the wash belongs to the outgoing channel
     }
     const renderStartTrack = Math.round(p.outCueSec * rate) - r.transitionStartSample // outgoing sample at render offset 0
     // 1) body of the current track up to the splice-in point (+ crossfade into the render)
@@ -276,6 +277,11 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const tStartEmitted = emitted + (r.transitionStartSample - spliceIn - xf)
     // 2) the render itself, minus the final xf samples (kept for the crossfade into the next body)
     const renderEnd = rch[0].length - xf
+    lane = null
+    if (r.stemA && r.stemB) {
+      levels.addMono(deckOf(i), emitted, r.stemA, spliceIn + xf, renderEnd - spliceIn - xf)
+      levels.addMono(deckOf(i + 1), emitted, r.stemB, spliceIn + xf, renderEnd - spliceIn - xf)
+    }
     await emit(rch.map((c) => c.slice(spliceIn + xf, renderEnd)))
     // 3) locate the incoming position at the render's end and refine by correlation
     const jSec = (renderEnd - r.transitionStartSample) / rate
@@ -297,6 +303,7 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const nextCursor = est + lag
     pendingXf = rch.map((c) => c.slice(renderEnd, renderEnd + xf))
     const mixStart = tStartEmitted / rate
+    splices.push({ spliceSec: jSec, spliceLagSec: lag / rate, stemsApplied, reverbApplied: !!(tech?.reverb && r.stemA), deckEditsApplied: !!(tech?.deckEdits?.out?.length || tech?.deckEdits?.in?.length) })
     renderedTransitions.push({
       index: i,
       fromKey: tl.key,
@@ -318,6 +325,8 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
   }
   // drain limiter latency; drop nothing (latency is constant, timestamps refer to limiter input)
   const tail = limiter.flush()
+  levels.add('master', written, tail)
+  written += tail[0]?.length ?? 0
   analyzer.push(tail)
   await sink.write(tail)
   onProgress?.(n, n, 'rendered')
@@ -333,7 +342,8 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     t.mixStartSec += lat
     t.mixEndSec += lat
   }
-  return { rate, channels: nch, tracks: renderedTracks, transitions: renderedTransitions, metrics, masterLimiterMaxReductionDb: Math.round(-20 * Math.log10(limiter.minGain) * 100) / 100 }
+  const telemetry: RenderTelemetry = { latencySec: lat, levels: levels.finish(written, limiter.latency), peaks, splices }
+  return { rate, channels: nch, tracks: renderedTracks, transitions: renderedTransitions, metrics, masterLimiterMaxReductionDb: Math.round(-20 * Math.log10(limiter.minGain) * 100) / 100, telemetry }
 }
 
 /** Crossfade the saved render tail into the raw body of `track` starting at `from`. */

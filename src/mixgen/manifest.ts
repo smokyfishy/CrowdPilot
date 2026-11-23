@@ -13,6 +13,7 @@ import type { Unavailability } from './types'
 import type { ValidationReport } from './validate'
 import type { MlTrace, ScoredPlan } from './ml'
 import type { TechniquePlan } from './techniques'
+import { buildPerformance, type PerformanceManifest } from './performance'
 
 export const MANIFEST_VERSION = 1
 
@@ -119,6 +120,8 @@ export interface MixManifest {
   attribution: string[]
   planNotes: string[]
   validation?: ValidationReport
+  /** Time-stamped two-deck performance (executed automation + renderer telemetry) replayed by the Listen page's controller. */
+  performance?: PerformanceManifest
   /** Learned-DJ inference trace (models, inputs, predictions, decisions, DSP params, fallbacks). */
   ml?: Omit<MlTrace, 'options'> & { options?: MlTrace['options'] }
 }
@@ -264,6 +267,34 @@ export function buildManifest(input: {
       control: { automation: (p as ScoredPlan).mlSource === 'transitionnet' ? 'transitionnet' : 'rules', mixgraphSeverity: (p as ScoredPlan).mlSeverity !== undefined ? Math.round((p as ScoredPlan).mlSeverity! * 10000) / 10000 : undefined },
     }
   })
+  const performance = render.telemetry
+    ? buildPerformance({
+        plans: plan.transitions.map((t) => t.plan),
+        transitionStarts: transitions.map((t) => t.mixStartSec),
+        labels: transitions.map((t) => t.label),
+        automation: transitions.map((t) => t.control?.automation),
+        telemetry: render.telemetry,
+        durationSec: render.metrics.durationSec,
+        tracks: order.map((key, i) => {
+          const s = summarize(analyses.get(key)!.analysis)
+          const t = tracks[i]
+          return {
+            key,
+            title: t.title,
+            artist: t.artist,
+            artworkUrl: t.thumbnailUrl,
+            bpm: t.bpm,
+            musicalKey: t.key_,
+            camelot: t.camelot,
+            durationSec: t.durationSec,
+            trimDb: t.trimDb,
+            entrySec: plan.tracks[i].entrySec,
+            drops: t.drops,
+            grid: s.bpm > 0 && Number.isFinite(s.firstBeat) ? { firstBeatSec: s.firstBeat, beatSec: 60 / s.bpm, downbeatPhase: s.downbeatPhase } : undefined,
+          }
+        }),
+      })
+    : undefined
   const bpms = tracks.map((t) => t.bpm).filter((b) => b > 0)
   const m = render.metrics
   const styles = [...new Set(transitions.map((t) => t.label.toLowerCase()))]
@@ -296,5 +327,6 @@ export function buildManifest(input: {
     unavailable: input.unavailable,
     attribution: tracks.map((t) => `"${t.title}" by ${t.artist} — ${t.license.label}${t.license.url ? ` (${t.license.url})` : ''}${t.url ? ` — ${t.url}` : ''}`),
     planNotes: plan.notes,
+    ...(performance ? { performance } : {}),
   }
 }
