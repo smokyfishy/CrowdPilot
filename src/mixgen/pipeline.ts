@@ -293,7 +293,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       const alts = buildAlternatives(ml, tr.plan as ScoredPlan, a.summary, b.summary, allow)
       if (!alts.length) continue
       const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
-      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audio, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`)
+      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audio, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)
     }
   }
   if (ml) plan.transitions.forEach((tr, i) => traceAutomation(ml, tr.plan, `${i + 1}→${i + 2}`))

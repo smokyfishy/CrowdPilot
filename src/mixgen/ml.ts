@@ -297,7 +297,13 @@ export function monoAt(channels: Float32Array[], rate: number, target = 16000): 
  * that cue. Each is rendered as a 16 kHz preview and scored; lowest quality score wins, candidates
  * with artifact probability > 0.8 are rejected unless all are.
  */
-export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: TransitionPlan[], audio: CriticAudio, trims: { out: number; in: number }, pairLabel: string): TransitionPlan {
+/**
+ * `guard` (creative / energetic sets): the critic acts as a quality GUARD, not a taste-maker — it keeps
+ * the planner's creative choice unless that choice is predicted to carry an artifact (> 0.5) or to be
+ * clearly worse (quality more than 0.25 above the best alternative). The objective it was trained on
+ * prefers the safest technique, which would otherwise flatten every creative transition.
+ */
+export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: TransitionPlan[], audio: CriticAudio, trims: { out: number; in: number }, pairLabel: string, guard = false): TransitionPlan {
   if (!rt.on.critic) return chosen
   const pool: TransitionPlan[] = [chosen]
   for (const a of alternatives) {
@@ -315,7 +321,12 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
     const scores = pool.map((p) => timed(rt, 'critic', () => criticScore(rt.models.critic!, p, audio.out, 0, audio.in, 0, 16000, trims)))
     bump(rt, 'critic_previews', pool.length)
     const okIdx = scores.map((s, i) => [s, i] as const).filter(([s]) => s.artifact <= 0.8)
-    const choice = (okIdx.length ? okIdx : scores.map((s, i) => [s, i] as const)).reduce((b, x) => (x[0].quality < b[0].quality ? x : b))[1]
+    let choice = (okIdx.length ? okIdx : scores.map((s, i) => [s, i] as const)).reduce((b, x) => (x[0].quality < b[0].quality ? x : b))[1]
+    let guardNote = ''
+    if (guard && choice !== 0 && scores[0].artifact <= 0.5 && scores[0].quality <= scores[choice].quality + 0.25) {
+      guardNote = ` — guard mode: kept the creative choice (Δquality ${(scores[0].quality - scores[choice].quality).toFixed(3)} ≤ 0.25, artifact ${scores[0].artifact.toFixed(2)} ≤ 0.5)`
+      choice = 0
+    }
     const label = (p: TransitionPlan) => `${p.style}${(p as ScoredPlan).mlSource === 'transitionnet' ? ' (TransitionNet)' : ' (template)'}`
     rt.trace.decisions.push({
       stage: 'selection',
@@ -323,7 +334,7 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
       pair: pairLabel,
       inputs: { alternatives: pool.length, previewRateHz: 16000, outCueSec: round(chosen.outCueSec, 2), inCueSec: round(chosen.inCueSec, 2) },
       prediction: Object.fromEntries(pool.flatMap((p, i) => [[`${i}:${label(p)} quality`, round(scores[i].quality)], [`${i}:${label(p)} artifact`, round(scores[i].artifact, 3)]])),
-      decision: choice === 0 ? `kept ${label(pool[0])}` : `switched to ${label(pool[choice])} (was ${label(pool[0])})`,
+      decision: (choice === 0 ? `kept ${label(pool[0])}` : `switched to ${label(pool[choice])} (was ${label(pool[0])})`) + guardNote,
       dsp: dspSummary(pool[choice]),
     })
     if (choice !== 0) bump(rt, 'critic_switched')
