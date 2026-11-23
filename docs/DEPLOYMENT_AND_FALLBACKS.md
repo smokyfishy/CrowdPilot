@@ -45,3 +45,9 @@ Production check without a local server: `cd tests && npx playwright test -c pla
   - browser end-to-end on the local dev server (4-track real-audio generation);
   - real-audio Node end-to-end (12 tracks, all `validateMix` checks pass);
   - held-out controlled comparison.
+
+## 2026-11-23 — release #15 (drop-lock fix) and merge to main
+
+- **Release:** `rel_01M84SM9Z8KPDJYYV11H9KVWQX` (#15), deployed 2026-11-23 18:10 UTC from commit `984398e`. It fixes drop-lock performances (they now validate) and never ships an unvalidated plan.
+- **Merge:** `main` was fast-forwarded to `984398e`. Every local and remote branch (phase1, phase2, feat/ai-mix-generator, feat/discover-redesign, feat/listen-controller, integration/*, dj/transition-quality-validation) was already contained, so no merge commits or conflicts were needed.
+- **Rollback targets:** #14 `rel_01M83ZBQDK3F4YPXNB006BF50R` and #13 `rel_01M83G2M4N0YRY8Z090XJ0DYT4` (before the professional DJ planner).
