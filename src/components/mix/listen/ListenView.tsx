@@ -406,7 +406,8 @@ function Insights({ t, onInspect }: { t: ManifestTransition; onInspect: (t: Mani
     ['Length', `${t.overlapBars} bars (${t.overlapSec.toFixed(1)} s)`],
     ['Tempo', Math.abs(t.tempoAdjustPct) > 0.005 ? `Incoming track ${t.tempoAdjustPct > 0 ? 'sped up' : 'slowed'} ${Math.abs(t.tempoAdjustPct).toFixed(2)}%, pitch kept${t.tempoRecoverySec ? `, eased back over ${t.tempoRecoverySec.toFixed(0)} s` : ''}` : 'No tempo change needed'],
     ['Beat alignment', `Spliced within ${Math.abs(t.beatAlignment.spliceLagMs).toFixed(1)} ms (match ${t.beatAlignment.spliceCorrelation.toFixed(2)})`],
-    ['Decided by', t.control?.automation === 'transitionnet' ? 'TransitionNet (learned automation)' : t.technique ? 'Rules from the music analysis (no trained model for this technique)' : 'Rule-based planner'],
+    ['Automation', t.control?.automation === 'transitionnet' ? 'TransitionNet (learned controls)' : 'Rule-based controls'],
+    ...(t.control?.mixgraphSeverity !== undefined ? [['Candidate ranking', 'MixGraph (ML)'] as [string, string]] : []),
   ]
   if (t.technique) facts.push(['Confidence', `${Math.round(t.technique.confidence * 100)}% (analysis it relied on)`])
   if (t.control?.mixgraphSeverity != null) facts.push(['MixGraph risk score', String(t.control.mixgraphSeverity)])
