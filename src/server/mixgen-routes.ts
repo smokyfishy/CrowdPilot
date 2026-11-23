@@ -199,7 +199,9 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const id = m[1]
     if (!c.env.JAMENDO_CLIENT_ID) return err(c, 502, 'UPSTREAM', 'Jamendo is not configured.')
     let t: { audio?: string; audiodownload?: string; audiodownload_allowed?: boolean; license_ccurl?: string } | undefined
-    for (let attempt = 0; attempt < 3 && !t; attempt++) {
+    // The Jamendo API intermittently answers an empty result under load: retry with backoff.
+    for (let attempt = 0; attempt < 5 && !t; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 300 * attempt))
       const p = new URLSearchParams({ client_id: c.env.JAMENDO_CLIENT_ID, format: 'json', id, audioformat: 'mp32', audiodlformat: 'flac' })
       const r = await fetch(`https://api.jamendo.com/v3.0/tracks/?${p.toString()}`).catch(() => null)
       t = ((await r?.json().catch(() => null)) as { results?: Array<NonNullable<typeof t>> } | null)?.results?.[0]

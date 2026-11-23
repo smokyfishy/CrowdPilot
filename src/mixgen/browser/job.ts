@@ -167,12 +167,25 @@ export class BrowserMixJob {
     return { w: this.analysisWorkers[k], release: () => void (this.busy[k] = Math.max(0, this.busy[k] - 1)) }
   }
 
-  private async fetchAudio(c: { trackKey: string }): Promise<ArrayBuffer> {
-    const res = await fetch(`/api/mixgen/audio/${encodeURIComponent(c.trackKey)}?quality=${this.quality}`, { headers: await this.api.authHeaders() })
-    if (res.status === 403) throw new AcquisitionError(((await res.json().catch(() => ({}))) as { error?: { message?: string } }).error?.message ?? 'not permitted', 'not_permitted')
-    if (res.status === 404) throw new AcquisitionError('recording unavailable', 'unavailable')
-    if (!res.ok) throw new AcquisitionError(`audio request failed (${res.status})`, 'network')
-    return res.arrayBuffer()
+  /** `known`: the recording was already acquired once in this job, so a 404/5xx is treated as transient. */
+  private async fetchAudio(c: { trackKey: string }, known = false): Promise<ArrayBuffer> {
+    let last: AcquisitionError | null = null
+    for (let attempt = 0; attempt < (known ? 4 : 2); attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt))
+      let res: Response
+      try {
+        res = await fetch(`/api/mixgen/audio/${encodeURIComponent(c.trackKey)}?quality=${this.quality}`, { headers: await this.api.authHeaders() })
+      } catch {
+        last = new AcquisitionError('audio request failed (network)', 'network')
+        continue
+      }
+      if (res.status === 403) throw new AcquisitionError(((await res.json().catch(() => ({}))) as { error?: { message?: string } }).error?.message ?? 'not permitted', 'not_permitted')
+      if (res.ok) return res.arrayBuffer()
+      await res.body?.cancel().catch(() => undefined)
+      last = res.status === 404 ? new AcquisitionError('recording unavailable', 'unavailable') : new AcquisitionError(`audio request failed (${res.status})`, 'network')
+      if (res.status === 404 && !known) break
+    }
+    throw last ?? new AcquisitionError('audio request failed', 'network')
   }
 
   private mlRuntime: Promise<MlRuntime> | null = null
@@ -213,7 +226,7 @@ export class BrowserMixJob {
         let buf = job.bytes.get(audio.handle)
         job.bytes.delete(audio.handle) // never keep encoded audio around
         if (!buf) {
-          buf = await job.fetchAudio(audio)
+          buf = await job.fetchAudio(audio, true)
           const sha = await sha256(buf)
           if (sha !== audio.sha256) throw new Error(`audio for ${audio.trackKey} changed since analysis (hash mismatch)`)
         }
