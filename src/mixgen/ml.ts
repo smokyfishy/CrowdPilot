@@ -300,6 +300,7 @@ export function sameTransitionSlot(a: TransitionPlan, b: TransitionPlan): boolea
   return Math.abs(a.outCueSec - b.outCueSec) < 0.01
     && Math.abs(a.inCueSec - b.inCueSec) < 0.01
     && a.incomingDropSec === b.incomingDropSec
+    && a.incomingDropOffsetSec === b.incomingDropOffsetSec
     && a.overlapBars === b.overlapBars
     && Math.abs(a.durationSec - b.durationSec) < 0.01
     && Math.abs(a.tempoRatio - b.tempoRatio) < 1e-6

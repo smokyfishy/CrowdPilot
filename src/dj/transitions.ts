@@ -82,8 +82,10 @@ export interface TransitionPlan {
   outCueSec: number
   /** Seconds into the incoming track (its own timeline) that align with outCueSec. */
   inCueSec: number
-  /** Detected incoming drop at the end of this transition, in source-track seconds. */
+  /** Detected incoming drop, in source-track seconds. */
   incomingDropSec?: number
+  /** When the drop lands relative to transition start. Defaults to the end of the overlap. */
+  incomingDropOffsetSec?: number
   overlapBars: number
   /** Playback-rate ratio applied to the incoming track during the overlap (tempo match), 1 = none. */
   tempoRatio: number
@@ -506,6 +508,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
         // Slam styles: the incoming downbeat (a phrase start, or a drop for energy) lands on the
         // slam beat, so its playback starts that many beats earlier (silently).
         const auto0 = automationFor(style, beats)
+        const revealSec = (auto0.inStartBeat ?? 0) * beatSec
         // Offer a drop-aligned finish for a clean blend as well as a dedicated drop swap.
         const dropFinishCues = opts.preferDropLandings && BEATMATCHED.has(style) && sb.downbeatConf >= 0.3 && keyDist <= 2
           ? drops.map((drop) => drop - overlapSec * ratio).filter((cue) => cue >= leadB).slice(0, 2)
@@ -514,7 +517,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           style === 'drop_swap'
             ? drops.map((d) => d - overlapSec * ratio).filter((c) => c >= 0)
             : SLAM.has(style)
-              ? uniqueSorted([...ins.slice(0, 3), ...drops.slice(0, 2)]).map((c) => c - (auto0.inStartBeat ?? 0) * inBeat).filter((c) => c >= 0)
+              ? uniqueSorted([...ins.slice(0, 3), ...drops.slice(0, 2)]).map((c) => c - revealSec).filter((c) => c >= 0)
               : uniqueSorted([
                   ...ins.slice(0, 4),
                   ...(style === 'cut' && opts.preferDropLandings && beatmatchable(sb) && sb.downbeatConf >= 0.3 ? drops.slice(0, 2) : dropFinishCues),
@@ -522,7 +525,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
         for (const inCue of inCands) {
           const inDur = overlapSec * (BEATMATCHED.has(style) ? ratio : 1)
           if (inCue + inDur > sb.durationSec * 0.8) continue
-          if (inCue + (auto0.inStartBeat ?? 0) * inBeat < leadB) continue // incoming would start in silence
+          if (inCue + revealSec < leadB) continue // incoming would start in silence
           const risks: string[] = []
           const reasons: string[] = []
           // ── costs ──
@@ -541,7 +544,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           const confidence = w.confidence * confPenalty
           // Silence/low-energy guard: never cue into or out of near-silence.
           const eOut = energyAt(sa, outCue)
-          const eIn = energyAt(sb, inCue)
+          const eIn = energyAt(sb, inCue + revealSec)
           const silence = (eOut !== null && eOut < sa.energyMean - 18 ? 2 : 0) + (eIn !== null && eIn < sb.energyMean - 24 && style !== 'percussion_led' ? 1 : 0)
           // a cut or slam into/out of near-silence is never musical: hard exclusion
           if (silence && (style === 'cut' || SLAM.has(style))) continue
@@ -560,16 +563,18 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           // Creative techniques: priced so a set rotates through them (variety weight) and so the
           // tempo-free ones beat plain cuts/fades when the pair cannot be beat-matched.
           const energetic = opts.energyDirection > 0 ? -0.4 : 0
-          const landsOnDrop = drops.some((d) => Math.abs(d - (inCue + (auto0.inStartBeat ?? 0) * inBeat)) < inBeat)
+          const landsOnDrop = drops.some((d) => Math.abs(d - (inCue + revealSec)) < inBeat)
           const directDrop = style === 'cut' && opts.preferDropLandings && beatmatchable(sb) && sb.downbeatConf >= 0.3
           const finishesOnDrop = BEATMATCHED.has(style) && sb.downbeatConf >= 0.3
             && (style === 'drop_swap' || (opts.preferDropLandings && keyDist <= 2))
-          const incomingDropSec = (finishesOnDrop || directDrop) && silence === 0
-            ? drops.find((drop) => Math.abs(drop - (inCue + inDur)) <= 1e-6)
+          const rollDrop = SLAM.has(style) && beatmatchable(sb) && sb.downbeatConf >= 0.3
+          const dropOffset = rollDrop ? revealSec : overlapSec
+          const incomingDropSec = (finishesOnDrop || directDrop || rollDrop) && silence === 0
+            ? drops.find((drop) => Math.abs(drop - (inCue + (rollDrop ? revealSec : inDur))) <= 1e-6)
             : undefined
           if (incomingDropSec !== undefined && style !== 'drop_swap') {
             musical -= directDrop ? 1.4 : 0.6
-            reasons.push(directDrop ? 'direct entry on the incoming drop' : 'incoming drop lands at the end of the blend')
+            if (!rollDrop) reasons.push(directDrop ? 'direct entry on the incoming drop' : 'incoming drop lands at the end of the blend')
           }
           if (style === 'echo_out') musical += canMatch ? 1.9 : 0.5
           if (style === 'loop_roll') musical += (canMatch ? 1.3 : 0.7) + (landsOnDrop ? -0.3 : 0.2) + energetic
@@ -597,7 +602,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
             style,
             outCueSec: outCue,
             inCueSec: inCue,
-            ...(incomingDropSec !== undefined ? { incomingDropSec } : {}),
+            ...(incomingDropSec !== undefined ? { incomingDropSec, incomingDropOffsetSec: dropOffset } : {}),
             overlapBars: bars,
             tempoRatio: BEATMATCHED.has(style) ? ratio : 1,
             tempoRecoveryBars: BEATMATCHED.has(style) && deviation > 0.002 ? 16 : 0,

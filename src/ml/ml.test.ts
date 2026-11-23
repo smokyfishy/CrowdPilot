@@ -46,6 +46,17 @@ describe('controls', () => {
     expect(uncertain.some((p) => p.reasons.includes('incoming drop lands at the end of the blend'))).toBe(false)
   })
 
+  it('reveals drop cues on the outgoing clock for loop rolls and echo-outs', () => {
+    const drop = 94
+    for (const style of ['loop_roll', 'echo_out'] as const) {
+      const plans = candidateTransitions(track('a', { bpm: 128 }), track('b', { bpm: 111, dropsSec: [drop] }), { ...DEFAULT_OPTIONS, allowedStyles: [style] })
+      const plan = plans.find((candidate) => candidate.incomingDropSec === drop)
+      expect(plan, style).toBeDefined()
+      expect(plan!.incomingDropOffsetSec).toBeCloseTo(plan!.handoffBeat * plan!.beatSec, 10)
+      expect(plan!.inCueSec + plan!.incomingDropOffsetSec!).toBeCloseTo(drop, 10)
+    }
+  })
+
   it('locks the drop through tempo refinement and overlapping stretch grains', () => {
     const beatGrid = (period: number) => Array.from({ length: 200 }, (_, i) => i * period)
     const plan = refineWithLocalBeats(
