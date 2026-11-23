@@ -1,0 +1,37 @@
+{
+ "unmixdb_synthetic": {
+  "archives_complete": 5,
+  "archives_total": 6,
+  "mix_audio_files": 1932,
+  "mix_label_files": 2184,
+  "source_excerpt_files": 258,
+  "domain": "synthetic_reference"
+ },
+ "human_dj_mixes_mixotic": {
+  "files": [
+   "Mixotic_044_-_Cotumo_-_Pentagonik_Labelmix_2006-06-27.mp3",
+   "Mixotic_123_-_Jemset_-_Antiritmo_Label_Mix.mp3",
+   "Mixotic_222_-_echtZEIT_-_Finale_GRANDE.mp3",
+   "Mixotic_230_-_Plug_-_Drowning_Souls.mp3",
+   "Mixotic_275_-_Wout_-_Drama_Queen.mp3",
+   "Mixotic_281_-_EE7A_-_Schadenfreude.mp3"
+  ],
+  "count": 6,
+  "bytes": 900080499,
+  "domain": "professional_dj_performance"
+ },
+ "source_masters_netlabel": {
+  "files": [
+   "pntg003-04-ludwig_coenen_and_kareem-litchy_licker.mp3",
+   "pntg005-03-kairos-on_the_run.mp3",
+   "pntg006-03-charles_tone-das_haus_im_wald.mp3"
+  ],
+  "count": 3
+ },
+ "edm_cue_annotations": {
+  "present": true,
+  "audio": "none (annotations only)"
+ },
+ "disk_used_bytes": 7752849687,
+ "disk_free_bytes": 711694721024
+}

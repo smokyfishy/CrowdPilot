@@ -9,6 +9,8 @@ export const C = {
   events: 'room_events',
   reactions: 'reactions',
   receipts: 'command_receipts',
+  dj: 'dj_state',
+  features: 'track_features',
 } as const
 
 /** Singleton record id for room_state and playback inside a room scope. */

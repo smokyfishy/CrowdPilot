@@ -33,7 +33,7 @@ import {
   resolveAuth,
 } from './src/server/http-routes.js'
 import { registerRealtimeRoutes } from './src/server/realtime-routes.js'
-import { registerRoomRoutes } from './src/server/room-routes.js'
+import { registerMixgenRoutes } from './src/server/mixgen-routes.js'
 
 // Dynamic deploy reads this manifest to create the app's DO bindings.
 export const __DO_MANIFEST__ = [
@@ -123,6 +123,8 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   YOUTUBE_API_KEY?: string
   /** HMAC secret for anonymous guest tokens (deepspace secrets). Guest join is disabled when absent. */
   GUEST_TOKEN_SECRET?: string
+  /** Phase 2: free non-commercial Jamendo API client id (enables Jamendo search). */
+  JAMENDO_CLIENT_ID?: string
 }
 
 export type AppContext = { Bindings: Env }
@@ -142,7 +144,7 @@ app.use('*', async (c, next) => {
 registerAuthAndIntegrationRoutes(app)
 registerRealtimeRoutes(app)
 registerActionRoutes(app, resolveAuth)
-registerRoomRoutes(app, resolveAuth)
+registerMixgenRoutes(app, resolveAuth)
 // Every scaffold exposes selected tools through HTTP, MCP and browser tools.
 // Only copilot owns the collections needed for the in-app chat UI.
 registerAgent(app, {

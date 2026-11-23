@@ -1,0 +1,29 @@
+{
+ "features": "bands",
+ "heldout_sets": [
+  "mixotic-set275-excerpts",
+  "mixotic-set123-excerpts"
+ ],
+ "n_mixes": 60,
+ "seconds": 279,
+ "by_timescale": {
+  "none": {
+   "tracks": 78,
+   "start_within_50ms_pct": 69.23076923076923,
+   "gain_corr_median": 0.9251025982352343,
+   "mixes_validated_pct": 57.692307692307686
+  },
+  "resample": {
+   "tracks": 39,
+   "start_within_50ms_pct": 53.84615384615385,
+   "gain_corr_median": 0.6579650408274202,
+   "mixes_validated_pct": 0.0
+  },
+  "stretch": {
+   "tracks": 63,
+   "start_within_50ms_pct": 74.60317460317461,
+   "gain_corr_median": 0.8365761186597137,
+   "mixes_validated_pct": 52.38095238095239
+  }
+ }
+}

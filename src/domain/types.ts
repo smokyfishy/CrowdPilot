@@ -21,6 +21,7 @@ export interface TrackRef {
   creatorLabel?: string
   thumbnailUrl?: string
   durationMs?: number
+  rights?: { basis: string; label?: string; needsReview: boolean }
 }
 
 export interface QueueItem extends TrackRef {
@@ -36,6 +37,64 @@ export interface QueueItem extends TrackRef {
   /** Server time the item left the active set (played/skipped/unavailable/removed). */
   finishedAt?: number
   failureReason?: string
+  /** Phase 2: authorized waveform source used for mixing (e.g. a verified Audius match for a YouTube request). */
+  mixTrackKey?: string
+  mixMatch?: { confidence: number; reasons: string[]; status: 'auto' | 'accepted' | 'rejected' }
+  /** Phase 2: host timed slot (epoch ms). */
+  targetStartAt?: number
+  /** Phase 2: host position lock against AI reordering. */
+  locked?: boolean
+  /** Phase 2: licence basis of the waveform source (server-resolved at enqueue). */
+  rights?: { basis: string; label?: string; needsReview: boolean }
+}
+
+export type DjStatus = 'idle' | 'analyzing' | 'ready' | 'proposed' | 'committed' | 'mixing' | 'safe_fallback' | 'failed'
+export type DjStyle = 'balanced' | 'smooth' | 'energetic' | 'creative'
+
+/** Compact, synced description of the proposed/committed transition (the full plan stays in the host browser). */
+export interface TransitionSummary {
+  fromItemId: string
+  toItemId: string
+  style: string
+  outCueSec: number
+  inCueSec: number
+  overlapBars: number
+  tempoRatio: number
+  /** Epoch ms (server clock) the transition is scheduled to start, when committed. */
+  startsAt?: number
+  cost?: number
+  costs?: Record<string, number>
+  risks?: string[]
+  reasons?: string[]
+  alternatives?: Array<{ style: string; cost: number }>
+}
+
+export interface DjState {
+  autopilot: boolean
+  aiReorder: boolean
+  maxTempoPct: number
+  style: DjStyle
+  allowOmlMixing: boolean
+  status: DjStatus
+  statusNote: string
+  transition: TransitionSummary | null
+  planRevision: number
+  basedOnPlaybackRevision: number | null
+  updatedAt: number
+}
+
+export const DEFAULT_DJ_STATE: DjState = {
+  autopilot: false,
+  aiReorder: false,
+  maxTempoPct: 6,
+  style: 'balanced',
+  allowOmlMixing: true,
+  status: 'idle',
+  statusNote: '',
+  transition: null,
+  planRevision: 0,
+  basedOnPlaybackRevision: null,
+  updatedAt: 0,
 }
 
 export interface RoomState {
@@ -87,6 +146,7 @@ export type RoomEventType =
   | 'kick'
   | 'settings'
   | 'closed'
+  | 'dj'
 
 export interface RoomEvent {
   id: string

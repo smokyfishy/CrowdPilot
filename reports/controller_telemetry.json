@@ -1,0 +1,8 @@
+{
+ "genuine_sessions": 0,
+ "consent_records": 0,
+ "logged_control_states": 0,
+ "clock_sync_quality": null,
+ "toolkit": "ml/capture (tests: ml/tests/test_controller_clock_sync.py)",
+ "status": "BLOCKED_HUMAN_SESSION"
+}

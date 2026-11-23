@@ -109,6 +109,12 @@
   100% { opacity: 0; transform: translateY(-140px) scale(1.05); }
 }
 
+/* Mix generation: indeterminate shimmer on the progress bar. */
+@keyframes bar-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
 /* Theme override blocks live in `themes.css` — imported above. */
 
 /*

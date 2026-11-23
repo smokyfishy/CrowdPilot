@@ -1,0 +1,23 @@
+{
+ "model": "AlignEmbed v1",
+ "params": 245088,
+ "train_mixes": 12,
+ "val_mixes": 8,
+ "steps": 20,
+ "batch": 64,
+ "seed": 0,
+ "prep_seconds": 8,
+ "train_seconds": 7,
+ "checkpoint_sha256": "c7d6bd8bc0ceb341817a76f52984203fca7e2801b468d889c4b18dc21f2f9e8f",
+ "checkpoint": "C:\\crowdpilot-data\\models\\align_embed\\align_embed_s0.pt",
+ "log": [
+  {
+   "step": 20,
+   "loss": 2.5966,
+   "val_top1_of_1024": 0.0039,
+   "elapsed_s": 15
+  }
+ ],
+ "hardware": "8 vCPU (unknown)",
+ "data_domain": "synthetic_reference (UnmixDB train sets; held-out sets excluded)"
+}

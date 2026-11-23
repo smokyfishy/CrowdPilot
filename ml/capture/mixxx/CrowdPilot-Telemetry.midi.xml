@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrowdPilot telemetry: bind this mapping to a virtual MIDI port pair (e.g. loopMIDI
+     "CrowdPilot Telemetry"). It maps no inputs and changes no controls; it only observes
+     effective engine state and sends SysEx telemetry to the receiver. -->
+<MixxxControllerPreset mixxxVersion="2.4.0+" schemaVersion="1">
+  <info>
+    <name>CrowdPilot Telemetry (research capture)</name>
+    <author>CrowdPilot research pipeline</author>
+    <description>Logs effective mixer state (faders, EQ, filter, tempo, transport, positions, recording status) as timestamped SysEx for consented DJ research sessions. Observes only.</description>
+  </info>
+  <controller id="CrowdPilotTelemetry">
+    <scriptfiles>
+      <file filename="CrowdPilot-Telemetry.js" functionprefix="CrowdPilotTelemetry"/>
+    </scriptfiles>
+    <controls/>
+    <outputs/>
+  </controller>
+</MixxxControllerPreset>

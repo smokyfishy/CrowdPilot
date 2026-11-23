@@ -61,3 +61,31 @@ Verified from the installed SDK (0.44.2) types and scaffold source:
 - From `http://localhost`, the official player loaded *Daft Punk – One More Time* and kept playing (no errors, lease renewed every 30 s).
 - From `http://127.0.0.1` (the scaffold's Playwright base URL), YouTube refuses label-owned videos with error 150 while its own demo video plays — YouTube rejects embeds on bare-IP origins. CrowdPilot handled it as designed: both songs were marked "The owner does not allow this video to be embedded" and skipped without looping. Production (`*.app.space`) is a real hostname, so this does not apply there.
 - Not verified live: auto-advance on a real ENDED event (covered by unit tests of the agent and state machine; check on the deployed app).
+
+# Phase 2 — AI DJ (2026-11-22)
+
+## Owner decisions
+
+| Topic | Decision |
+|---|---|
+| Product | Fully web-based AI DJ on DeepSpace. No local music files, no Python install for users. |
+| Discovery | YouTube Data API search stays (Phase 1). |
+| Real mixing sources | **Audius** (public API, CORS-enabled MP3 streams, Open Music License) and **Jamendo** (CC tracks; `JAMENDO_CLIENT_ID` secret). YouTube embeds can never be mixed (no audio access; policies forbid modifying/caching audio). |
+| Honest tiers | Every queue item shows **AI mix** (authorized waveform), **Standard playback** (YouTube embed) or **Couldn't play**. |
+| Host control | Autopilot with preview + override; AI queue reordering **off by default**; position locks; timed slots; tempo change ≤ ±6 % (pitch-preserving); no key shifting. |
+| Audio | Host speakers only; guests receive synchronized metadata. |
+| Compute | CPU-only locally; ML training may use the owner's Azure credits (~$1,000), budgeted per run. |
+| Repo / data | Repo at `C:\dev\CrowdPilot` (`phase2` branch; `phase1-release` tag = deployed Phase 1 baseline). Research data at `C:\crowdpilot-data` (never in git, never on DeepSpace storage). |
+| Rights | Private noncommercial research is **not** a licence. Default-deny, per-use permissions; CC licences applied by a documented policy (docs/DATA_RIGHTS_AND_PROVENANCE.md); training on NC/ND material awaits the owner's review. |
+
+## Builder calls
+
+- **Analysis runs in the host browser** (TypeScript DSP in a Web Worker): multi-resolution STFT (1024/2048/4096 Hann), spectral-flux onsets, autocorrelation tempo with octave candidates, whole-track constant-grid fit (0.0002 BPM steps), kick-vs-hat phase resolution, downbeat from bar-synchronous change, Krumhansl–Kessler key + Camelot, Foote novelty phrases, BS.1770-4 loudness (ITU coefficients reproduced exactly), 4× true peak. Only a < 4 KB summary is synced to DeepSpace (`track_features`); audio never leaves the host device.
+- **Tempo matching** uses a project-written WSOLA time-stretcher (pitch preserved, no GPL dependency). `playbackRate` is never used for tempo.
+- **Engine safety:** plan validation gate (zero-length fades, ±6 %, gain/EQ bounds, monotone curves), headroom-aware loudness trim (never above −1 dBTP), DynamicsCompressor limiter + transparent-below-−1 dBFS safety shaper, silence watchdog. Automation is scheduled on the AudioContext clock; UI timers only *report* events.
+- **Mix handoff** reuses Phase 1's `advance` command with two optional fields (`nextItemId`, `startPositionSec`): the room switches to the committed incoming item at its real position. A handoff to an item that left the queue falls back to normal FIFO.
+- **YouTube → Audius matching** is metadata-only and conservative (verified uploader + artist + title + duration ±4 s, remix tags must agree), because third-party re-uploads of mainstream songs carry no valid OML grant. The host can reject a match.
+- **Licence basis is stored per queue item** (server-resolved). Mixing of sources whose licence needs review (OML-only Audius uploads; Jamendo ND/unknown) is governed by a host toggle that defaults **on** and is clearly labelled "pending rights review".
+- **Jamendo audio** goes through a host-only, allowlisted, non-caching pass-through (`/api/audio/jamendo/:id`) because Jamendo storage sends no CORS headers.
+- **Schema changes are additive only** (new `dj_state`, `track_features`; optional queue fields `mixTrackKey`, `mixMatch`, `targetStartAt`, `locked`, `rights`), which DeepSpace migrates automatically.
+- **Deploy:** `phase2` checkout deployed to `crowdpilot.app.space` (rollback target: Phase 1 release `rel_01M80X7E9SKQ6070B0HKPBEBW3`).

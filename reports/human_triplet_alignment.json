@@ -1,0 +1,50 @@
+{
+ "044:12>13": {
+  "mix": "Mixotic_044_-_Cotumo_-_Pentagonik_Labelmix_2006-06-27.mp3",
+  "tracks": [
+   {
+    "candidate": "044-12",
+    "title": "Kairos - On The Run",
+    "start_s": 3599.5569160997734,
+    "speed": 1.0005,
+    "env_ncc": 0.2421397580446499,
+    "waveform_ncc": 0.04476588851249551,
+    "end_s": 3962.2686214715773
+   },
+   {
+    "candidate": "044-13",
+    "title": "Charles Tone - Das Haus im Wald",
+    "start_s": 3797.878412698413,
+    "speed": 0.9925,
+    "env_ncc": 0.7353565300333227,
+    "waveform_ncc": 0.20423346615148968,
+    "end_s": 4285.321674805942
+   }
+  ],
+  "position_prior_s": [
+   3106.1,
+   4226.0
+  ],
+  "transition": {
+   "region_s": [
+    3777.88,
+    3982.27
+   ],
+   "overlap_s": 164.39,
+   "incoming_audible_from_s": 3798.0,
+   "outgoing_audible_until_s": 3962.04,
+   "tempo_ratio_in_over_out": 0.992,
+   "spectral_convergence": 0.466,
+   "gain_curves_hz": 43.066,
+   "label_origin": "inferred_pseudo_label (inverse estimate from a human performance; not controller truth)"
+  },
+  "alignment_validated": false
+ },
+ "044:04>05": {
+  "status": "blocked",
+  "reason": "a source master is not acquired (missing licence evidence)",
+  "missing": [
+   "pntg007-01-demir_feat._jesse-dance_away.mp3"
+  ]
+ }
+}
