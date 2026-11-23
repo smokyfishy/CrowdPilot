@@ -81,6 +81,8 @@ export interface ClosedLoopMemory {
   previews: number
   /** Learned-model usage accumulated over every call that shares this memory (review + render passes). */
   modelUse?: ClosedLoopResult['modelUse']
+  /** The last finished result: a later pass that keeps exactly this order reuses it (no second search). */
+  result?: ClosedLoopResult
 }
 
 export function newClosedLoopMemory(): ClosedLoopMemory {
@@ -134,25 +136,36 @@ export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTra
   const pre = 8 * barA
   const post = 8 * barA
   const tech = (plan as TechniquePlan).tech
-  let A = [await host.audio(a.key)]
-  let Bd = [await host.audio(b.key)]
+  const fullA = await host.audio(a.key)
+  const fullB = await host.audio(b.key)
+  // crop both decks to what the preview needs BEFORE stem routing (keeps the render cheap);
+  // deck edits may read source audio from anywhere in the track, so they work on the full track
+  const o0 = Math.max(0, Math.floor((plan.outCueSec - pre - 1) * rate))
+  const o1 = Math.min(fullA.length, Math.ceil((plan.outCueSec + plan.durationSec + post + 1) * rate))
+  const i0 = Math.max(0, Math.floor((plan.inCueSec - 1) * rate))
+  const i1 = Math.min(fullB.length, Math.ceil((plan.inCueSec + (plan.durationSec + post) * Math.max(1, plan.tempoRatio) + 2) * rate))
+  const editsA = !!tech?.deckEdits?.out?.length
+  const editsB = !!tech?.deckEdits?.in?.length
+  const [ca0, ca1, cb0, cb1] = [editsA ? 0 : o0, editsA ? fullA.length : o1, editsB ? 0 : i0, editsB ? fullB.length : i1]
+  let A = [fullA.subarray(ca0, ca1)]
+  let Bd = [fullB.subarray(cb0, cb1)]
   if (tech?.stems && host.stems) {
     const [sa, sb] = [await host.stems(a.key), await host.stems(b.key)]
-    const arr = (x: { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }) => ({ vocals: [x.vocals], inst: [x.inst], ...(x.drums && x.bass && x.other ? { drums: [x.drums], bass: [x.bass], other: [x.other] } : {}) })
+    const arr = (x: { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }, c0: number, c1: number) => {
+      const cut = (y: Float32Array) => [y.subarray(c0, c1)]
+      return { vocals: cut(x.vocals), inst: cut(x.inst), ...(x.drums && x.bass && x.other ? { drums: cut(x.drums), bass: cut(x.bass), other: cut(x.other) } : {}) }
+    }
     if (sa && sb) {
-      A = routeStems(A, arr(sa), rate, plan.outCueSec - 0.1, plan.outCueSec + plan.durationSec + 0.1, (t) => (t - plan.outCueSec) / plan.beatSec, tech.stems.out)
-      Bd = routeStems(Bd, arr(sb), rate, plan.inCueSec - 0.1, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1, (t) => (t - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
+      const sA = ca0 / rate
+      const sB = cb0 / rate
+      A = routeStems(A, arr(sa, ca0, ca1), rate, plan.outCueSec - 0.1 - sA, plan.outCueSec + plan.durationSec + 0.1 - sA, (t) => (t + sA - plan.outCueSec) / plan.beatSec, tech.stems.out)
+      Bd = routeStems(Bd, arr(sb, cb0, cb1), rate, plan.inCueSec - 0.1 - sB, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1 - sB, (t) => (t + sB - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
     }
   }
-  if (tech?.deckEdits?.out?.length) A = applyDeckEdits(A, rate, tech.deckEdits.out)
-  if (tech?.deckEdits?.in?.length) Bd = applyDeckEdits(Bd, rate, tech.deckEdits.in)
-  // crop both decks to what the preview needs (keeps the render cheap)
-  const o0 = Math.max(0, Math.floor((plan.outCueSec - pre - 1) * rate))
-  const o1 = Math.min(A[0].length, Math.ceil((plan.outCueSec + plan.durationSec + post + 1) * rate))
-  const i0 = Math.max(0, Math.floor((plan.inCueSec - 1) * rate))
-  const i1 = Math.min(Bd[0].length, Math.ceil((plan.inCueSec + (plan.durationSec + post) * Math.max(1, plan.tempoRatio) + 2) * rate))
-  const outCrop = A[0].subarray(o0, o1)
-  const inCrop = Bd[0].subarray(i0, i1)
+  if (editsA) A = applyDeckEdits(A, rate, tech!.deckEdits!.out!)
+  if (editsB) Bd = applyDeckEdits(Bd, rate, tech!.deckEdits!.in!)
+  const outCrop = A[0].subarray(o0 - ca0, o1 - ca0)
+  const inCrop = Bd[0].subarray(i0 - cb0, i1 - cb0)
   const local: TransitionPlan = {
     ...plan,
     outCueSec: plan.outCueSec - o0 / rate,
@@ -197,6 +210,17 @@ function reshape(p: TransitionPlan, a: SetTrack, b: SetTrack, d: { outBars?: num
 }
 
 export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts: SetPlanOptions, host: PreviewAudioHost, opts: ClosedLoopOptions = {}): Promise<ClosedLoopResult> {
+  const prior = opts.memory?.result
+  if (prior && setOpts.fixedOrder && setOpts.fixedOrder.join('|') === prior.set.order.join('|')) {
+    opts.log?.('closed loop: order unchanged since the review pass; reusing its measured plan (no second search)')
+    return prior
+  }
+  const res = await closedLoopSearch(tracks, spec, setOpts, host, opts)
+  if (opts.memory) opts.memory.result = res
+  return res
+}
+
+async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts: SetPlanOptions, host: PreviewAudioHost, opts: ClosedLoopOptions = {}): Promise<ClosedLoopResult> {
   const R = opts.rounds ?? 3
   const budget = opts.budget ?? 120
   const M = opts.candidatesPerEdge ?? 5

@@ -49,6 +49,8 @@ export interface PipelineHost {
   /** Optional render override (browser: runs renderMix inside a Web Worker). */
   render?(plan: MixPlan, load: (key: string) => Promise<PcmTrack>, onProgress: (done: number, total: number, detail: string) => void, loadStems?: (key: string, window?: [number, number]) => Promise<StemPcm | null>): Promise<RenderResult>
   progress(ev: ProgressEvent): void
+  /** Wall-clock stage timings of this pass (ms). */
+  timings?(pass: 'plan' | 'render', t: Record<string, number>): void
   log?(msg: string): void
   signal?: AbortSignal
   /** Reuse prior stage outputs (regeneration / resume). */
@@ -66,6 +68,10 @@ export interface PipelineHost {
   concurrency?: number
   /** Parallel stem separations (browser → Azure service: many; local Demucs on CPU: 1). */
   stemsConcurrency?: number
+  /** Request stems as soon as each track is analysed (overlaps separation with analysis). Default true for concurrent hosts. */
+  stemsPrefetch?: boolean
+  /** Longest extra wait for stems once planning is ready (ms); tracks not ready by then use EQ element control. */
+  stemsWaitMs?: number
   /** Closed-loop preview budget (rendered candidate transitions per mix). */
   previewBudget?: number
   /** Closed-loop measurements shared across calls of the same job (review → render). */
@@ -168,6 +174,24 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
 
   // ── 4+5. acquisition and analysis ──
   const analyses = new Map<string, AnalyzedEntry>(host.previous?.analyses ?? [])
+  // wall-clock stage timings (recorded in the manifest)
+  const tStart = Date.now()
+  const timings: Record<string, number> = {}
+  let tMark = tStart
+  const lap = (name: string) => {
+    const now = Date.now()
+    timings[`stage_${name}`] = now - tMark
+    tMark = now
+  }
+  lap('discovery_policy')
+  // stem separation requested as soon as a track is analysed (runs while the rest is analysed)
+  const stemPrefetch = new Map<string, ReturnType<NonNullable<PipelineHost['stems']>>>()
+  const prefetchStems = (key: string, e: AnalyzedEntry) => {
+    // the best-ranked analysed tracks (a few more than the set needs) are separated early
+    if (!host.stems || host.stemsPrefetch === false || (host.stemsConcurrency ?? 1) <= 1 || stemPrefetch.has(key) || stemPrefetch.size >= spec.songCount + 3) return
+    stemPrefetch.set(key, host.stems(e.audio, e.analysis).catch(() => null))
+  }
+  for (const [k, e] of analyses) prefetchStems(k, e)
   const acquisition: PipelineResult['acquisition'] = []
   const want = Math.min(pre.ranked.length, Math.ceil(spec.songCount * 1.5))
   const maxAcquire = Math.ceil(spec.songCount * 2.5)
@@ -210,6 +234,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       const analysis = await host.analyze(audio, pcm)
       if (analysis.qc.mostlySilent || analysis.qc.durationSec < 60) throw new Error(`audio QC failed: ${analysis.qc.issues.join(', ') || 'too short'}`)
       analyses.set(c.trackKey, { candidate: c, access: a, audio, analysis, energy: describeEnergy(analysis) })
+      prefetchStems(c.trackKey, analyses.get(c.trackKey)!)
       analyzedCount++
       host.progress({ stage: 'analyzing', done: analyzedCount, total: total(), detail: `${c.title}: ${analysis.grid.bpm.toFixed(1)} BPM ${analysis.key.camelot}` })
     } catch (e) {
@@ -281,10 +306,14 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     if (!host.stems) return
     let done = 0
     host.progress({ stage: 'transitions', done: 0, total: keys.length, detail: `separating stems (vocals / drums / bass / other) for ${keys.length} tracks` })
+    const deadline = host.stemsWaitMs ? Date.now() + host.stemsWaitMs : Infinity
     await pool(keys.filter((k) => !stemInfo.has(k)), host.stemsConcurrency ?? 1, async (k) => {
       const e = analyses.get(k)!
       try {
-        const r = await host.stems!(e.audio, e.analysis)
+        const pending = stemPrefetch.get(k) ?? host.stems!(e.audio, e.analysis)
+        const left = deadline - Date.now()
+        const r = left === Infinity ? await pending : await Promise.race([pending, new Promise<null>((res) => setTimeout(() => res(null), Math.max(0, left)))])
+        if (!r && left !== Infinity) log(`stems: ${e.candidate.title} not ready within the wait budget; EQ element control for this track`)
         if (r) {
           stemInfo.set(k, r.info)
           stemLoad.set(k, r.load)
@@ -309,11 +338,17 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       pref: 2.0 * ((prefBy.get(e.candidate.trackKey) ?? 0) / maxPref) + (include.has(e.candidate.trackKey) ? 50 : 0),
       trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp),
     }))
-    // Stems need an order first: plan without rendering, separate the likely set, then plan with stems.
+    lap('acquire_analyze')
+    // Stems: prefetched during analysis on concurrent hosts (bounded wait); the local worker separates
+    // sequentially, so it separates the planner's likely set only.
     if (host.stems) {
-      const pre = await planProDj({ entries, spec, count, fixedOrder: fixed, ml, modes: { ...modes, closedLoop: false }, log })
-      await separate(pre.order)
+      if ((host.stemsConcurrency ?? 1) > 1) await separate(entries.map((e) => e.key).filter((k) => stemPrefetch.has(k) || include.has(k)))
+      else {
+        const pre = await planProDj({ entries, spec, count, fixedOrder: fixed, ml, modes: { ...modes, closedLoop: false }, log })
+        await separate(pre.order)
+      }
     }
+    lap('stems')
     // Preview audio for the closed loop: 16 kHz mono, small LRU (browser memory).
     const mono = new Map<string, Float32Array>()
     const stems16 = new Map<string, { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }>()
@@ -371,6 +406,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     order = res.order
     plan = res.plan
     proTrace = res.trace
+    lap('planning_closed_loop')
     if (ml) {
       ml.trace.decisions.push(...proDjDecisions(res.trace))
       ml.trace.models = ml.trace.models.map((x) => ({ ...x })) // per-run copy (the runtime is shared by the review and render passes)
@@ -485,6 +521,10 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
 
   // Unavailability, including substitution notes.
   const unavailable = pre.unavailable.map((u) => (spec.allowSubstitutions ? { ...u, substitutedWith: order.slice(0, 3).map((k) => analyses.get(k)!.candidate.artist) } : u))
+  if (opts.planOnly) {
+    lap('plan_finish')
+    host.timings?.('plan', { ...timings, stage_total: Date.now() - tStart, previews: proTrace?.closedLoop?.previews ?? 0 })
+  }
   if (opts.planOnly) return { planOnly: true, spec, order, plan, analyses, acquisition, unavailable, pool: pool0 }
 
   // ── 9. render ──
@@ -511,11 +551,15 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     onRender,
   )
 
+  lap('render')
   // ── 10. validate ──
   const perms = mixPermissions(order.map((k) => analyses.get(k)!.access))
   const manifest = buildManifest({ spec, plan, render, analyses, order, unavailable, permissions: perms, acquisition, title: opts.title })
   manifest.ml = ml?.trace ?? { mode: 'off', options: undefined, models: [], decisions: [], fallbacks: ['no ML runtime provided by this host: rule-based planner only'], timingsMs: {}, counts: {} }
   if (proTrace) manifest.prodj = proTrace
+  timings.stage_total = Date.now() - tStart
+  host.timings?.('render', { ...timings, previews: proTrace?.closedLoop?.previews ?? 0 })
+  if (manifest.ml) manifest.ml.timingsMs = { ...manifest.ml.timingsMs, ...timings }
   // does the mix reflect the request? (measured, recorded; never changes the mix)
   try {
     const fid = requestFidelity(spec, rawSpec.explicit ?? [], order, analyses, plan)

@@ -336,18 +336,32 @@ export class BrowserMixJob {
         }
       },
       progress: (ev) => job.progress(ev),
+      timings: (pass, t) => console.info(`[mixgen-timings] ${pass} ${JSON.stringify(t)}`),
     }
   }
 
   /** Request Demucs stems from the Azure stem service and wait until they are ready (null = unavailable). */
-  async requestStems(key: string): Promise<{ info: StemServiceInfo; urls: Record<'vocals' | 'drums' | 'bass' | 'other', string> } | null> {
+  private stemRequests = new Map<string, ReturnType<BrowserMixJob['requestStemsOnce']>>()
+  /** One stem request per track per job (prefetch, review pass and render pass share it). */
+  requestStems(key: string) {
+    let p = this.stemRequests.get(key)
+    if (!p) {
+      p = this.requestStemsOnce(key)
+      this.stemRequests.set(key, p)
+      void p.then((r) => !r && this.stemRequests.delete(key))
+    }
+    return p
+  }
+  private async requestStemsOnce(key: string): Promise<{ info: StemServiceInfo; urls: Record<'vocals' | 'drums' | 'bass' | 'other', string> } | null> {
     type R = { status: 'ready'; info: StemServiceInfo; urls: Record<'vocals' | 'drums' | 'bass' | 'other', string> } | { status: 'queued' | 'pending' }
     const start = await fetch('/api/mixgen/stems', { method: 'POST', headers: { ...(await this.headers()), 'content-type': 'application/json' }, body: JSON.stringify({ key }) }).catch(() => null)
     if (!start || (!start.ok && start.status !== 202)) return null // not configured / not permitted / rate limited → no stems for this track
     let r = (await start.json()) as R
-    const deadline = Date.now() + 30 * 60_000
+    const t0 = Date.now()
+    const deadline = t0 + 30 * 60_000
     while (r.status !== 'ready' && Date.now() < deadline) {
-      await new Promise((res) => setTimeout(res, 6000))
+      // poll quickly at first (a cached separation is ready almost immediately), then every 5 s
+      await new Promise((res) => setTimeout(res, Date.now() - t0 < 30_000 ? 2500 : 5000))
       const p = await fetch(`/api/mixgen/stems/${encodeURIComponent(key)}`, { headers: await this.headers() }).catch(() => null)
       if (p?.ok) r = (await p.json()) as R
     }

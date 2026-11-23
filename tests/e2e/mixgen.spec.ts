@@ -22,6 +22,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   const page = u.page
   const logs: string[] = []
   page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && logs.push(`${m.type()}: ${m.text()}`))
+  page.on('console', (m) => m.text().startsWith('[mixgen-timings]') && console.log(m.text()))
   await page.goto('/mix')
   await expect(page.getByRole('heading', { name: 'Create your mix' })).toBeVisible()
   await page.screenshot({ path: 'test-results/mix-create.png', fullPage: true })
