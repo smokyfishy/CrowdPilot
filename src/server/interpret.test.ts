@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { interpretPrompt } from './mixgen-routes'
+import { interpretPrompt, stemParts } from './mixgen-routes'
 import type { LlmCall } from './llm'
 import { detectTechniques, eraYears, guardSpec, heuristicSpec, MixSpec, resolveSpec } from '../mixgen/spec'
 
@@ -76,5 +76,16 @@ describe('prompt interpretation chain (LLM chain → heuristic)', () => {
     expect(eraYears('2010s')).toEqual([2010, 2019])
     expect(eraYears('early 2000s')).toEqual([2000, 2004])
     expect(eraYears(null)).toBeNull()
+  })
+})
+
+describe('parallel stem parts', () => {
+  it('splits a 4-minute track into ≥ 45 s parts covering it, and leaves short/unknown tracks whole', () => {
+    const p = stemParts('jamendo:1', 'u', 240)
+    expect(p.length).toBe(6)
+    expect(Number(p[0].start)).toBe(0)
+    expect(Number(p.at(-1)!.start) + Number(p.at(-1)!.dur)).toBeGreaterThanOrEqual(240)
+    expect(stemParts('jamendo:1', 'u', 600).length).toBe(8)
+    expect(stemParts('jamendo:1', 'u', 0)).toEqual([{ key: 'jamendo:1', url: 'u' }])
   })
 })

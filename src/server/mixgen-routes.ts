@@ -172,6 +172,14 @@ const MixPatch = z.object({
   error: z.string().max(1000).optional(),
 })
 
+/** Queue messages for one recording: parallel parts of ≥ 45 s (at most 8), or one message when short/unknown. */
+export function stemParts(key: string, url: string, durationSec: number): Array<Record<string, string | number>> {
+  if (!(durationSec > 90)) return [{ key, url }]
+  const parts = Math.min(8, Math.ceil(durationSec / 45))
+  const core = Math.ceil((durationSec / parts) * 10) / 10
+  return Array.from({ length: parts }, (_, i) => ({ key, url, part: i, parts, start: Math.round(i * core * 10) / 10, dur: core }))
+}
+
 export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: ResolveAuth): void {
   // Local research outputs are only ever served by the dev server on localhost; never in production.
   app.all('/__research', (c) => c.text('Not found', 404))
@@ -292,7 +300,7 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     if (!stemRequests.take(auth.userId, Date.now()).ok) return err(c, 429, 'RATE_LIMITED', 'Too many stem requests; try again in a few minutes.')
     if (!c.env.JAMENDO_CLIENT_ID) return err(c, 502, 'UPSTREAM', 'Jamendo is not configured.')
     // licence re-checked from Jamendo's CURRENT metadata: stems are derivatives (no ND)
-    let t: { audio?: string; license_ccurl?: string } | undefined
+    let t: { audio?: string; license_ccurl?: string; duration?: number } | undefined
     for (let attempt = 0; attempt < 4 && !t; attempt++) {
       if (attempt) await new Promise((r) => setTimeout(r, 300 * attempt))
       const p = new URLSearchParams({ client_id: c.env.JAMENDO_CLIENT_ID, format: 'json', id: m[1], audioformat: 'mp32' })
@@ -303,8 +311,11 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const lic = ccLabel(t.license_ccurl)
     if (lic.ndOrUnknown) return err(c, 403, 'NOT_PERMITTED', `${lic.label}: no derivatives allowed, so no stems.`)
     const xml = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const q = await fetch(c.env.STEMS_QUEUE_URL, { method: 'POST', headers: { 'content-type': 'application/xml' }, body: `<QueueMessage><MessageText>${xml(JSON.stringify({ key, url: t.audio }))}</MessageText></QueueMessage>` }).catch(() => null)
-    if (!q?.ok) return err(c, 502, 'UPSTREAM', `Stem queue returned ${q?.status ?? 'no response'}.`)
+    // split into parts separated in parallel (≥ 45 s each, at most 8); the job stitches them
+    const msgs = stemParts(key, t.audio, Number(t.duration) || 0)
+    const sent = await Promise.all(msgs.map((m) => fetch(c.env.STEMS_QUEUE_URL!, { method: 'POST', headers: { 'content-type': 'application/xml' }, body: `<QueueMessage><MessageText>${xml(JSON.stringify(m))}</MessageText></QueueMessage>` }).catch(() => null)))
+    const bad = sent.find((q) => !q?.ok)
+    if (bad !== undefined) return err(c, 502, 'UPSTREAM', `Stem queue returned ${bad?.status ?? 'no response'}.`)
     return c.json({ status: 'queued' }, 202)
   })
   app.get('/api/mixgen/stems/:key', async (c) => {

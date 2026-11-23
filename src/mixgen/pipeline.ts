@@ -362,7 +362,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       const pcm = await host.decode(analyses.get(k)!.audio)
       const m = monoAt(pcm.channels, pcm.rate, PREVIEW_RATE)
       mono.set(k, m)
-      if (mono.size > 6) mono.delete(mono.keys().next().value!)
+      if (mono.size > Math.min(14, Math.max(6, count + 2))) mono.delete(mono.keys().next().value!)
       return m
     }
     const stemsAt = async (k: string) => {
@@ -382,7 +382,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
           }
         }
         stems16.set(k, hit)
-        if (stems16.size > 4) stems16.delete(stems16.keys().next().value!)
+        if (stems16.size > Math.min(6, Math.max(4, count))) stems16.delete(stems16.keys().next().value!)
       }
       return hit
     }
@@ -523,7 +523,8 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const unavailable = pre.unavailable.map((u) => (spec.allowSubstitutions ? { ...u, substitutedWith: order.slice(0, 3).map((k) => analyses.get(k)!.candidate.artist) } : u))
   if (opts.planOnly) {
     lap('plan_finish')
-    host.timings?.('plan', { ...timings, stage_total: Date.now() - tStart, previews: proTrace?.closedLoop?.previews ?? 0 })
+    const lt = proTrace?.closedLoop?.timing
+    host.timings?.('plan', { ...timings, stage_total: Date.now() - tStart, previews: proTrace?.closedLoop?.previews ?? 0, ...(lt ? { loop_audio: lt.audioMs, loop_render: lt.renderMs, loop_measure: lt.measureMs, loop_total: lt.totalMs } : {}) })
   }
   if (opts.planOnly) return { planOnly: true, spec, order, plan, analyses, acquisition, unavailable, pool: pool0 }
 

@@ -1,6 +1,9 @@
 """CrowdPilot stem separation job (Azure Container Apps Job, event-driven by an Azure Storage queue).
 
-One execution = one queue message = one recording:
+One execution = one queue message = one recording, or one PART of a recording: the site splits a
+track into ~60 s parts (5 s padding each side) that run in parallel executions; the execution that
+finds every part done stitches them (1 s crossfades inside the padding) into the full stems.
+Steps for a whole recording:
   1. download the recording from the URL in the message (Jamendo hosts only — the site's server
      resolved it after re-checking the licence allows derivatives);
   2. separate with Demucs htdemucs (4 stems: vocals, drums, bass, other) on CPU (or GPU when present);
@@ -12,6 +15,7 @@ Stems are cached by track key: if info.json already exists the message is just d
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -87,7 +91,106 @@ def measures(mix: np.ndarray, stems: dict[str, np.ndarray]) -> dict:
     return {"vocalRmsDb": env, "envRateHz": 20, "bleed": round(bleed, 4), "residualDb": residual, "durationSec": round(len(v) / SR, 2)}
 
 
+STEMS = ("vocals", "drums", "bass", "other")
+PAD = 5.0   # seconds of context on each side of a part
+XF = 1.0    # crossfade half-width at part boundaries (inside the padding)
+
+
+def download(url: str, tmp: str) -> str:
+    host = urllib.parse.urlparse(url).hostname or ""
+    if not ALLOWED_HOST.search(host):
+        raise ValueError(f"refusing host {host}")
+    src = os.path.join(tmp, "src")
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "CrowdPilot-stems/1"}), timeout=120) as r, open(src, "wb") as f:
+        f.write(r.read(200_000_000))
+    return src
+
+
+def separate(wav: str, tmp: str) -> dict[str, str]:
+    out = os.path.join(tmp, "out")
+    run([sys.executable, "-m", "demucs", "-n", "htdemucs", "--float32", "-o", out, "--filename", "{stem}.{ext}", wav])
+    found = {}
+    for root, _d, files in os.walk(out):
+        for fn in files:
+            stem = fn.rsplit(".", 1)[0]
+            if stem in STEMS:
+                found[stem] = os.path.join(root, fn)
+    if set(found) != set(STEMS):
+        raise RuntimeError(f"demucs produced {sorted(found)}")
+    return found
+
+
+def publish(key: str, prefix: str, blobs, mix: np.ndarray, stems: dict[str, np.ndarray], tmp: str, t0: float, parts: int) -> None:
+    info = measures(mix, stems)
+    for stem in STEMS:
+        raw = os.path.join(tmp, f"{stem}.f32")
+        stems[stem].T.astype(np.float32).tofile(raw)
+        opus = os.path.join(tmp, f"{stem}.opus")
+        run(["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ar", str(SR), "-ac", "2", "-i", raw, "-c:a", "libopus", "-b:a", "160k", opus])
+        with open(opus, "rb") as f:
+            blobs.upload_blob(f"{prefix}/{stem}.opus", f, overwrite=True, content_settings=ContentSettings(content_type="audio/ogg", cache_control="private, max-age=604800"))
+    info.update({"key": key, "elements": list(STEMS), "model": "htdemucs", "version": VERSION, "seconds": round(time.time() - t0, 1), "parts": parts})
+    blobs.get_blob_client(f"{prefix}/info.json").upload_blob(json.dumps(info), overwrite=True, content_settings=ContentSettings(content_type="application/json"))
+    print(f"{key}: published ({parts} part(s)) in {time.time() - t0:.0f}s (residual {info['residualDb']} dB, bleed {info['bleed']})")
+
+
+def process_part(msg: dict, blobs) -> None:
+    key, part, parts = msg["key"], int(msg["part"]), int(msg["parts"])
+    start, dur = float(msg["start"]), float(msg["dur"])
+    prefix = safe_key(key)
+    if blobs.get_blob_client(f"{prefix}/info.json").exists():
+        print(f"{key}: cached")
+        return
+    t0 = time.time()
+    with tempfile.TemporaryDirectory() as tmp:
+        src = download(msg["url"], tmp)
+        mine = f"{prefix}/parts/{parts}/{part}.npz"
+        if not blobs.get_blob_client(mine).exists():
+            a = max(0.0, start - PAD)
+            wav = os.path.join(tmp, "in.wav")
+            # the last part runs to the end of the file (listed durations can be a little short)
+            span = [] if part == parts - 1 else ["-t", f"{start + dur + PAD - a:.3f}"]
+            run(["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", *span, "-i", src, "-ac", "2", "-ar", str(SR), wav])
+            found = separate(wav, tmp)
+            arrs = {k: read_wav(v).astype(np.float16) for k, v in found.items()}
+            path = os.path.join(tmp, "part.npz")
+            np.savez_compressed(path, offset=np.array([a]), **arrs)
+            with open(path, "rb") as f:
+                blobs.upload_blob(mine, f, overwrite=True)
+            print(f"{key}: part {part + 1}/{parts} separated in {time.time() - t0:.0f}s")
+        # the execution that sees every part stitches (idempotent if two do)
+        names = {b.name for b in blobs.list_blobs(name_starts_with=f"{prefix}/parts/{parts}/")}
+        if len(names) < parts:
+            return
+        wav = os.path.join(tmp, "full.wav")
+        run(["ffmpeg", "-v", "error", "-y", "-i", src, "-ac", "2", "-ar", str(SR), wav])
+        mix = read_wav(wav)
+        n = mix.shape[1]
+        out = {k: np.zeros((2, n), np.float32) for k in STEMS}
+        core = dur
+        for i in range(parts):
+            data = np.load(io.BytesIO(blobs.download_blob(f"{prefix}/parts/{parts}/{i}.npz").readall()))
+            off = int(round(float(data["offset"][0]) * SR))
+            c0, c1 = i * core, min(n / SR, (i + 1) * core)
+            t = (np.arange(n, dtype=np.float64) / SR)
+            w = np.ones(n, np.float32)
+            if i > 0:
+                w *= np.clip((t - (c0 - XF)) / (2 * XF), 0, 1).astype(np.float32)
+            if i < parts - 1:
+                w *= np.clip(((c1 + XF) - t) / (2 * XF), 0, 1).astype(np.float32)
+            for k in STEMS:
+                seg = data[k].astype(np.float32)
+                m = min(seg.shape[1], n - off)
+                out[k][:, off:off + m] += seg[:, :m] * w[off:off + m]
+        publish(key, prefix, blobs, mix, out, tmp, t0, parts)
+        for nm in names:
+            blobs.delete_blob(nm)
+
+
 def process(msg: dict, blobs) -> None:
+    if "part" in msg:
+        process_part(msg, blobs)
+        return
     key = msg["key"]
     prefix = safe_key(key)
     info_blob = blobs.get_blob_client(f"{prefix}/info.json")
@@ -95,14 +198,9 @@ def process(msg: dict, blobs) -> None:
         print(f"{key}: cached")
         return
     url = msg["url"]
-    host = urllib.parse.urlparse(url).hostname or ""
-    if not ALLOWED_HOST.search(host):
-        raise ValueError(f"refusing host {host}")
     t0 = time.time()
     with tempfile.TemporaryDirectory() as tmp:
-        src = os.path.join(tmp, "src")
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "CrowdPilot-stems/1"}), timeout=120) as r, open(src, "wb") as f:
-            f.write(r.read(200_000_000))
+        src = download(url, tmp)
         wav = os.path.join(tmp, "in.wav")
         run(["ffmpeg", "-v", "error", "-y", "-i", src, "-ac", "2", "-ar", str(SR), wav])
         out = os.path.join(tmp, "out")

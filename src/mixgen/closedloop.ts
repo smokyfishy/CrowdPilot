@@ -116,6 +116,8 @@ export interface ClosedLoopResult {
   notes: string[]
   /** Per learned model: candidates it produced that were rendered and measured, and how many ended in the final set. */
   modelUse: { transitionnetV2: { proposals: number; rendered: number; final: number }; transitionnetV1: { variants: number; rendered: number; final: number }; humanCue: { candidates: number; rendered: number; final: number }; critic: { scored: number } }
+  /** Wall-clock split of the loop (ms): audio/stem loading, preview rendering, measurement, planning. */
+  timing?: { audioMs: number; renderMs: number; measureMs: number; totalMs: number }
 }
 
 interface Measured {
@@ -255,6 +257,8 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
   const ctlKey = (p: TransitionPlan) => JSON.stringify([edgeSig(p.fromItemId, p.toItemId, p), p.style, p.out, p.in, p.filter, p.echo, p.echoIn, p.crossfader, p.outLoop, p.outPerf, (p as TechniquePlan).tech?.stems, (p as TechniquePlan).tech?.deckEdits])
 
+  const tStart = Date.now()
+  const timing = { audioMs: 0, renderMs: 0, measureMs: 0, totalMs: 0 }
   const evaluate = async (p: TransitionPlan, a: SetTrack, b: SetTrack): Promise<QualityResult | null> => {
     const k = ctlKey(p)
     const hit = cache.get(k)
@@ -265,7 +269,18 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
     mem.previews++
     // yield between previews so the page (browser host) keeps repainting progress
     await new Promise((res) => setTimeout(res, 0))
+    const tA = Date.now()
+    await host.audio(a.key)
+    await host.audio(b.key)
+    if ((p as TechniquePlan).tech?.stems && host.stems) {
+      await host.stems(a.key)
+      await host.stems(b.key)
+    }
+    const tR = Date.now()
     const r = await renderPreview(p, a, b, host)
+    const tM = Date.now()
+    timing.audioMs += tR - tA
+    timing.renderMs += tM - tR
     const critic = opts.critic?.(p, r.mix, r.rate, r.t0, r.t1) ?? undefined
     if (critic) modelUse.critic.scored++
     if (isV2(p)) modelUse.transitionnetV2.rendered++
@@ -273,6 +288,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
     if (humanSigs.has(edgeSig(p.fromItemId, p.toItemId, p))) modelUse.humanCue.rendered++
     const q = evaluateTransition(r, { plan: p, pa: a.profile, pb: b.profile, beatsA: a.netBeats, beatsB: b.netBeats, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }, critic })
     cache.set(k, q)
+    timing.measureMs += Date.now() - tM
     return q
   }
   /**
@@ -506,7 +522,8 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
     if (isV1(e.plan)) modelUse.transitionnetV1.final++
     if (humanSigs.has(e.sig)) modelUse.humanCue.final++
   }
-  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes, modelUse: structuredClone(modelUse) }
+  timing.totalMs = Date.now() - tStart
+  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes, modelUse: structuredClone(modelUse), timing }
 }
 
 /** Hard failures always rank below clean candidates; then lower score wins. Length earns nothing. */
