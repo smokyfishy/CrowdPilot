@@ -38,10 +38,15 @@ export interface MlOptions {
   criticAlternatives: number
 }
 
+/**
+ * Defaults follow the ablation on real recordings (docs/AI_MIX_GENERATOR.md): MixGraph and DJCritic
+ * improved loudness continuity and critic score; TransitionNet v1 increased bassline overlap (×11 alone),
+ * so it is integrated but OFF by default until its v2 retrain passes the same ablation.
+ */
 export const ML_DEFAULTS: MlOptions = {
   mode: 'experimental',
   mixgraph: true,
-  transitionNet: true,
+  transitionNet: false,
   critic: true,
   ordering: true,
   alpha: 4,

@@ -26,7 +26,7 @@ import { decodePcm } from '../worker-node/mixgen/ffmpeg'
 import { nodeMlRuntime } from '../worker-node/mixgen/ml-runtime'
 import { fromJson, MIXGEN_ROOT, readIndex } from '../worker-node/mixgen/storage'
 import { nodeBeatNet } from './beatnet-node'
-import { transitionMetrics } from './mixgen.compare.eval'
+import { transitionMetrics } from './mixgen-metrics'
 
 const VARIANTS: Array<{ name: string; ml: Partial<MlOptions> }> = [
   { name: 'rules', ml: { mode: 'off' } },

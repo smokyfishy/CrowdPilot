@@ -17,6 +17,7 @@ function args(argv: string[]) {
     else if (a === '--ml') out.ml.mode = argv[++i] as MlOptions['mode'] // off | promoted | experimental
     else if (a === '--no-mixgraph') out.ml.mixgraph = false
     else if (a === '--no-transitionnet') out.ml.transitionNet = false
+    else if (a === '--transitionnet') out.ml.transitionNet = true
     else if (a === '--no-critic') out.ml.critic = false
     else if (a === '--no-ml-ordering') out.ml.ordering = false
     else if (!a.startsWith('--')) out.prompt = out.prompt ? `${out.prompt} ${a}` : a

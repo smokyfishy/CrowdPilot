@@ -27,7 +27,7 @@ const pt = (s: PlannedTrack): PlanTrack => ({ itemId: s.key, trackKey: s.key, ti
 
 describe('learned-DJ integration (real checkpoints)', () => {
   it('loads the real exported weights and records their provenance', async () => {
-    const rt = await nodeMlRuntime(process.cwd())
+    const rt = await nodeMlRuntime(process.cwd(), { transitionNet: true })
     expect(rt.on).toEqual({ mixgraph: true, transitionNet: true, critic: true, ordering: true })
     const reg = JSON.parse(readFileSync('public/models/ml/registry.json', 'utf8')) as Record<string, { file: string; sha256: string }>
     for (const m of rt.trace.models) {
@@ -40,7 +40,7 @@ describe('learned-DJ integration (real checkpoints)', () => {
   }, 60_000)
 
   it('MixGraph + TransitionNet run inside planning and change the executed plan', async () => {
-    const ml = await nodeMlRuntime(process.cwd())
+    const ml = await nodeMlRuntime(process.cwd(), { transitionNet: true })
     const rules = planMix(planned, spec)
     const learned = planMix(planned, spec, { rankCandidates: rankCandidatesWith(ml) })
     expect(ml.trace.counts.mixgraph_candidates).toBeGreaterThan(0)
@@ -55,7 +55,7 @@ describe('learned-DJ integration (real checkpoints)', () => {
   }, 120_000)
 
   it('the renderer executes the predicted controls (different audio for different predictions)', async () => {
-    const ml = await nodeMlRuntime(process.cwd())
+    const ml = await nodeMlRuntime(process.cwd(), { transitionNet: true })
     const cands = candidateTransitions(pt(planned[0]), pt(planned[1]), DEFAULT_OPTIONS).filter((p) => p.style === 'long_blend')
     const [learned] = rankCandidatesWith(ml)(cands.slice(0, 3), planned[0].summary, planned[1].summary, 0) as ScoredPlan[]
     expect(learned.mlSource).toBe('transitionnet')
@@ -69,7 +69,7 @@ describe('learned-DJ integration (real checkpoints)', () => {
   }, 120_000)
 
   it('DJCritic scores rendered previews and records the choice', async () => {
-    const ml = await nodeMlRuntime(process.cwd())
+    const ml = await nodeMlRuntime(process.cwd(), { transitionNet: true })
     const plan = planMix(planned, spec, { rankCandidates: rankCandidatesWith(ml) })
     const chosen = plan.transitions[0].plan as ScoredPlan
     const alts = buildAlternatives(ml, chosen, planned[0].summary, planned[1].summary, () => true)
@@ -84,12 +84,18 @@ describe('learned-DJ integration (real checkpoints)', () => {
   }, 120_000)
 
   it('MixGraph pair severities feed the ordering', async () => {
-    const ml = await nodeMlRuntime(process.cwd())
+    const ml = await nodeMlRuntime(process.cwd(), { transitionNet: true })
     const summaries = new Map(planned.map((p) => [p.key, p.summary]))
     const sev = pairSeverity(ml, [...summaries.keys()], summaries, (sa, sb) => candidateTransitions({ ...pt(planned[0]), summary: sa }, { ...pt(planned[1]), summary: sb }, DEFAULT_OPTIONS))
     expect(sev.size).toBe(6)
     for (const v of sev.values()) expect(Number.isFinite(v)).toBe(true)
   }, 120_000)
+
+  it('defaults follow the ablation: MixGraph + DJCritic on, TransitionNet off (logged)', async () => {
+    const d = await nodeMlRuntime(process.cwd())
+    expect(d.on).toEqual({ mixgraph: true, transitionNet: false, critic: true, ordering: true })
+    expect(d.trace.models.find((m) => m.name === 'transitionnet')).toMatchObject({ loaded: true, used: false })
+  })
 
   it('mode off runs rules only and says so', async () => {
     const off = await nodeMlRuntime(process.cwd(), { mode: 'off' })
