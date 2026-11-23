@@ -22,7 +22,7 @@ function applyOverrides(s: MixSpec, p: Prefs, a: AdvancedPrefs): MixSpec {
   if (p.style) (out.transition_style = p.style as MixSpec['transition_style']), mark('transition_style')
   if (a.popularity) (out.popularity = a.popularity as MixSpec['popularity']), mark('popularity')
   if (a.vocals) (out.vocals = a.vocals as MixSpec['vocals']), mark('vocals')
-  out.automation_model = a.automationModel ?? 'standard'
+  out.automation_model = 'transitionnet'
   return out
 }
 

@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { ENERGY_CURVES, TRANSITION_STYLES, type MixSpec } from '@/mixgen/spec'
+import { ENERGY_CURVES, TRANSITION_STYLES } from '@/mixgen/spec'
 import { ENERGY_LABEL, STYLE_LABEL } from '../labels'
 
 export interface Prefs {
@@ -20,7 +20,6 @@ export interface AdvancedPrefs {
   vocals?: string
   lossless: boolean
   reviewFirst: boolean
-  automationModel?: MixSpec['automation_model']
 }
 
 const GENRES = ['House', 'Tech house', 'Deep house', 'Techno', 'Melodic techno', 'EDM', 'Progressive house', 'Drum and bass', 'Disco', 'Afro house', 'Trance', 'Lo-fi']
@@ -118,15 +117,6 @@ export function AdvancedPreferences({ adv, onChange, children }: { adv: Advanced
             </select>
           </label>
         </div>
-        <label className="grid gap-1 text-xs text-muted-foreground">
-          DJ automation
-          <select className={field} value={adv.automationModel ?? 'standard'} onChange={(e) => onChange({ ...adv, automationModel: e.target.value as AdvancedPrefs['automationModel'] })} data-testid="pref-automation-model">
-            <option value="standard">Standard (MixGraph + DJCritic)</option>
-            <option value="transitionnet">TransitionNet + MixGraph and DJCritic</option>
-            <option value="transitionnet-only">TransitionNet only</option>
-          </select>
-          <span>TransitionNet predicts deck and effect controls for supported transitions.</span>
-        </label>
         <label className="flex items-start gap-2.5 text-sm text-foreground">
           <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={adv.reviewFirst} onChange={(e) => onChange({ ...adv, reviewFirst: e.target.checked })} data-testid="pref-review" />
           <span>
