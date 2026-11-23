@@ -14,10 +14,11 @@ import { ANALYZER_VERSION, summarize, type TrackAnalysis } from '../src/dsp/anal
 import { runBeatNet, BEATNET_SR } from '../src/dsp/beatnet'
 import { resample } from '../src/dsp/resample'
 import { encodeWav, renderTransition } from '../src/dj/render'
-import { candidateTransitions, DEFAULT_OPTIONS, beatmatchable, type PlanTrack, type TransitionPlan } from '../src/dj/transitions'
+import { automationFor, candidateTransitions, DEFAULT_OPTIONS, beatmatchable, type PlanTrack, type TransitionPlan } from '../src/dj/transitions'
 import { describeEnergy, energyScores } from '../src/mixgen/energy'
 import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, type MlOptions, type ScoredPlan } from '../src/mixgen/ml'
 import { planMix, type PlannedTrack } from '../src/mixgen/mixplan'
+import { applyDeckEdits, type TechniquePlan } from '../src/mixgen/techniques'
 import { trimFor } from '../src/mixgen/pipeline'
 import { orderSet, type OrderTrack } from '../src/mixgen/select'
 import type { ResolvedSpec } from '../src/mixgen/spec'
@@ -28,11 +29,15 @@ import { fromJson, MIXGEN_ROOT, readIndex } from '../worker-node/mixgen/storage'
 import { nodeBeatNet } from './beatnet-node'
 import { transitionMetrics } from './mixgen-metrics'
 
-const VARIANTS: Array<{ name: string; ml: Partial<MlOptions> }> = [
+const VARIANTS: Array<{ name: string; ml: Partial<MlOptions>; crossfade?: boolean; techniques?: boolean }> = [
+  // baseline: same order and cue points as 'rules', every transition replaced by a plain 8-bar equal-power crossfade (no beatmatch)
+  { name: 'crossfade', ml: { mode: 'off' }, crossfade: true },
   { name: 'rules', ml: { mode: 'off' } },
+  { name: 'rules+techniques', ml: { mode: 'off' }, techniques: true },
   { name: 'mixgraph', ml: { transitionNet: false, critic: false } },
   { name: 'mixgraph+critic', ml: { transitionNet: false } },
   { name: 'all', ml: {} },
+  { name: 'all+techniques', ml: {}, techniques: true },
   { name: 'transitionnet-only', ml: { mixgraph: false, ordering: false, critic: false } },
 ]
 
@@ -72,17 +77,27 @@ it('ML ablation on real recordings', async () => {
       const e = byKey.get(k)!
       return { key: k, title: e.title, summary: e.summary, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp), netBeats: e.analysis.netBeats }
     })
-    const plan = planMix(planned, report.spec, ml.on.mixgraph || ml.on.transitionNet ? { rankCandidates: rankCandidatesWith(ml) } : {})
+    const plan = planMix(planned, report.spec, { ...(ml.on.mixgraph || ml.on.transitionNet ? { rankCandidates: rankCandidatesWith(ml) } : {}), techniques: { enabled: !!v.techniques } })
     const rows: Array<Record<string, number | string>> = []
     for (const [i, tr] of plan.transitions.entries()) {
       const a = await load(planned[i].key)
       const b = await load(planned[i + 1].key)
       let p: TransitionPlan = tr.plan
-      if (ml.on.critic) {
+      if (v.crossfade) {
+        const B = 32
+        const auto = automationFor('unmatched_fade', B)
+        p = { ...p, style: 'unmatched_fade', overlapBars: 8, durationSec: B * p.beatSec, tempoRatio: 1, tempoRecoveryBars: 0, out: auto.out, in: auto.in, handoffBeat: auto.handoffBeat, filter: undefined, echo: undefined, outPerf: undefined }
+        delete (p as TechniquePlan).tech
+      }
+      if (ml.on.critic && !v.crossfade) {
         const alts = buildAlternatives(ml, p as ScoredPlan, planned[i].summary, planned[i + 1].summary, (s) => !(s === 'filter_sweep' && report.spec.transitionStyle === 'smooth'))
         if (alts.length) p = criticSelect(ml, p as ScoredPlan, alts, { out: monoAt(a, 44100), in: monoAt(b, 44100) }, { out: planned[i].trimDb, in: planned[i + 1].trimDb }, `${i + 1}→${i + 2}`)
       }
-      const r = renderTransition({ rate: 44100, out: a, in: b, plan: p, preRollSec: 8, postRollSec: 8, outTrimDb: planned[i].trimDb, inTrimDb: planned[i + 1].trimDb, stems: true })
+      // technique deck edits are executed as in renderMix (stems/reverb need the full worker; not in this offline ablation)
+      const tech = (p as TechniquePlan).tech
+      const ea = tech?.deckEdits?.out?.length ? applyDeckEdits(a, 44100, tech.deckEdits.out) : a
+      const eb = tech?.deckEdits?.in?.length ? applyDeckEdits(b, 44100, tech.deckEdits.in) : b
+      const r = renderTransition({ rate: 44100, out: ea, in: eb, plan: p, preRollSec: 8, postRollSec: 8, outTrimDb: planned[i].trimDb, inTrimDb: planned[i + 1].trimDb, stems: true })
       const m = transitionMetrics(r.stemA!, r.stemB!, r.channels, 44100, r.transitionStartSample, Math.round(p.durationSec * 44100), p.beatSec)
       // Beat This! on each deck's post-fader stem: median |offset| of beats inside the overlap
       const t0 = r.transitionStartSample / 44100
@@ -105,7 +120,7 @@ it('ML ablation on real recordings', async () => {
       writeFileSync(join(out, file), encodeWav(r.channels, 44100))
       rows.push({
         pair: i + 1,
-        style: p.style,
+        style: tech ? `${tech.technique}/${p.style}` : p.style,
         control: (p as ScoredPlan).mlSource === 'transitionnet' ? 'TN' : 'template',
         overlapSec: m.overlapSec,
         nnBeatOffsetMs: offs.length >= 3 ? Math.round(offs[Math.floor(offs.length / 2)] * 1000) : -1,
