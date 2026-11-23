@@ -31,3 +31,17 @@ Production check without a local server: `cd tests && npx playwright test -c pla
 | Browser autoplay block | "Tap to start the music" on both the YouTube and DJ outputs. |
 | Unexpected silence over 6 s | Status `failed` with a note; the next end or error advances normally. |
 | Clipping risk | Headroom-aware trim, then the limiter, then the safety shaper (output can never exceed full scale). |
+
+## 2026-11-23 — professional DJ planner (release #14)
+
+- **Release:** `rel_01M83ZBQDK3F4YPXNB006BF50R` (#14), deployed 2026-11-23 10:31 UTC from GitHub `smokyfishy/CrowdPilot`, branch `feat/pro-dj-closed-loop`.
+- **What changed:** global set planning, long-form staged performances and closed-loop evaluation are now the default planner (`planner: 'global'`). See docs/PRO_DJ_REPORT.md.
+- **Rollback target:** `rel_01M83G2M4N0YRY8Z090XJ0DYT4` (#13, the previous production build). Roll back with `npx deepspace rollback`.
+- **Code-level fallback:** `runPipeline(..., { planner: 'legacy' })` restores the previous beam order, cue DP and DJCritic path without a redeploy of other code.
+- **Checks run before deploy:**
+  - type-check, lint;
+  - pure unit tests (172), ML and DSP tests (45);
+  - smoke and API (8);
+  - browser end-to-end on the local dev server (4-track real-audio generation);
+  - real-audio Node end-to-end (12 tracks, all `validateMix` checks pass);
+  - held-out controlled comparison.
