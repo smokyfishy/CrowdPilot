@@ -51,3 +51,19 @@ Production check without a local server: `cd tests && npx playwright test -c pla
 - **Release:** `rel_01M84SM9Z8KPDJYYV11H9KVWQX` (#15), deployed 2026-11-23 18:10 UTC from commit `984398e`. It fixes drop-lock performances (they now validate) and never ships an unvalidated plan.
 - **Merge:** `main` was fast-forwarded to `984398e`. Every local and remote branch (phase1, phase2, feat/ai-mix-generator, feat/discover-redesign, feat/listen-controller, integration/*, dj/transition-quality-validation) was already contained, so no merge commits or conflicts were needed.
 - **Rollback targets:** #14 `rel_01M83ZBQDK3F4YPXNB006BF50R` and #13 `rel_01M83G2M4N0YRY8Z090XJ0DYT4` (before the professional DJ planner).
+
+## 2026-11-23 — all models in production (releases #16–#19)
+
+- **Release #19:** `rel_01M8501ENWD91F8NS3AN2VHJ8D`. Every generation now runs:
+  - Beat This!;
+  - Demucs htdemucs 4-stem, through the Azure stem service (`infra/stems`);
+  - MixGraph quality, which scores every planning option;
+  - the MixGraph human-cue prior, TransitionNet v1 and TransitionNet v2, which each propose candidates the closed loop renders and measures;
+  - DJCritic quality and artifact.
+- **What the manifest records:** each model's loaded and used status, and how many of its candidates were proposed, rendered and ended up in the final mix.
+- **Production check passed:** 5 tracks, 5 parallel Azure separations of 3–5 min each, all models shown as used.
+- **Stem service:**
+  - Resource group `crowdpilot-stems`, with a $50/month budget alert.
+  - Secrets: `STEMS_QUEUE_URL`, `STEMS_BLOB_BASE`, `STEMS_BLOB_SAS`.
+  - To turn stems off, delete `STEMS_QUEUE_URL`. The site then falls back to EQ-based element control.
+- **Rollback targets:** #18 `rel_01M84ZGBQPDJAPS346EPRDKKG5`, and #15 `rel_01M84SM9Z8KPDJYYV11H9KVWQX`, which is before TransitionNet v2 and stems were added.
