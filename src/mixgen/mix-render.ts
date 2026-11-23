@@ -210,9 +210,10 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     const p = tr.plan
     // Render the transition with pre-roll and enough post-roll to finish the tempo recovery.
     const recSec = BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > 1e-4 ? p.tempoRecoveryBars * 4 * p.beatSec : 0
-    const post = recSec + TAIL_PAD
     // Technique controls (stems, deck edits, reverb) are executed here, around renderTransition.
     const tech = (p as TechniquePlan).tech
+    // a reverb tail must die out INSIDE the rendered window, so the splice back into the plain track matches
+    const post = Math.max(recSec + TAIL_PAD, tech?.reverb ? tech.reverb.decaySec + 1.5 : 0)
     let outDeck = stereo(cur)
     let inDeck = stereo(next)
     let stemsApplied = false
@@ -248,8 +249,15 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
         send[k] = r.stemA[k] * (beat < 0 ? 0 : curveAt(tech.reverb.send, beat))
       }
       const wet = reverb(send, rate, tech.reverb.decaySec)
-      for (const ch of rch) for (let k = 0; k < ch.length; k++) ch[k] += wet[k] * tech.reverb.wet
-      for (let k = 0; k < r.stemA.length; k++) r.stemA[k] += wet[k] * tech.reverb.wet // the wash belongs to the outgoing channel
+      const fadeEnd = rch[0].length - Math.round(0.75 * rate)
+      const fadeLen = Math.round(1.0 * rate)
+      const fadeAt = (k: number) => (k < fadeEnd - fadeLen ? 1 : k >= fadeEnd ? 0 : 0.5 + 0.5 * Math.cos((Math.PI * (k - (fadeEnd - fadeLen))) / fadeLen))
+      for (const ch of rch)
+        for (let k = 0; k < ch.length; k++) {
+          ch[k] += wet[k] * tech.reverb.wet * fadeAt(k)
+        }
+      // the wash belongs to the outgoing channel's meter
+      for (let k = 0; k < r.stemA.length; k++) r.stemA[k] += wet[k] * tech.reverb.wet * fadeAt(k)
     }
     const renderStartTrack = Math.round(p.outCueSec * rate) - r.transitionStartSample // outgoing sample at render offset 0
     // 1) body of the current track up to the splice-in point (+ crossfade into the render)
