@@ -170,6 +170,17 @@ export function constrainTrajectories(t: Trajectories): Trajectories {
 /** Writes trajectories into a plan's fader/EQ/filter/echo automation (beats 0..B). */
 export function applyTrajectories(plan: TransitionPlan, traj: Trajectories): TransitionPlan {
   const t = constrainTrajectories(traj)
+  const reference = planToTrajectories(plan)
+  for (let k = 0; k < CTRL_POINTS; k++) {
+    const referenceBass = reference.outGain[k] * reference.outLow[k] + reference.inGain[k] * reference.inLow[k]
+    const predictedBass = t.outGain[k] * t.outLow[k] + t.inGain[k] * t.inLow[k]
+    const ceiling = Math.max(1, referenceBass)
+    if (predictedBass > ceiling) {
+      const scale = ceiling / predictedBass
+      t.outLow[k] *= scale
+      t.inLow[k] *= scale
+    }
+  }
   const B = plan.overlapBars * 4
   const pts = (vals: number[], f: (v: number) => number = (v) => v): CurvePoint[] => vals.map((v, k) => ({ beat: (B * k) / (CTRL_POINTS - 1), value: f(v) }))
   const anyNonZero = (v: number[]) => v.some((x) => Math.abs(x) > 1e-3)

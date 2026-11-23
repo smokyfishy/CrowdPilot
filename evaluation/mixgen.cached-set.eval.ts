@@ -29,17 +29,23 @@ it.skipIf(!source)('replans and renders the same previously acquired research se
       license: { ...track.license, basis: 'cached-research' }, matchedBy: ['prior research mix'], official: false,
     }
   })
+  const count = Number(process.env.MIXGEN_CACHED_SONGS ?? pool.length)
+  if (!Number.isInteger(count) || count < 2 || count > pool.length) throw new Error('Invalid cached song count')
+  pool.length = count
   const order = pool.map((track) => track.trackKey)
   const spec = heuristicSpec(original.title)
   spec.genres = original.spec.genres
   spec.song_count = order.length
-  spec.target_duration_minutes = original.spec.targetDurationSec / 60
+  spec.target_duration_minutes = original.spec.targetDurationSec / 60 * count / original.tracks.length
   spec.transition_style = original.spec.transitionStyle
   spec.explicit = ['song_count', 'target_duration_minutes', 'transition_style']
   const id = `research-cached-quality-${Date.now()}`
   const output = join(dir('exports', 'research'), `${id}.mp3`)
   const encoder = createEncoder(output, 44100, { mp3Kbps: 320, metadata: { title: original.title, comment: RESEARCH_COMMENT } })
-  const ml = await nodeMlRuntime(process.cwd())
+  const transitionNet = process.env.MIXGEN_TRANSITIONNET === '1'
+  console.log('Research mix ID:', id)
+  const ml = await nodeMlRuntime(process.cwd(), { transitionNet })
+  if (transitionNet) expect(ml.on.transitionNet).toBe(true)
   try {
     const result = await runPipeline(spec, {
       providers: [],
@@ -51,14 +57,14 @@ it.skipIf(!source)('replans and renders the same previously acquired research se
       sink: { write: (block) => encoder.write(block) },
       ml,
       progress: (event) => process.stderr.write(`${event.stage} ${event.done}/${event.total} ${event.detail ?? ''}\n`),
-    }, { fixedOrder: order, include: order, title: `${original.title} (transition quality benchmark)` })
+    }, { fixedOrder: order, include: order, title: transitionNet ? 'Tech House: TransitionNet Listening Test' : `${original.title} (transition quality benchmark)` })
     if ('planOnly' in result) throw new Error('Expected continuous audio')
     result.manifest.mode = 'research'
     writeFileSync(join(dir('renders', 'research'), `${id}.manifest.json`), JSON.stringify(result.manifest))
     console.log(JSON.stringify({
       id, tracks: result.manifest.tracks.length, durationSec: result.manifest.durationSec,
       transitions: result.manifest.transitions.map((t) => ({ style: t.label, startSec: t.mixStartSec })),
-      validation: result.validation, ml: ml.trace.counts,
+      validation: result.validation, ml: ml.trace.counts, learnedTransitions: result.manifest.transitions.filter((t) => t.control?.automation === 'transitionnet').length,
     }))
     expect(result.order).toEqual(order)
     expect(result.render.metrics.clippedSamples).toBe(0)

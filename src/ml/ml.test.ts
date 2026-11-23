@@ -80,6 +80,19 @@ describe('controls', () => {
     }
   })
 
+  it('limits the predicted sum of both bass bands against the reference handoff', () => {
+    const [plan] = candidateTransitions(track('a'), track('b'), { ...DEFAULT_OPTIONS, allowedStyles: ['bass_swap'] })
+    expect(plan.style).toBe('bass_swap')
+    const reference = planToTrajectories(plan)
+    const unity = Array(CTRL_POINTS).fill(1)
+    const actual = planToTrajectories(applyTrajectories(plan, { ...reference, outGain: unity, inGain: unity, outLow: unity, inLow: unity }))
+    for (let k = 0; k < CTRL_POINTS; k++) {
+      const cap = Math.max(1, reference.outGain[k] * reference.outLow[k] + reference.inGain[k] * reference.inLow[k])
+      const bass = actual.outGain[k] * actual.outLow[k] + actual.inGain[k] * actual.inLow[k]
+      expect(bass).toBeLessThanOrEqual(cap + 1e-6)
+    }
+  })
+
   it('projects arbitrary predictions onto valid, continuous, bounded control states', () => {
     const wild = Object.fromEntries(CTRL_CHANNELS.map((c) => [c, Array.from({ length: CTRL_POINTS }, (_, k) => (k % 2 ? 9 : -9))])) as unknown as Trajectories
     const t = constrainTrajectories(wild)

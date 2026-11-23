@@ -64,7 +64,7 @@ export default function ResearchHome() {
     const r = await fetch('/__research/jobs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, songs: songs ? Number(songs) : undefined, minutes: minutes ? Number(minutes) : undefined, ml, transitionNet: tn, style: style || undefined, stems: stems === '' ? undefined : stems === 'on' }),
+      body: JSON.stringify({ prompt, songs: songs ? Number(songs) : undefined, minutes: minutes ? Number(minutes) : undefined, ml, transitionNet: ml !== 'off' && tn, style: style || undefined, stems: stems === '' ? undefined : stems === 'on' }),
     })
     const b = (await r.json()) as { id?: string; error?: string }
     if (!r.ok || !b.id) return setErr(b.error ?? `failed (${r.status})`)
@@ -110,7 +110,7 @@ export default function ResearchHome() {
               <option value="off">Off</option>
             </select>
           </label>
-          <label className="flex h-10 items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={tn} onChange={(e) => setTn(e.target.checked)} /> TransitionNet</label>
+          <label className="flex h-10 items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={ml !== 'off' && tn} disabled={ml === 'off'} onChange={(e) => setTn(e.target.checked)} /> TransitionNet (learned automation)</label>
           <Button type="submit" disabled={!prompt.trim() || active?.status === 'running'} data-testid="research-start">Generate</Button>
           <button type="button" className="text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => setPrompt(EXAMPLE)}>Example</button>
         </div>
