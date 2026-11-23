@@ -1,0 +1,22 @@
+/* Generate page: a turning record as the loading treatment (no data), and the bar's sheen. */
+.gen-platter { aspect-ratio: 1; border-radius: 50%; padding: 6%;
+  background: conic-gradient(from 0deg, #2b2825, #3a3632 12%, #23211e 25%, #3b3733 38%, #24221f 50%, #3a3632 62%, #23211e 75%, #3b3733 88%, #2b2825);
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.gen-vinyl { position: relative; width: 100%; height: 100%; border-radius: 50%;
+  background: repeating-radial-gradient(circle at 50% 50%, #151413 0 2px, #1b1a18 2px 3px);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 24px rgba(0, 0, 0, 0.7); }
+.gen-vinyl::after { content: ''; position: absolute; left: 50%; top: 3%; width: 3px; height: 18%; margin-left: -1.5px; border-radius: 2px; background: var(--color-primary); box-shadow: 0 0 8px rgba(232, 176, 74, 0.6); }
+.gen-label { position: absolute; inset: 33%; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #2a2724, #121110); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); overflow: hidden; }
+.gen-platter[data-spin='1'] .gen-vinyl { animation: gen-spin 1.8s linear infinite; }
+@keyframes gen-spin { to { transform: rotate(360deg); } }
+.gen-sheen { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent); animation: bar-sheen 1.8s ease-in-out infinite; }
+.gen-tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: 14px; }
+.gen-tracks > li { animation: gen-in 360ms ease-out both; }
+@keyframes gen-in { from { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 640px) {
+  .gen-tracks { grid-auto-flow: column; grid-auto-columns: 6rem; grid-template-columns: none; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+  .gen-tracks > li { scroll-snap-align: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gen-platter .gen-vinyl, .gen-sheen, .gen-tracks > li { animation: none !important; }
+}

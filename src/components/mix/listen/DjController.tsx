@@ -62,7 +62,7 @@ function Deck({ deck, track, hasPeaks }: { deck: DeckId; track: PerfTrack | null
   return (
     <section className="cp-deck" data-deck={deck} aria-label={`Deck ${deck}`}>
       <DeckHead track={track} deck={deck} />
-      <div className="cp-wave cp-span" data-k={`${deck}.wavebox`}>
+      <div className="cp-wave cp-span" data-k={`${deck}.wavebox`} data-empty={hasPeaks ? '0' : '1'}>
         {hasPeaks ? <canvas data-k={`${deck}.wave`} /> : <p className="grid h-full place-items-center px-3 text-center text-[11px] text-muted-foreground">Track waveform wasn't recorded for this mix</p>}
       </div>
       <div className="cp-overview cp-span">
@@ -128,8 +128,10 @@ function Channel({ ch, stems }: { ch: DeckId; stems: boolean }) {
       <Knob k={`${ch}.hi`} label="Hi" />
       <Knob k={`${ch}.mid`} label="Mid" />
       <Knob k={`${ch}.low`} label="Low" />
-      <Knob k={`${ch}.filter`} label="Filter" />
-      <Knob k={`${ch}.echo`} label="Echo" />
+      <div className="cp-pair">
+        <Knob k={`${ch}.filter`} label="Filter" />
+        <Knob k={`${ch}.echo`} label="Echo" />
+      </div>
       <div className="cp-leds">
         <span className="cp-led" data-k={`${ch}.ledecho`}>ECHO</span>
         <span className="cp-led" data-k={`${ch}.ledverb`}>VERB</span>

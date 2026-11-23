@@ -281,7 +281,7 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
             const inc = i === coarse.incoming
             const tr = m.transitions[i]
             return (
-              <li key={t.key} className={`group grid grid-cols-[3.25rem_2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 sm:grid-cols-[3.5rem_2.75rem_minmax(0,1fr)_auto_auto] ${now ? 'bg-accent' : 'hover:bg-accent/50'}`} aria-current={now ? 'true' : undefined}>
+              <li key={t.key} className={`group grid grid-cols-[3.25rem_2.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-lg px-2 py-2 sm:grid-cols-[3.5rem_2.75rem_minmax(0,1fr)_4.5rem_12rem] ${now ? 'bg-accent' : 'hover:bg-accent/50'}`} aria-current={now ? 'true' : undefined}>
                 <button type="button" className="text-left text-sm tabular-nums text-muted-foreground group-hover:text-foreground" onClick={() => seek(startOf(i))} data-testid={`track-seek-${i}`} aria-label={`Play from ${t.title}`}>
                   {fmtTime(startOf(i))}
                 </button>
@@ -299,11 +299,11 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
                   <span className="block">{t.camelot}</span>
                 </span>
                 {tr ? (
-                  <button type="button" className="hidden max-w-44 truncate rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-background hover:text-foreground sm:block" onClick={() => setPick(tr)} title={`Transition into track ${i + 2}`}>
+                  <button type="button" className="hidden truncate rounded-full px-3 py-1 text-left text-xs text-muted-foreground hover:bg-background hover:text-foreground sm:block" onClick={() => setPick(tr)} title={`Transition into track ${i + 2}`}>
                     {tr.label}
                   </button>
                 ) : (
-                  <span className="hidden text-xs text-muted-foreground sm:block">Closer</span>
+                  <span className="hidden px-3 text-xs text-muted-foreground sm:block">Closer</span>
                 )}
               </li>
             )
