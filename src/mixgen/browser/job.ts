@@ -189,6 +189,8 @@ export class BrowserMixJob {
   }
 
   private mlRuntime: Promise<MlRuntime> | null = null
+  private lastMl: MlRuntime | null = null
+  private orderingDecisions: { decisions: MlRuntime['trace']['decisions']; counts: Record<string, number>; timings: Record<string, number> } = { decisions: [], counts: {}, timings: {} }
   /** Learned-DJ options for this job (default: every model with weights). */
   mlOptions: Partial<MlOptions> = {}
   private ml(): Promise<MlRuntime> {
@@ -204,7 +206,11 @@ export class BrowserMixJob {
     const job = this
     const base = await this.ml()
     // A fresh trace per pipeline run (prepare and render each record their own decisions).
-    const ml: MlRuntime = { ...base, trace: { ...base.trace, decisions: [], counts: {}, timingsMs: { load: base.trace.timingsMs.load ?? 0 }, fallbacks: [...base.trace.fallbacks] } }
+    // The render pass keeps the user-approved order, so the ordering decision made during the
+    // prepare pass is carried over into the final trace.
+    const carried = this.orderingDecisions
+    const ml: MlRuntime = { ...base, trace: { ...base.trace, decisions: [...carried.decisions], counts: { ...carried.counts }, timingsMs: { load: base.trace.timingsMs.load ?? 0, ...carried.timings }, fallbacks: [...base.trace.fallbacks] } }
+    this.lastMl = ml
     return {
       ml,
       providers: [],
@@ -318,7 +324,16 @@ export class BrowserMixJob {
       pool = body.pool.map(({ access: _a, ...c }) => c)
       this.progress({ stage: 'discovering', done: body.queries, total: body.queries, detail: `${pool.length} recordings (${Object.entries(body.bySource).map(([k, v]) => `${k} ${v}`).join(', ')})` })
     }
+    this.orderingDecisions = { decisions: [], counts: {}, timings: {} }
     const out = await runPipeline(spec, await this.host(pool, opts.analyses), { planOnly: true, exclude: opts.exclude, include: opts.include })
+    const t = this.lastMl?.trace
+    if (t) {
+      this.orderingDecisions = {
+        decisions: t.decisions.filter((d) => d.stage === 'ordering'),
+        counts: t.counts.ordering_pairs ? { ordering_pairs: t.counts.ordering_pairs } : {},
+        timings: t.timingsMs.ordering ? { ordering: t.timingsMs.ordering } : {},
+      }
+    }
     if (!('planOnly' in out)) throw new Error('unexpected render')
     const pos = new Map(out.order.map((k, i) => [k, i]))
     const selection: SelectionRow[] = out.acquisition.map((a) => {
