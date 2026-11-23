@@ -15,6 +15,7 @@ const PROMPT = process.env.MIXGEN_E2E_PROMPT ?? 'Generate a 40-minute tech house
 
 const TRACKS = Number(process.env.MIXGEN_E2E_TRACKS ?? 12)
 const MIN_SECONDS = Number(process.env.MIXGEN_E2E_MIN_SECONDS ?? 30 * 60)
+const MAX_SECONDS = process.env.MIXGEN_E2E_MAX_SECONDS ? Number(process.env.MIXGEN_E2E_MAX_SECONDS) : Infinity
 
 test('describe → generate → listen: a real continuous mix in the browser', async ({ users }) => {
   const [u] = await users(1)
@@ -106,6 +107,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect.poll(now, { timeout: 30_000 }).toBeGreaterThan(beforeSeek + 5)
   const dur = await page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement).duration)
   expect(dur).toBeGreaterThan(MIN_SECONDS)
+  expect(dur).toBeLessThan(MAX_SECONDS)
   // Transition inspector shows the renderer's manifest values.
   await page.getByTitle('Transition into track 2').click()
   await expect(page.getByTestId('transition-inspector')).toBeVisible()
@@ -122,6 +124,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(diag).toContainText('Set planning')
   await expect(diag).toContainText('Long-form performance')
   await expect(diag).toContainText('Closed-loop evaluation')
+  await expect(diag).toContainText('Request fidelity')
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await expect.poll(fitsViewport).toBe(0)
