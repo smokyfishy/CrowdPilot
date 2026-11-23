@@ -32,7 +32,7 @@ test('stored mix plays, seeks and navigates', async ({ users }) => {
   await page.waitForTimeout(1500)
   expect((await state())!.t).toBeGreaterThan(t) // keeps playing after the seek
   await expect(page.getByTestId('mix-time')).not.toHaveText(/^0:00 \//)
-  await page.getByRole('button', { name: /^→ / }).first().click()
+  await page.getByTitle('Transition into track 2').click()
   await expect(page.getByTestId('transition-inspector')).toContainText('Overlap')
   await page.setViewportSize({ width: 1280, height: 1400 })
   await page.locator('h1').first().scrollIntoViewIfNeeded()

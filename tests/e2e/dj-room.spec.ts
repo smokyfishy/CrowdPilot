@@ -3,7 +3,7 @@
  * real Audius ids; the server still resolves each enqueue against Audius):
  *   host enqueues two mixable tracks and starts playback → the host browser
  *   analyzes the real audio and syncs measured BPM/key → the guest sees them →
- *   host enables autopilot and forces "mix at next phrase" → the engine runs the
+ *   host enables autopilot → the engine schedules and runs the
  *   transition on the audio clock and reports the handoff → the guest's "now playing"
  *   switches to the incoming track without a reload.
  */

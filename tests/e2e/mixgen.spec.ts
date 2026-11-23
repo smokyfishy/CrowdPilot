@@ -78,7 +78,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   const dur = await page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement).duration)
   expect(dur).toBeGreaterThan(30 * 60)
   // Transition inspector shows the renderer's manifest values.
-  await page.getByRole('button', { name: /^→ / }).first().click()
+  await page.getByTitle('Transition into track 2').click()
   await expect(page.getByTestId('transition-inspector')).toBeVisible()
   await expect(page.getByTestId('transition-inspector')).toContainText('Overlap')
   // Learned-DJ diagnostics come from the manifest's inference trace.
