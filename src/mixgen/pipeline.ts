@@ -17,7 +17,7 @@ import { renderMix, type AudioSink, type PcmTrack, type RenderResult } from './m
 import { beatmatchable, candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
 import { applyDeckEdits, routeStems, type StemInfo, type TechniquePlan } from './techniques'
 import { resample } from '../dsp/resample'
-import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, traceAutomation, type CriticAudio, type MlRuntime, type ScoredPlan } from './ml'
+import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, sameTransitionSlot, traceAutomation, type CriticAudio, type MlRuntime, type ScoredPlan } from './ml'
 import { buildManifest, type MixManifest } from './manifest'
 import { validateMix, type ValidationReport } from './validate'
 import { resolveSpec, type MixSpec, type ResolvedSpec } from './spec'
@@ -313,15 +313,23 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       host.progress({ stage: 'transitions', done: i, total: plan.transitions.length, detail: `DJCritic ${i + 1}/${plan.transitions.length}` })
       const a = planned[i]
       const b = planned[i + 1]
-      const alts = buildAlternatives(ml, tr.plan as ScoredPlan, a.summary, b.summary, allow)
+      const chosen = tr.plan as TechniquePlan
+      const standard = buildAlternatives(ml, chosen as ScoredPlan, a.summary, b.summary, allow)
+      const creative = plan.candidates[i].find((p) => {
+        const tech = (p as TechniquePlan).tech
+        return tech && tech.technique !== chosen.tech?.technique && sameTransitionSlot(chosen, p)
+      })
+      // Keep a template in the preview budget when a creative or learned control plan is chosen.
+      const alts = creative ? [...standard.slice(0, 1), creative, ...standard.slice(1)] : standard
       if (!alts.length) continue
       const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
-      const tech = (tr.plan as TechniquePlan).tech
       let audioFor: CriticAudio | ((p: TransitionPlan) => CriticAudio) = audio
-      if (tech) {
-        // a technique's preview must contain its own stem routing / deck edits
+      const techniques = [chosen, ...alts].map((p) => (p as TechniquePlan).tech)
+      if (techniques.some(Boolean)) {
         const [pa, pb] = [await host.decode(analyses.get(a.key)!.audio), await host.decode(analyses.get(b.key)!.audio)]
-        const [sa, sb] = tech.stems ? [await stemLoad.get(a.key)?.(), await stemLoad.get(b.key)?.()] : [undefined, undefined]
+        const [sa, sb] = techniques.some((tech) => tech?.stems)
+          ? [await stemLoad.get(a.key)?.(), await stemLoad.get(b.key)?.()]
+          : [undefined, undefined]
         audioFor = (p) => ((p as TechniquePlan).tech ? techPreview(p as TechniquePlan, pa, pb, sa, sb) : audio)
       }
       tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audioFor, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)

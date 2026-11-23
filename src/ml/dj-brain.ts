@@ -15,6 +15,7 @@
  * Every component is optional: when its model is missing, not promoted, or throws, the
  * deterministic planner/templates are used unchanged (music never stops for a model).
  */
+import { applyReverbWash, type TechniquePlan } from '../mixgen/techniques'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { renderTransition } from '../dj/render'
 import { BEATMATCHED, SLAM, type TransitionPlan } from '../dj/transitions'
@@ -155,6 +156,7 @@ export function applyTransitionNet(plan: TransitionPlan, out: TnOutput): Transit
 export interface CriticScore {
   quality: number
   artifact: number
+  previewDefects: string[]
   ms: number
 }
 
@@ -174,12 +176,19 @@ export function criticScore(
 ): CriticScore {
   const t0 = performance.now()
   const local: TransitionPlan = { ...plan, outCueSec: plan.outCueSec - outStartSec, inCueSec: plan.inCueSec - inStartSec }
-  const r = renderTransition({ rate, out: [outAudio], in: [inAudio], plan: local, outTrimDb: trims.out, inTrimDb: trims.in, preRollSec: 8, postRollSec: 8 })
+  const wash = (plan as TechniquePlan).tech?.reverb
+  const r = renderTransition({ rate, out: [outAudio], in: [inAudio], plan: local, outTrimDb: trims.out, inTrimDb: trims.in, preRollSec: 8, postRollSec: 8, stems: !!wash })
+  if (wash) applyReverbWash(r, plan.beatSec, wash)
   const ts = r.transitionStartSample
   const te = ts + Math.round(plan.durationSec * rate)
   const f = criticFeatures({ mix: r.channels[0], rate, t0: ts, t1: te, beatSec: plan.beatSec })
   const x = [...featureVector(f), SLAM.has(plan.style) ? 1 : 0, BEATMATCHED.has(plan.style) ? 1 : 0, plan.overlapBars]
-  return { quality: gbdtPredict(m.quality, x), artifact: gbdtPredict(m.artifact, x), ms: performance.now() - t0 }
+  const previewDefects: string[] = []
+  if (r.channels[0].some((sample) => !Number.isFinite(sample))) previewDefects.push('non-finite audio')
+  if (f.silenceSec >= 1) previewDefects.push('gap of at least 1 second')
+  if (r.clippedSamples > 0 || r.channels[0].some((sample) => Math.abs(sample) >= 1)) previewDefects.push('clipped preview')
+  if (r.limiterGainReductionDb > 6) previewDefects.push('limiter reduction over 6 dB')
+  return { quality: gbdtPredict(m.quality, x), artifact: gbdtPredict(m.artifact, x), previewDefects, ms: performance.now() - t0 }
 }
 
 /** Audio window a preview needs from each deck (seconds in each track's own timeline). */

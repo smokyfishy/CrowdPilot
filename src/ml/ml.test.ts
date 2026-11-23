@@ -5,7 +5,7 @@ import { renderTransition } from '../dj/render'
 import { synthTrack } from '../dsp/synth'
 import { applyStyleParams, applyTrajectories, constrainTrajectories, CTRL_CHANNELS, CTRL_POINTS, DEFAULT_PARAMS, planToTrajectories, type Trajectories } from './controls'
 import { criticFeatures } from './critic-features'
-import { applyTransitionNet, mixgraphRank, transitionNetPredict } from './dj-brain'
+import { applyTransitionNet, criticScore, mixgraphRank, transitionNetPredict } from './dj-brain'
 import { gbdtPredict, gbdtRaw, type GbdtModel } from './gbdt'
 import { mlpForward, type MlpModel } from './mlp'
 
@@ -29,6 +29,19 @@ const MODELS = import.meta.glob('../../public/models/ml/*.json', { eager: true, 
 const load = <T>(dir: Record<string, unknown>, f: string): T | null => (Object.entries(dir).find(([k]) => k.endsWith('/' + f))?.[1] as T | undefined) ?? null
 
 describe('controls', () => {
+  it('offers drop-aligned landings at both short and long blend lengths', () => {
+    const drop = 94
+    const styles = ['short_fade', 'long_blend'] as const
+    const plans = candidateTransitions(track('a'), track('b', { dropsSec: [drop] }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
+    for (const style of styles) {
+      const plan = plans.find((p) => p.style === style && p.reasons.includes('incoming drop lands at the end of the blend'))
+      expect(plan, style).toBeDefined()
+      expect(plan!.inCueSec + plan!.durationSec * plan!.tempoRatio).toBeCloseTo(drop, 5)
+    }
+    const uncertain = candidateTransitions(track('a'), track('b', { dropsSec: [drop], downbeatConf: 0.1 }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
+    expect(uncertain.some((p) => p.reasons.includes('incoming drop lands at the end of the blend'))).toBe(false)
+  })
+
   it('round-trips template automation through beat-aligned trajectories', () => {
     for (const p of candidateTransitions(track('a'), track('b'), DEFAULT_OPTIONS).filter((q) => ['bass_swap', 'long_blend', 'short_fade'].includes(q.style)).slice(0, 3)) {
       const t = planToTrajectories(p)
@@ -78,12 +91,16 @@ describe('critic features', () => {
       return criticFeatures({ mix: r.channels[0], rate, t0: r.transitionStartSample, t1: r.transitionStartSample + Math.round(plan.durationSec * rate), beatSec: plan.beatSec })
     }
     const clean = render(p)
-    // a 1.5-beat hole in the middle of the blend (both faders down) must show as a dip and a gap
+    // a 2.5-beat hole in the middle of the blend (both faders down) must show as a dip and a gap
     const B = p.overlapBars * 4
-    const holed = render({ ...p, out: { ...p.out, gain: [{ beat: 0, value: 1 }, { beat: B / 2 - 1, value: 1 }, { beat: B / 2 - 0.98, value: 0 }, { beat: B, value: 0 }] }, in: { ...p.in, gain: [{ beat: 0, value: 0 }, { beat: B / 2 + 0.5, value: 0 }, { beat: B / 2 + 0.52, value: 1 }, { beat: B, value: 1 }] } })
+    const holedPlan = { ...p, out: { ...p.out, gain: [{ beat: 0, value: 1 }, { beat: B / 2 - 2, value: 1 }, { beat: B / 2 - 1.98, value: 0 }, { beat: B, value: 0 }] }, in: { ...p.in, gain: [{ beat: 0, value: 0 }, { beat: B / 2 + 0.5, value: 0 }, { beat: B / 2 + 0.52, value: 1 }, { beat: B, value: 1 }] } }
+    const holed = render(holedPlan)
     expect(clean.silenceSec).toBeLessThan(0.2)
     expect(holed.silenceSec).toBeGreaterThan(0.4)
     expect(holed.dipDb).toBeGreaterThan(clean.dipDb)
+    const models = { quality: load<GbdtModel>(MODELS, 'critic_quality.json')!, artifact: load<GbdtModel>(MODELS, 'critic_artifact.json')! }
+    const score = criticScore(models, holedPlan, a[0], 0, a[0], 0, rate, { out: -4, in: -4 })
+    expect(score.previewDefects).toContain('gap of at least 1 second')
   })
 })
 

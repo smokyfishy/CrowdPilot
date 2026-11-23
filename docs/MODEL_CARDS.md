@@ -10,9 +10,12 @@
 | AlignEmbed v1 (contrastive alignment embedding, 245k params, UnmixDB train sets) | yes | **trained** on Azure D64as_v5 (4,000 steps, ~$12.60 total VM cost); checkpoint private (C:\crowdpilot-data\modelslign_embed, sha256 in reports/azure_train_align_embed_s0.json) | no (offline reconstruction research only) | Held-out sets 275/123 (60 mixes, unseen tracks): unchanged-tempo placement within 50 ms **96.2%** vs 69.2% multi-band / 66.7% single envelope; mix validation 76.9% vs 57.7%. Time-scaled variants identical to multi-band because the fine-alignment stage overrides the learned coarse estimate (pipeline issue, not a model result). Synthetic-reference domain only. |
 | Downbeat LR / LightGBM (ircambeat weak labels) | yes | local only | no (superseded by Beat This!) | held-out phase agreement LR 43.2% vs heuristic 42.1%; LightGBM 50.5% (n = 95) |
 | CuePointNet | **no** | **none** | no | — |
-| Transition ranker | **no** | **none** | no | — |
-| MixGraph-GAT | **no** | **none** | no | — |
-| TransitionNet | **no** | **none** | no | — |
-| DJCritic | **no** | **none** | no | — |
+| MixGraph quality ranker | yes | exported LightGBM | experimental default for ordering and candidate ranking | Synthetic/render severity objective; see the mix generator ablation |
+| MixGraph human cue prior | yes | exported LightGBM | loaded with weight zero | Hurt held-out severity |
+| MixGraph-GAT | no shipped runtime | none shipped | no | Research only |
+| TransitionNet | yes | exported MLP | opt-in; disabled by default | Increased bass overlap in the existing ablation |
+| DJCritic quality and artifact | yes | two exported LightGBM models | experimental default for candidate preview ranking | Rendered-preview objective; human preference remains unverified |
+
+The five exported model artifacts match the SHA-256 values in the shipped registry. Their registry entries are all unpromoted. Models for learned section labeling and advanced stem, edit and performance controls have no shipped checkpoints. The planner uses the existing measured features and rule templates for those decisions.
 
 Do not describe CrowdPilot as "trained on professional DJ performances" until a verified human triplet has passed rights, QC, alignment and split gates, and a model trained on it has been evaluated on held-out DJs and tracks. None has yet.

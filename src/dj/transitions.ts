@@ -118,6 +118,8 @@ export interface PlannerWeights {
 export const DEFAULT_WEIGHTS: PlannerWeights = { tempo: 0.25, key: 1.0, energy: 0.08, vocals: 1.2, confidence: 1.0, truncation: 0.02, variety: 0.8 }
 
 export interface PlannerOptions {
+  /** Include blend cues that finish on a detected incoming drop. */
+  preferDropLandings?: boolean
   maxTempoDeviation: number // 0.06 = ±6 %
   weights: PlannerWeights
   /** Styles recently used (most recent first), for variety. */
@@ -502,12 +504,16 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
         // Slam styles: the incoming downbeat (a phrase start, or a drop for energy) lands on the
         // slam beat, so its playback starts that many beats earlier (silently).
         const auto0 = automationFor(style, beats)
+        // Offer a drop-aligned finish for a clean blend as well as a dedicated drop swap.
+        const dropFinishCues = opts.preferDropLandings && BEATMATCHED.has(style) && sb.downbeatConf >= 0.3 && keyDist <= 2
+          ? drops.map((drop) => drop - overlapSec * ratio).filter((cue) => cue >= leadB).slice(0, 2)
+          : []
         const inCands =
           style === 'drop_swap'
             ? drops.map((d) => d - overlapSec * ratio).filter((c) => c >= 0)
             : SLAM.has(style)
               ? uniqueSorted([...ins.slice(0, 3), ...drops.slice(0, 2)]).map((c) => c - (auto0.inStartBeat ?? 0) * inBeat).filter((c) => c >= 0)
-              : ins.slice(0, 4)
+              : uniqueSorted([...ins.slice(0, 4), ...dropFinishCues])
         for (const inCue of inCands) {
           const inDur = overlapSec * (BEATMATCHED.has(style) ? ratio : 1)
           if (inCue + inDur > sb.durationSec * 0.8) continue
@@ -550,6 +556,12 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
           // tempo-free ones beat plain cuts/fades when the pair cannot be beat-matched.
           const energetic = opts.energyDirection > 0 ? -0.4 : 0
           const landsOnDrop = drops.some((d) => Math.abs(d - (inCue + (auto0.inStartBeat ?? 0) * inBeat)) < inBeat)
+          const finishesOnDrop = opts.preferDropLandings && BEATMATCHED.has(style) && sb.downbeatConf >= 0.3 && keyDist <= 2
+            && drops.some((drop) => Math.abs(drop - (inCue + inDur)) <= inBeat / 4)
+          if (finishesOnDrop && style !== 'drop_swap' && silence === 0) {
+            musical -= 0.6
+            reasons.push('incoming drop lands at the end of the blend')
+          }
           if (style === 'echo_out') musical += canMatch ? 1.9 : 0.5
           if (style === 'loop_roll') musical += (canMatch ? 1.3 : 0.7) + (landsOnDrop ? -0.3 : 0.2) + energetic
           if (style === 'brake') musical += (canMatch ? 1.6 : 0.8) + energetic

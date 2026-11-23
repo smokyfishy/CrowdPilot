@@ -137,12 +137,23 @@ function energyBetween(s: AnalysisSummary, t0: number, t1: number): number | nul
  * outgoing is gone (not a breakdown, stop or quiet intro), and the outgoing should not
  * start leaving from inside its own breakdown. Penalty in planner cost units.
  */
-function energyContinuity(p: TransitionPlan, a: AnalysisSummary, b: AnalysisSummary): number {
+function energyContinuity(p: TransitionPlan, outgoing: PlannedTrack, incoming: PlannedTrack): number {
+  const a = outgoing.summary
+  const b = incoming.summary
   let c = 0
   const inEnd = p.inCueSec + inTrackSpan(p)
   // (1) the incoming must carry the floor right after the outgoing is gone
   const after = energyBetween(b, inEnd, inEnd + 16 * b.barSec)
   if (after !== null && after < b.energyMean - 6) c += Math.min(5, (b.energyMean - 6 - after) * 0.6)
+  // Compare the sections listeners actually hear before and after the blend, with
+  // the same per-track trims the renderer uses. Weight cue-level matching separately
+  // from each song's own energy contour so a locally quiet section remains detectable.
+  const beforeJoin = energyBetween(a, Math.max(0, p.outCueSec - 30), p.outCueSec - 2)
+  const afterJoin = energyBetween(b, inEnd + 2, inEnd + 30)
+  if (beforeJoin !== null && afterJoin !== null) {
+    const mismatch = Math.abs(beforeJoin + outgoing.trimDb - afterJoin - incoming.trimDb)
+    c += Math.min(5, Math.max(0, mismatch - 3) * 0.6)
+  }
   // (2) …and already during the second half of the overlap, while the outgoing fades out
   //     (a drop swap deliberately lands its drop at the overlap end, so it is exempt)
   if (p.style !== 'drop_swap' && p.durationSec > 0) {
@@ -243,7 +254,14 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     // Energetic/creative sets may ride the tempo further for SHORT transitions (as DJs ride the pitch
     // fader with key lock); long blends stay inside ±6 % (see the post-filter below).
     const ride = spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : DEFAULT_OPTIONS.maxTempoDeviation
-    const popt: PlannerOptions = { ...DEFAULT_OPTIONS, maxTempoDeviation: ride, ...opts.planner, recentStyles: [...recent], energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity) }
+    const popt: PlannerOptions = {
+      ...DEFAULT_OPTIONS,
+      maxTempoDeviation: ride,
+      preferDropLandings: spec.features.includes('big_drops') || spec.features.includes('drop_sections'),
+      ...opts.planner,
+      recentStyles: [...recent],
+      energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity),
+    }
     // Tracks whose GLOBAL grid was rejected can still be beat-matched where Beat This! beats are
     // regular around the mix point (outgoing: its last 40 %, incoming: its first 40 %).
     const sa = localGrid(a.summary, a.netBeats, 'out')
@@ -273,7 +291,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       const t = (p as TechniquePlan).tech?.technique
       return t && recentTech[0] === t ? 0.8 : t && recentTech.slice(0, 3).includes(t) ? 0.3 : 0
     }
-    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) }))
+    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) }))
     scored.sort((x, y) => x.c - y.c)
     // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
     // region, so the duration DP can choose earlier exits / later entries even when they cost a

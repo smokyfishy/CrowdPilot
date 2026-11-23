@@ -13,6 +13,7 @@
  */
 import type { AnalysisSummary } from '../dsp/analyze'
 import { camelotDistance } from '../dsp/key'
+import type { RenderOutput } from '../dj/render'
 import { curveAt } from '../dj/automation'
 import { automationFor, BEATMATCHED, tempoMatch, type CurvePoint, type DeckAutomation, type TransitionPlan } from '../dj/transitions'
 import type { ResolvedSpec } from './spec'
@@ -163,6 +164,29 @@ export function routeStems(mix: Float32Array[], stems: { vocals: Float32Array[];
     }
   }
   return out
+}
+
+/** Apply the same post-fader wash to a preview and to the continuous render. */
+export function applyReverbWash(
+  render: RenderOutput,
+  beatSec: number,
+  controls: NonNullable<NonNullable<TechniquePlan['tech']>['reverb']>,
+): void {
+  const { stemA, rate, channels, transitionStartSample } = render
+  if (!stemA) return
+  const send = new Float32Array(stemA.length)
+  for (let i = transitionStartSample; i < send.length; i++) {
+    send[i] = stemA[i] * curveAt(controls.send, (i - transitionStartSample) / rate / beatSec)
+  }
+  const wet = reverb(send, rate, controls.decaySec)
+  const fadeEnd = stemA.length - Math.round(0.75 * rate)
+  const fadeStart = fadeEnd - rate
+  for (let i = 0; i < fadeEnd; i++) {
+    const fade = i < fadeStart ? 1 : 0.5 + 0.5 * Math.cos(Math.PI * (i - fadeStart) / rate)
+    const sample = wet[i] * controls.wet * fade
+    for (const channel of channels) channel[i] += sample
+    stemA[i] += sample
+  }
 }
 
 /** Small Schroeder/Freeverb-style reverb (4 combs + 2 all-passes), mono in → mono wet out. */

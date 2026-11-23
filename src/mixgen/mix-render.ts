@@ -18,8 +18,7 @@
 import { renderTransition } from '../dj/render'
 import { BEATMATCHED, type TransitionPlan } from '../dj/transitions'
 import { MasterLimiter, MixAnalyzer, type MixMetrics } from './meter'
-import { applyDeckEdits, reverb, routeStems, type TechniquePlan } from './techniques'
-import { curveAt } from '../dj/automation'
+import { applyDeckEdits, applyReverbWash, routeStems, type TechniquePlan } from './techniques'
 
 import type { MixPlan } from './mixplan'
 import { deckOf, incomingPosAt, LevelRecorder, trackPeaks, type DeckId, type RenderTelemetry } from './performance'
@@ -141,6 +140,9 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
   const emit = async (block: Float32Array[]) => {
     for (let o = 0; o < block[0].length; o += BLOCK) {
       const chunk = block.map((c) => c.slice(o, Math.min(c.length, o + BLOCK)))
+      if (chunk.some((channel) => channel.some((sample) => !Number.isFinite(sample)))) {
+        throw new Error(`Mix render produced invalid audio at ${(emitted / rate).toFixed(2)}s.`)
+      }
       if (lane) levels.add(lane, emitted, chunk)
       emitted += chunk[0].length
       limiter.process(chunk)
@@ -241,24 +243,7 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
       stems: true,
     })
     const rch = r.channels.length >= 2 ? r.channels : [r.channels[0], r.channels[0]]
-    if (tech?.reverb && r.stemA) {
-      // post-fader reverb send on the outgoing deck: its tail keeps ringing after the fader closes
-      const send = new Float32Array(r.stemA.length)
-      for (let k = 0; k < send.length; k++) {
-        const beat = (k - r.transitionStartSample) / rate / p.beatSec
-        send[k] = r.stemA[k] * (beat < 0 ? 0 : curveAt(tech.reverb.send, beat))
-      }
-      const wet = reverb(send, rate, tech.reverb.decaySec)
-      const fadeEnd = rch[0].length - Math.round(0.75 * rate)
-      const fadeLen = Math.round(1.0 * rate)
-      const fadeAt = (k: number) => (k < fadeEnd - fadeLen ? 1 : k >= fadeEnd ? 0 : 0.5 + 0.5 * Math.cos((Math.PI * (k - (fadeEnd - fadeLen))) / fadeLen))
-      for (const ch of rch)
-        for (let k = 0; k < ch.length; k++) {
-          ch[k] += wet[k] * tech.reverb.wet * fadeAt(k)
-        }
-      // the wash belongs to the outgoing channel's meter
-      for (let k = 0; k < r.stemA.length; k++) r.stemA[k] += wet[k] * tech.reverb.wet * fadeAt(k)
-    }
+    if (tech?.reverb) applyReverbWash(r, p.beatSec, tech.reverb)
     const renderStartTrack = Math.round(p.outCueSec * rate) - r.transitionStartSample // outgoing sample at render offset 0
     // 1) body of the current track up to the splice-in point (+ crossfade into the render)
     const spliceIn = Math.round(SPLICE_IN * rate)

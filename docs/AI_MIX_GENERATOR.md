@@ -97,12 +97,14 @@ Weights: `public/models/ml/*.json` (+ `registry.json`, sha256-pinned, v1, none p
 | `mixgraph_quality` | LightGBM, predicted render severity | `pairSeverity` → `orderSet({ pairExtra })`; `rankCandidatesWith` → `planMix({ rankCandidates })` | track order (pair compatibility), which cue/technique/overlap candidates the duration DP prefers (alpha 4) |
 | `mixgraph_human_cue` | LightGBM human cue prior | loaded, weight 0 | nothing (it hurt held-out severity) |
 | `transitionnet` | MLP | `rankCandidatesWith` (+ critic alternatives) | fader/EQ/filter/echo trajectories for blends, technique parameters for creative styles; validated by `constrainTrajectories` + `validPlan` before the renderer executes them |
-| `critic_quality` + `critic_artifact` | LightGBM on rendered 16 kHz previews | `criticSelect` in `runPipeline` after planning | picks among same-cue alternatives (other techniques, TransitionNet vs template); artifact > 0.8 rejected |
+| `critic_quality` + `critic_artifact` | LightGBM on rendered 16 kHz previews | `criticSelect` in `runPipeline` after planning | picks among same-cue alternatives (other techniques, TransitionNet vs template); measured gaps, clipping, non-finite samples and heavy limiting are checked before ranking; artifact probability above 0.8 disqualifies an otherwise eligible candidate |
 
 Options (`MlOptions`): `mode` off / promoted / experimental (default experimental = every model with weights) and
 per-component switches; CLI: `--ml off|promoted|experimental`, `--no-mixgraph`, `--no-transitionnet`, `--no-critic`,
 `--no-ml-ordering`. Every decision (model → inputs → prediction → decision → DSP parameters) and every fallback is stored in
 `manifest.ml` and shown in the player under "Technical diagnostics". Ablation: `evaluation/mixgen.ablation.eval.ts`.
+
+For a prompt that asks for drops, the planner can offer a short fade or long phrase blend that ends on an incoming drop. It uses those extra cue candidates only when the incoming downbeat is reliable and the keys are reasonably compatible. Standard phrase cues still compete in the same plan.
 
 ## Advanced DJ techniques (src/mixgen/techniques.ts)
 

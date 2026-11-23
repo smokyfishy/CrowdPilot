@@ -295,11 +295,20 @@ export function monoAt(channels: Float32Array[], rate: number, target = 16000): 
   return rate === target ? m : resample(m, rate, target)
 }
 
+/** Alternatives must preserve the timeline already solved by the mix planner. */
+export function sameTransitionSlot(a: TransitionPlan, b: TransitionPlan): boolean {
+  return Math.abs(a.outCueSec - b.outCueSec) < 0.01
+    && Math.abs(a.inCueSec - b.inCueSec) < 0.01
+    && a.overlapBars === b.overlapBars
+    && Math.abs(a.durationSec - b.durationSec) < 0.01
+    && Math.abs(a.tempoRatio - b.tempoRatio) < 1e-6
+}
+
 /**
  * Chooses among alternatives that keep the SAME cue points and overlap length (so the mix timeline
  * and duration are unchanged): the chosen plan, its rule-template version, and other techniques at
  * that cue. Each is rendered as a 16 kHz preview and scored; lowest quality score wins, candidates
- * with artifact probability > 0.8 are rejected unless all are.
+ * with measured defects or high artifact probability cannot win on model quality alone.
  */
 /**
  * `guard` (creative / energetic sets): the critic acts as a quality GUARD, not a taste-maker — it keeps
@@ -310,11 +319,15 @@ export function monoAt(channels: Float32Array[], rate: number, target = 16000): 
 export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: TransitionPlan[], audio: CriticAudio | ((p: TransitionPlan) => CriticAudio), trims: { out: number; in: number }, pairLabel: string, guard = false): TransitionPlan {
   if (!rt.on.critic) return chosen
   const pool: TransitionPlan[] = [chosen]
+  const controls = (p: TransitionPlan) =>
+    JSON.stringify([p.style, p.out, p.in, p.handoffBeat, p.filter, p.echo, p.outPerf, (p as TechniquePlan).tech])
+  const seen = new Set([controls(chosen)])
   for (const a of alternatives) {
     if (pool.length >= rt.options.criticAlternatives) break
-    const same = Math.abs(a.outCueSec - chosen.outCueSec) < 0.01 && Math.abs(a.inCueSec - chosen.inCueSec) < 0.01 && a.overlapBars === chosen.overlapBars && Math.abs(a.durationSec - chosen.durationSec) < 0.01 && Math.abs(a.tempoRatio - chosen.tempoRatio) < 1e-6
-    if (!same || !validPlan(a)) continue
-    if (pool.some((p) => p.style === a.style && JSON.stringify(p.out.gain) === JSON.stringify(a.out.gain))) continue
+    if (!sameTransitionSlot(chosen, a) || !validPlan(a)) continue
+    const key = controls(a)
+    if (seen.has(key)) continue
+    seen.add(key)
     pool.push(a)
   }
   if (pool.length < 2) {
@@ -328,10 +341,17 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
       return timed(rt, 'critic', () => criticScore(rt.models.critic!, p, au.out, au.outStart ?? 0, au.in, au.inStart ?? 0, 16000, trims))
     })
     bump(rt, 'critic_previews', pool.length)
-    const okIdx = scores.map((s, i) => [s, i] as const).filter(([s]) => s.artifact <= 0.8)
-    let choice = (okIdx.length ? okIdx : scores.map((s, i) => [s, i] as const)).reduce((b, x) => (x[0].quality < b[0].quality ? x : b))[1]
-    let guardNote = ''
-    if (guard && choice !== 0 && scores[0].artifact <= 0.5 && scores[0].quality <= scores[choice].quality + 0.25) {
+    const measuredSafe = scores.map((s, i) => ({ s, i })).filter(({ s }) => s.previewDefects.length === 0)
+    const eligible = measuredSafe.filter(({ s }) => Number.isFinite(s.quality) && Number.isFinite(s.artifact) && s.artifact <= 0.8)
+    const template = (p: TransitionPlan) => !(p as TechniquePlan).tech && (p as ScoredPlan).mlSource !== 'transitionnet'
+    const fallback = measuredSafe.find(({ i }) => template(pool[i]))?.i
+      ?? measuredSafe[0]?.i
+      ?? pool.findIndex(template)
+    let choice = eligible.length
+      ? eligible.reduce((best, entry) => entry.s.quality < best.s.quality ? entry : best).i
+      : Math.max(0, fallback)
+    let guardNote = eligible.length ? '' : ' (no candidate passed both measured and model checks; conservative fallback)'
+    if (guard && eligible.length && choice !== 0 && eligible.some(({ i }) => i === 0) && scores[0].artifact <= 0.5 && scores[0].quality <= scores[choice].quality + 0.25) {
       guardNote = ` — guard mode: kept the creative choice (Δquality ${(scores[0].quality - scores[choice].quality).toFixed(3)} ≤ 0.25, artifact ${scores[0].artifact.toFixed(2)} ≤ 0.5)`
       choice = 0
     }
@@ -341,7 +361,7 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
       model: 'critic_quality+critic_artifact',
       pair: pairLabel,
       inputs: { alternatives: pool.length, previewRateHz: 16000, outCueSec: round(chosen.outCueSec, 2), inCueSec: round(chosen.inCueSec, 2) },
-      prediction: Object.fromEntries(pool.flatMap((p, i) => [[`${i}:${label(p)} quality`, round(scores[i].quality)], [`${i}:${label(p)} artifact`, round(scores[i].artifact, 3)]])),
+      prediction: Object.fromEntries(pool.flatMap((p, i) => [[`${i}:${label(p)} quality`, round(scores[i].quality)], [`${i}:${label(p)} artifact`, round(scores[i].artifact, 3)], [`${i}:${label(p)} preview defects`, scores[i].previewDefects.join(', ') || 'none']])),
       decision: (choice === 0 ? `kept ${label(pool[0])}` : `switched to ${label(pool[choice])} (was ${label(pool[0])})`) + guardNote,
       dsp: dspSummary(pool[choice]),
     })
@@ -380,6 +400,7 @@ export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: Analysis
     const auto = automationFor(style, B)
     const v: ScoredPlan & { tech?: unknown } = { ...chosen, style, out: auto.out, in: auto.in, handoffBeat: auto.handoffBeat, reasons: [...chosen.reasons.filter((r) => !r.startsWith('TransitionNet')), 'DJCritic alternative'], mlSource: 'rules' }
     delete v.tech
+    delete (v as ScoredPlan & { tnParams?: ParamVector }).tnParams
     if (auto.filter) v.filter = auto.filter
     else delete v.filter
     if (auto.echo) v.echo = auto.echo
