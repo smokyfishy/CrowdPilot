@@ -153,6 +153,29 @@ function energyContinuity(p: TransitionPlan, a: AnalysisSummary, b: AnalysisSumm
   return c
 }
 
+/** Max tempo change for short transitions in energetic/creative sets (pitch-preserving WSOLA). */
+export const RIDE_LIMIT = 0.1
+
+/**
+ * If a track's global grid was rejected (tempo confidence < 0.3 or unstable) but its Beat This! beats
+ * are regular in the region a transition uses, return a summary with the LOCAL tempo and a usable
+ * confidence, so the pair can be beat-matched there. Otherwise the summary is returned unchanged.
+ */
+export function localGrid(s: AnalysisSummary, beats: number[] | undefined, role: 'in' | 'out'): AnalysisSummary {
+  if ((s.bpmConf >= 0.3 && s.stable) || !beats || beats.length < 64) return s
+  const lo = role === 'out' ? s.durationSec * 0.6 : 0
+  const hi = role === 'out' ? s.durationSec : s.durationSec * 0.4
+  const seg = beats.filter((t) => t >= lo && t <= hi)
+  if (seg.length < 32) return s
+  const ibi = seg.slice(1).map((t, k) => t - seg[k]).sort((x, y) => x - y)
+  const med = ibi[Math.floor(ibi.length / 2)]
+  const mean = ibi.reduce((p, q) => p + q, 0) / ibi.length
+  const cv = Math.sqrt(ibi.reduce((p, q) => p + (q - mean) ** 2, 0) / ibi.length) / mean
+  const bpm = 60 / med
+  if (!(cv < 0.06) || bpm < 70 || bpm > 200) return s
+  return { ...s, bpm: Math.round(bpm * 100) / 100, bpmConf: 0.35, stable: true, firstBeat: seg[0], flags: [...s.flags, `local grid (${role}) from Beat This! beats, IBI CV ${(cv * 100).toFixed(1)}%`] }
+}
+
 /** Summary copy with earlier phrase boundaries offered as mix-out cues (for shortening). */
 function withEarlyOuts(s: AnalysisSummary): AnalysisSummary {
   const early = s.phrasesSec.filter((t) => t >= s.durationSec * 0.3 && t < s.durationSec * 0.55)
@@ -212,17 +235,25 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   for (let i = 0; i < n - 1; i++) {
     const a = tracks[i]
     const b = tracks[i + 1]
-    const popt: PlannerOptions = { ...DEFAULT_OPTIONS, ...opts.planner, recentStyles: [...recent], energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity) }
+    // Energetic/creative sets may ride the tempo further for SHORT transitions (as DJs ride the pitch
+    // fader with key lock); long blends stay inside ±6 % (see the post-filter below).
+    const ride = spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : DEFAULT_OPTIONS.maxTempoDeviation
+    const popt: PlannerOptions = { ...DEFAULT_OPTIONS, maxTempoDeviation: ride, ...opts.planner, recentStyles: [...recent], energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity) }
+    // Tracks whose GLOBAL grid was rejected can still be beat-matched where Beat This! beats are
+    // regular around the mix point (outgoing: its last 40 %, incoming: its first 40 %).
+    const sa = localGrid(a.summary, a.netBeats, 'out')
+    const sb = localGrid(b.summary, b.netBeats, 'in')
     const raw = [
-      ...candidateTransitions(pt(a), pt(b), popt),
-      ...candidateTransitions(pt(a, withEarlyOuts(a.summary)), pt(b, withLateIns(b.summary)), popt),
-      ...candidateTransitions(pt(a, withLateOuts(a.summary)), pt(b), popt),
-    ]
+      ...candidateTransitions(pt(a, sa), pt(b, sb), popt),
+      ...candidateTransitions(pt(a, withEarlyOuts(sa)), pt(b, withLateIns(sb)), popt),
+      ...candidateTransitions(pt(a, withLateOuts(sa)), pt(b, sb), popt),
+    ].filter((p) => !BEATMATCHED.has(p.style) || Math.abs(p.tempoRatio - 1) <= DEFAULT_OPTIONS.maxTempoDeviation + 1e-9 || p.overlapBars <= 8)
+    for (const p of raw) if (BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) p.risks = [...p.risks, `tempo ride ${((p.tempoRatio - 1) * 100).toFixed(1)}% over ${p.overlapBars} bars (key lock)`]
     // Local refinement with the tracks' Beat This! beats (cue snap + local tempo ratio), as the
     // learned models were trained on refined plans and it tightens beat alignment for everyone.
     for (let k = 0; k < raw.length; k++) {
       if (!BEATMATCHED.has(raw[k].style)) continue
-      const r = refineWithLocalBeats(raw[k], a.netBeats, b.netBeats)
+      const r = refineWithLocalBeats(raw[k], a.netBeats, b.netBeats, ride)
       if (r.localRefined) {
         const { localRefined: _l, ...plan } = r
         raw[k] = plan

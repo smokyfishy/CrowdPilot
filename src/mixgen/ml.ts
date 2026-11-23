@@ -217,7 +217,7 @@ export function rankCandidatesWith(rt: MlRuntime) {
 /** Renderer-level safety validation of a (possibly model-controlled) plan. */
 export function validPlan(p: TransitionPlan): boolean {
   const ok = (c: Array<{ beat: number; value: number }> | undefined, lo: number, hi: number) => !c || (c.length > 0 && c.every((x, i) => Number.isFinite(x.value) && Number.isFinite(x.beat) && x.value >= lo - 1e-6 && x.value <= hi + 1e-6 && (i === 0 || x.beat >= c[i - 1].beat - 1e-9)))
-  if (!(p.durationSec >= 0) || !Number.isFinite(p.tempoRatio) || Math.abs(p.tempoRatio - 1) > 0.0601) return false
+  if (!(p.durationSec >= 0) || !Number.isFinite(p.tempoRatio) || Math.abs(p.tempoRatio - 1) > 0.1001) return false // ±10 % = short tempo rides in energetic/creative sets
   for (const d of [p.out, p.in]) if (!ok(d.gain, 0, 1.0001) || !ok(d.low, -40, 6) || !ok(d.mid, -40, 6) || !ok(d.high, -40, 6)) return false
   if (p.filter && (!ok(p.filter.out, -1, 1) || !ok(p.filter.in, -1, 1))) return false
   if (p.echo && (!ok(p.echo.send, 0, 1) || !(p.echo.feedback >= 0 && p.echo.feedback <= 0.9) || !(p.echo.delayBeats > 0 && p.echo.delayBeats <= 4))) return false
@@ -355,7 +355,7 @@ export function traceAutomation(rt: MlRuntime, p: TransitionPlan, pairLabel: str
  */
 export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: AnalysisSummary, b: AnalysisSummary, allow: (s: TransitionPlan['style']) => boolean): TransitionPlan[] {
   const B = chosen.overlapBars * 4
-  const fam: TransitionPlan['style'][] = BEATMATCHED.has(chosen.style) ? ['long_blend', 'bass_swap', 'percussion_led', 'short_fade', 'filter_sweep'] : ['unmatched_fade', 'echo_out']
+  const fam: TransitionPlan['style'][] = BEATMATCHED.has(chosen.style) ? ['long_blend', 'bass_swap', 'percussion_led', 'short_fade', 'filter_sweep'] : ['echo_out', 'loop_roll', 'unmatched_fade', 'brake', 'scratch_cut']
   const out: ScoredPlan[] = []
   const variant = (style: TransitionPlan['style']): ScoredPlan => {
     const auto = automationFor(style, B)

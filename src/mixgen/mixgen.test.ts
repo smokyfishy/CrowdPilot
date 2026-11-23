@@ -269,3 +269,22 @@ describe('featured artists with hyphens', () => {
     expect(matchesSongRequest({ artist: 'David Guetta', title: 'Play Hard', version: null }, y)).toBe(true)
   })
 })
+
+describe('creativity defaults and local grids', () => {
+  it('high-energy / drop-focused requests default to energetic transitions; "cool effects" → creative', () => {
+    expect(resolveSpec(heuristicSpec('a high energy mix of big drops')).transitionStyle).toBe('energetic')
+    expect(resolveSpec(heuristicSpec('a mix with cool effects like a DJ')).transitionStyle).toBe('creative')
+    expect(resolveSpec(heuristicSpec('a relaxed deep house mix')).transitionStyle).toBe('smooth')
+  })
+  it('localGrid recovers a usable tempo from regular Beat This! beats when the global grid failed', async () => {
+    const { localGrid } = await import('./mixplan')
+    const base = summarize(analyzeTrack({ ...synthTrack({ bpm: 141, bars: 64, sampleRate: 22050 }), sampleRate: 22050 }))
+    const failed = { ...base, bpmConf: 0, stable: false }
+    const beats = Array.from({ length: 300 }, (_, k) => 0.2 + (k * 60) / 141)
+    const g = localGrid(failed, beats, 'out')
+    expect(g.stable).toBe(true)
+    expect(g.bpm).toBeCloseTo(141, 0)
+    const irregular = beats.map((t, k) => t + (k % 3) * 0.06)
+    expect(localGrid(failed, irregular, 'out').stable).toBe(false)
+  })
+})

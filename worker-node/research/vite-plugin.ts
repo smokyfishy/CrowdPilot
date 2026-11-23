@@ -66,7 +66,7 @@ async function handleJobs(req: IncomingMessage, res: ServerResponse, path: strin
   }
   if (req.method === 'POST' && !id) {
     if ([...jobs.values()].some((j) => j.status === 'running')) return json(res, 409, { error: 'A research job is already running.' })
-    let b: { prompt?: unknown; songs?: unknown; minutes?: unknown; ml?: unknown; transitionNet?: unknown; spec?: unknown }
+    let b: { prompt?: unknown; songs?: unknown; minutes?: unknown; ml?: unknown; transitionNet?: unknown; spec?: unknown; style?: unknown }
     try {
       b = JSON.parse(await readBody(req))
     } catch {
@@ -82,6 +82,7 @@ async function handleJobs(req: IncomingMessage, res: ServerResponse, path: strin
     if (Number.isFinite(minutes) && minutes >= 5 && minutes <= 180) args.push('--minutes', String(Math.round(minutes)))
     if (b.ml === 'off' || b.ml === 'experimental') args.push('--ml', b.ml)
     if (b.transitionNet === true) args.push('--transitionnet')
+    if (typeof b.style === 'string' && ['smooth', 'smooth_creative', 'creative', 'energetic'].includes(b.style)) args.push('--style', b.style)
     if (b.spec && typeof b.spec === 'object') {
       // AI interpretation from the /mix page: validated again by the CLI (parseSpec).
       const specPath = join(ROOT, 'jobs', `${jobId}.spec.json`)

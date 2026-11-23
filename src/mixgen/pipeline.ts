@@ -281,7 +281,11 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       }
       return mono.get(k)!
     }
-    const allow = (s: string) => !(s === 'filter_sweep' && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal'))
+    const lively = spec.transitionStyle === 'creative' || spec.transitionStyle === 'energetic'
+    const allow = (s: string) =>
+      !(s === 'filter_sweep' && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal')) &&
+      !((s === 'loop_roll' || s === 'brake') && !lively) &&
+      !(s === 'scratch_cut' && !spec.features.includes('scratching'))
     for (const [i, tr] of plan.transitions.entries()) {
       host.progress({ stage: 'transitions', done: i, total: plan.transitions.length, detail: `DJCritic ${i + 1}/${plan.transitions.length}` })
       const a = planned[i]

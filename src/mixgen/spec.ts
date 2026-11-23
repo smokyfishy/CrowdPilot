@@ -140,7 +140,13 @@ export function resolveSpec(spec: MixSpec): ResolvedSpec {
     intensity: d('intensity', spec.intensity, DEFAULTS.intensity),
     moods: spec.moods,
     vocals: d('vocals', spec.vocals, DEFAULTS.vocals),
-    transitionStyle: d('transition_style', spec.transition_style, DEFAULTS.transitionStyle),
+    // No stated style: high-energy / drop-focused requests get energetic transitions (effects, drop
+    // swaps, loop rolls, tempo rides); everything else stays smooth.
+    transitionStyle: d(
+      'transition_style',
+      spec.transition_style,
+      spec.energy_curve === 'constant_high' || spec.energy_curve === 'festival_climax' || (spec.intensity ?? 0) >= 0.8 || spec.features.includes('drop_sections') ? 'energetic' : DEFAULTS.transitionStyle,
+    ),
     features: spec.features,
     allowReordering: d('allow_reordering', spec.allow_reordering, true),
     allowSubstitutions: d('allow_song_substitutions', spec.allow_song_substitutions, true),
@@ -261,7 +267,7 @@ export function heuristicSpec(prompt: string): MixSpec {
   let transition: TransitionStylePref | null = null
   if (/creative/.test(p) && /smooth/.test(p)) transition = 'smooth_creative'
   else if (/smooth/.test(p)) transition = 'smooth'
-  else if (/creative|effects|fx/.test(p)) transition = 'creative'
+  else if (/creative|effects|\bfx\b|like (an? |actual |real )?dj|turntabl/.test(p)) transition = 'creative'
   if (transition) explicit.push('transition_style')
   const features: MixSpec['features'] = []
   if (/drops?/.test(p)) features.push('big_drops')
