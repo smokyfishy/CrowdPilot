@@ -1,0 +1,9 @@
+{
+ "test_heldout_phase_agreement_pct": {
+  "lgbm_ctx2": 50.5,
+  "lgbm_ctx4": 49.5,
+  "lgbm_ctx8": 50.5
+ },
+ "test_tracks": 95,
+ "labels": "ircambeat (weak)"
+}

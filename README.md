@@ -2,7 +2,9 @@
 
 A shared queue for the room you're in. A host starts a room and shares a code or QR; guests search YouTube, add songs, vote and react from their phones; the host's device plays everything through YouTube's official player. Everyone sees the same queue update live.
 
-Built on [DeepSpace](https://docs.deep.space) (React + Cloudflare Workers + Durable Objects). Phase 1 is a conventional sequential player — no AI DJ features.
+Built on [DeepSpace](https://docs.deep.space) (React + Cloudflare Workers + Durable Objects).
+
+**Phase 2: AI DJ** (branch `phase2`, live at https://crowdpilot.app.space). Songs from **Audius** and **Jamendo** stream full authorized audio. The host's browser analyzes them (tempo/beat grid, downbeats, key, phrases, loudness) and mixes them with real two-deck Web Audio transitions: beat-matched blends, bass swaps, EQ and fader automation, and pitch-preserving tempo matching. YouTube songs keep playing in YouTube's embedded player, labelled **Standard playback**, because YouTube gives no audio access. See [docs/DJ_AI_ARCHITECTURE.md](docs/DJ_AI_ARCHITECTURE.md) and [docs/PROFESSIONAL_DJ_CORPUS_STATUS.md](docs/PROFESSIONAL_DJ_CORPUS_STATUS.md). No learned model is trained yet; the live DJ is the deterministic baseline.
 
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Decisions, provider limits, platform findings: [docs/DECISIONS.md](docs/DECISIONS.md)
@@ -40,6 +42,21 @@ npx deepspace secrets set GUEST_TOKEN_SECRET     # any long random string; enabl
 Run `npx deepspace secrets set --help` for the stdin form so values stay out of shell history. Without `YOUTUBE_API_KEY`, search shows a "not set up" state instead of fake results. Without `GUEST_TOKEN_SECRET`, guests must sign in.
 
 Restrict the YouTube key to the YouTube Data API v3 in Google Cloud Console.
+
+## Phase 2 commands
+
+```bash
+npx vitest run -c vitest.pure.config.ts           # 190+ unit tests incl. DSP, planner, renderer, DJ commands
+npx deepspace test run all                        # incl. real-audio DJ Lab + multi-user AI DJ E2E (needs network)
+npx deepspace secrets set JAMENDO_CLIENT_ID --stdin   # enables Jamendo search
+# DJ Lab (no room needed): /lab — audition the engine on real Audius tracks
+
+# research pipeline (Python, CPU; data in C:\crowdpilot-data, never in git)
+py -3.12 -m venv ml/.venv && ml/.venv/Scripts/python -m pip install -r ml/requirements.txt
+ml/.venv/Scripts/python -m pytest ml/tests
+ml/.venv/Scripts/python -m ml.datasets.acquire inventory     # see docs/DATA_ACQUISITION_AND_RIGHTS.md
+ml/.venv/Scripts/python -m ml.reports
+```
 
 ## Commands
 

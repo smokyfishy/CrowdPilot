@@ -1,5 +1,5 @@
 import type { CollectionSchema } from 'deepspace/schema'
-import { num, readOnly, text } from './columns'
+import { bool, json, num, readOnly, text } from './columns'
 import { C } from './names'
 
 export const queueItemsSchema: CollectionSchema = {
@@ -22,6 +22,17 @@ export const queueItemsSchema: CollectionSchema = {
     num('createdAt'),
     num('finishedAt'),
     text('failureReason', { maxLength: 200 }),
+    // ── Phase 2 (additive; empty on Phase 1 rows) ──
+    /** Authorized waveform source used for mixing instead of the requested trackKey (e.g. YouTube → Audius match). */
+    text('mixTrackKey', { maxLength: 80 }),
+    /** Match evidence: { confidence, reasons[], status: 'auto' | 'accepted' | 'rejected' }. */
+    json('mixMatch'),
+    /** Host timed slot: epoch ms the song should start. */
+    num('targetStartAt'),
+    /** Host position lock: AI reordering may not move this item. */
+    bool('locked', { default: false }),
+    /** Licence basis of the audio source: { basis, label, needsReview } (server-resolved). */
+    json('rights'),
   ],
   uniqueOn: ['enqueueSeq'],
   permissions: readOnly(true),

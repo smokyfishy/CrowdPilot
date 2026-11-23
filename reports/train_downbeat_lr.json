@@ -1,0 +1,31 @@
+{
+ "model": "DownbeatLR v1",
+ "labels": "ircambeat measure markers (algorithmic, weak)",
+ "features": [
+  "dlow",
+  "dmid",
+  "dhigh",
+  "dchroma",
+  "onlow",
+  "onhigh",
+  "low",
+  "high"
+ ],
+ "context": 2,
+ "train_tracks": 207,
+ "test_tracks": 95,
+ "results": {
+  "train": {
+   "tracks": 207,
+   "heuristic_phase_agreement_pct": 41.5,
+   "learned_phase_agreement_pct": 41.1
+  },
+  "test_heldout": {
+   "tracks": 95,
+   "heuristic_phase_agreement_pct": 42.1,
+   "learned_phase_agreement_pct": 43.2
+  }
+ },
+ "intercept": -0.04849967730542645,
+ "split": "UnmixDB sets; held-out = set275+set123 (unseen tracks)"
+}

@@ -25,8 +25,8 @@ import { APP_NAME } from './constants'
 declare const __DEEPSPACE_SITE_ORIGIN__: string | undefined
 
 export const seo = {
-  title: 'CrowdPilot · A shared queue for the room you are in',
-  description: 'Start a room, share the code, and let everyone search YouTube and add songs to one shared queue. The host keeps control of playback.',
+  title: 'CrowdPilot · AI DJ mix generator',
+  description: 'Describe the DJ set you want. CrowdPilot finds songs, analyzes every beat and renders one continuous mix with real beat-matched transitions.',
   /** Public origin for canonical URLs, og:url, and the sitemap — no trailing
    *  slash. Replace with the custom domain once one is attached, e.g.
    *  'https://www.example.com'. */

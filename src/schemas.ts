@@ -5,7 +5,9 @@
  * Single source of truth — imported by both worker and frontend.
  *
  * CrowdPilot collections are read-only to every client role; all writes go
- * through the worker's room command route (src/server/room-routes.ts).
+ * through worker routes (src/server/mixgen-routes.ts). The room collections from
+ * the retired collaborative platform stay registered only so their stored data is
+ * preserved (no destructive migration); nothing reads or writes them any more.
  */
 
 import type { CollectionSchema } from 'deepspace/schema'
@@ -20,9 +22,12 @@ import { playbackSchema } from './schemas/playback-schema'
 import { roomEventsSchema } from './schemas/room-events-schema'
 import { reactionsSchema } from './schemas/reactions-schema'
 import { commandReceiptsSchema } from './schemas/command-receipts-schema'
+import { djStateSchema } from './schemas/dj-state-schema'
+import { trackFeaturesSchema } from './schemas/track-features-schema'
+import { mixesSchema } from './schemas/mixes-schema'
 
 /** Collections that live in the app scope (`app:<APP_ID>`). */
-export const appSchemas: CollectionSchema[] = [usersSchema, settingsSchema, roomsSchema]
+export const appSchemas: CollectionSchema[] = [usersSchema, settingsSchema, roomsSchema, mixesSchema]
 
 /** Collections that live in each room's scope (`room:<roomId>`). */
 export const roomSchemas: CollectionSchema[] = [
@@ -34,6 +39,8 @@ export const roomSchemas: CollectionSchema[] = [
   roomEventsSchema,
   reactionsSchema,
   commandReceiptsSchema,
+  djStateSchema,
+  trackFeaturesSchema,
 ]
 
 /** Every RecordRoom DO registers all schemas; clients register per scope (avoids name collisions). */
@@ -49,4 +56,7 @@ export const schemas: CollectionSchema[] = [
   roomEventsSchema,
   reactionsSchema,
   commandReceiptsSchema,
+  djStateSchema,
+  trackFeaturesSchema,
+  mixesSchema,
 ]

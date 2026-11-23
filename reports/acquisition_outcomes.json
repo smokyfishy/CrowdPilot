@@ -1,0 +1,43 @@
+{
+ "bytes_downloaded": 4267574793,
+ "files_downloaded": 15,
+ "downloads_blocked_by_rights": 1,
+ "counters": {
+  "metadata_candidates": {
+   "djmix_transitions_rows": 64748,
+   "edm_cue_tracks": 4811,
+   "mixotic_playlist_entries_in_6_sets": 86
+  },
+  "audio_mixes_present_human": 6,
+  "source_masters_present_full": 3,
+  "source_excerpts_present_unmixdb": 258,
+  "triplet_complete_human": 1,
+  "rights_reviewed_for_training": 0,
+  "alignment_verified_human": 0,
+  "human_dj_triplets_trainable": 0,
+  "synthetic_triplets_registered": 3480,
+  "genuine_telemetry_sessions": 0,
+  "synthetic_control_samples": 0
+ },
+ "rights_summary": {
+  "professional_dj_performance": {
+   "metadata_candidates": null,
+   "triplets_registered": 0,
+   "audio_complete": 0,
+   "alignment_verified": 0,
+   "human_dj_triplets_trainable": 0
+  },
+  "synthetic_reference_unmixdb": {
+   "triplets_registered": 3480,
+   "audio_complete": 2976,
+   "alignment_verified": 28,
+   "trainable": 0,
+   "status_counts": {
+    "RIGHTS_REVIEW": 3480
+   }
+  }
+ },
+ "assets_with_rights_records": 1921,
+ "assets_approved_waveform_analyze": 1920,
+ "assets_approved_train_model": 0
+}

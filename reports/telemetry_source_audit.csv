@@ -1,0 +1,5 @@
+source,query_or_url,finding,human_performed,controls_logged,audio_synced,usable_as_gold
+web search,dataset DJ performance controller MIDI logs crossfader EQ fader movements recorded with audio research,"no dataset found; only device MIDI maps (Pioneer DDJ-SB), NIME 2018 system (9 informal users), a patent",n/a,n/a,n/a,no
+web search,DJ dataset mixer parameters fader EQ ground truth human DJ sessions recorded Mixxx/Traktor/rekordbox ISMIR,"UnmixDB (synthetic placement only), Kim et al. DAFx 2022 (estimated fader/EQ, not logged), differentiable DJ mixer (generative)",no,estimated only,n/a,no
+DJ Mix Dataset (HF),https://huggingface.co/datasets/djmix/transitions,alignment statistics per transition; no controller logs,yes (mixes),none,no,no
+CrowdPilot Mixxx capture kit,ml/capture/,implemented + tested with simulated events; awaiting a consenting human session,pending,effective mixer state (≈125 controls),clock-fit QC,pending consent

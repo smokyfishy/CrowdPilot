@@ -1,4 +1,6 @@
 import { fileURLToPath } from 'node:url'
+import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import generouted from '@generouted/react-router/plugin'
@@ -6,11 +8,33 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import checker from 'vite-plugin-checker'
 import { deepspaceBuild } from 'deepspace/build'
 import { prerender } from './prerender.ts'
+import { researchViewer } from './worker-node/research/vite-plugin.ts'
 
 const appDir = fileURLToPath(new URL('.', import.meta.url))
 
+/**
+ * Copies ONNX Runtime Web's WebGPU+WASM runtime into public/ort/ (gitignored) so the analysis
+ * worker can load it from the app's own origin (the package does not export its .wasm files).
+ */
+function copyOrtRuntime(): void {
+  // Runs once at config load (before Vite's watcher starts; avoids EBUSY races on Windows).
+  const src = join(appDir, 'node_modules', 'onnxruntime-web', 'dist')
+  const dst = join(appDir, 'public', 'ort')
+  mkdirSync(dst, { recursive: true })
+  // The loader is copied as .js: some static hosts serve .mjs as application/octet-stream,
+  // which browsers refuse to execute as a module.
+  for (const [f, name] of [['ort-wasm-simd-threaded.jsep.wasm', 'ort-wasm-simd-threaded.jsep.wasm'], ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.js']]) {
+    const to = join(dst, name)
+    if (!existsSync(to) || statSync(to).size !== statSync(join(src, f)).size) copyFileSync(join(src, f), to)
+  }
+}
+copyOrtRuntime()
+
 export default defineConfig({
+  server: { watch: { ignored: ['**/public/ort/**', '**/public/models/**'] } },
   plugins: [
+    // Dev-only (apply: 'serve'), localhost-only research viewer data route; absent from builds.
+    researchViewer(),
     react(),
     generouted(),
     // The Cloudflare plugin otherwise searches for a free inspector port by
