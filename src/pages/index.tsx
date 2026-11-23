@@ -2,7 +2,8 @@
  * Landing page — static (no DeepSpace providers), prerendered at build.
  * Keep it renderable without a browser: no window/document during render.
  */
-import { Link } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Seo } from '../components/Seo'
 import { Logo } from '../components/brand/Logo'
 import { seo } from '../seo'
@@ -47,6 +48,15 @@ function WaveArt() {
 }
 
 export default function Landing() {
+  const navigate = useNavigate()
+  const [code, setCode] = useState('')
+  const cleaned = code.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6)
+
+  function join(e: FormEvent) {
+    e.preventDefault()
+    if (cleaned.length === 6) navigate(`/join/${cleaned}`)
+  }
+
   return (
     <>
       <Seo {...seo} path="/" />
@@ -79,6 +89,32 @@ export default function Landing() {
               <a href="#how" className="inline-flex h-12 items-center rounded-full border border-input px-6 text-[0.95rem] font-semibold text-foreground transition-colors hover:bg-accent">
                 How it works
               </a>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link to="/home" className="text-sm font-semibold text-foreground hover:text-primary">Your rooms</Link>
+              <form onSubmit={join} className="flex items-center gap-2">
+                <label htmlFor="landing-code" className="sr-only">
+                  Room code
+                </label>
+                <input
+                  id="landing-code"
+                  value={cleaned}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Room code"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  inputMode="text"
+                  className="h-12 w-[12.5ch] rounded-full border border-input bg-card px-4 text-[0.95rem] font-semibold tracking-[0.14em] text-foreground placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={cleaned.length !== 6}
+                  className="h-12 rounded-full border border-input px-5 text-[0.95rem] font-semibold text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  Join
+                </button>
+              </form>
             </div>
           </div>
           <WaveArt />

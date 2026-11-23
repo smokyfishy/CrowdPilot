@@ -87,5 +87,7 @@ export default defineConfig({
     // ai, which import deepspace/worker — are not dragged into the client optimizer.
     // Dev-only; `vite build` ignores optimizeDeps.
     entries: ['./index.html', './src/pages/**/*.tsx'],
+    // Worker imports are outside the page scan. Prebundle before a mix starts.
+    include: ['onnxruntime-web/webgpu'],
   },
 })

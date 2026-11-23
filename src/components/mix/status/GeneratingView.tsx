@@ -1,38 +1,14 @@
 /**
- * The active-generation screen: mix title + compact facts, a loading visualization whose lit
- * portion IS the real overall progress, the active stage and one status line, a four-stage
+ * The active-generation screen: mix title + compact facts, a record platter, the active stage and overall progress, a four-stage
  * stepper, honest tab-dependence copy, and progressively disclosed details.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Check, Info } from 'lucide-react'
 import type { SelectionRow } from '@/mixgen/browser/job'
 import { PHASES, summarizeProgress, type Pass, type StageEvents } from '../generation-progress'
+import { GenerationPlatter } from '../generate/GenerationPlatter'
 import { SelectedTracks } from './SelectedTracks'
 import { TechnicalDetails } from './TechnicalDetails'
-
-const BARS = 40
-/** Deterministic bar shapes so the treatment looks like an equalizer, not noise. */
-const SHAPE = Array.from({ length: BARS }, (_, i) => 0.35 + 0.65 * Math.abs(Math.sin(i * 1.7) * Math.cos(i * 0.45)))
-
-/** Abstract equalizer loading treatment (not audio data). Bars left of the real progress are lit. */
-function Equalizer({ progress, active }: { progress: number; active: boolean }) {
-  const lit = Math.round(progress * BARS)
-  return (
-    <div aria-hidden className="flex h-16 items-end justify-center gap-[3px] sm:h-20 sm:gap-1">
-      {SHAPE.map((h, i) => (
-        <span
-          key={i}
-          className={`w-1 origin-bottom rounded-full transition-colors duration-700 sm:w-1.5 ${i < lit ? 'bg-primary' : 'bg-foreground/15'}`}
-          style={{
-            height: `${Math.round(h * 100)}%`,
-            animation: active ? `eq-bar ${1.1 + (i % 5) * 0.17}s ease-in-out ${(i % 7) * -0.13}s infinite` : undefined,
-            transform: active ? undefined : 'scaleY(0.3)',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
 
 function Stepper({ phase, done }: { phase: number; done: boolean }) {
   return (
@@ -118,7 +94,7 @@ export function GeneratingView({ title, facts, prompt, editPrompt, events, stage
       </header>
 
       <div className="grid gap-6 rounded-2xl border border-border bg-gradient-to-b from-card to-card/40 px-5 py-7 sm:px-8">
-        <Equalizer progress={overall} active={running || resuming} />
+        <GenerationPlatter active={!notice && (running || resuming)} artwork={selection.find((row) => row.selected && row.position === 1)?.artwork} />
 
         <div className="grid gap-3">
           <div className="flex items-baseline justify-between gap-4">
