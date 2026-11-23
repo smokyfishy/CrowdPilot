@@ -105,6 +105,21 @@ export default function MixCreate() {
     }
   }
 
+  /** Dev only: hand the AI-interpreted request to local research mode (YouTube via yt-dlp). */
+  async function startResearch() {
+    if (!spec) return
+    setBusy(true)
+    try {
+      const r = await fetch('/__research/jobs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt, spec }) })
+      const b = (await r.json()) as { id?: string; error?: string }
+      if (!r.ok || !b.id) throw new Error(b.error ?? `failed (${r.status})`)
+      navigate('/research')
+    } catch (err) {
+      error('Could not start local research mode', (err as Error).message)
+      setBusy(false)
+    }
+  }
+
   async function start() {
     if (!spec) return
     setBusy(true)
@@ -198,9 +213,20 @@ export default function MixCreate() {
           <p className="text-xs text-muted-foreground">
             Audio comes only from sources whose licences allow mixing (currently Jamendo's Creative Commons catalog). Requested artists that are only on YouTube or commercial services are listed as unavailable rather than downloaded.
           </p>
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" onClick={start} loading={busy} data-testid="mix-start">Find tracks and build the mix</Button>
+            {import.meta.env.DEV && (
+              <Button size="lg" variant="outline" onClick={startResearch} loading={busy} data-testid="mix-start-research">
+                Generate locally with YouTube audio
+              </Button>
+            )}
           </div>
+          {import.meta.env.DEV && (
+            <p className="text-xs text-amber-300/90">
+              Local research mode (this machine only, not for distribution): downloads the requested songs from public YouTube videos with yt-dlp and renders the mix
+              locally. The live site never does this.
+            </p>
+          )}
         </section>
       )}
 

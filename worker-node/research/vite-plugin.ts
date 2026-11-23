@@ -8,7 +8,7 @@
  * The plugin does not exist in production builds; the deployed Worker answers 404 for /__research/*.
  */
 import { spawn } from 'node:child_process'
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
@@ -66,7 +66,7 @@ async function handleJobs(req: IncomingMessage, res: ServerResponse, path: strin
   }
   if (req.method === 'POST' && !id) {
     if ([...jobs.values()].some((j) => j.status === 'running')) return json(res, 409, { error: 'A research job is already running.' })
-    let b: { prompt?: unknown; songs?: unknown; minutes?: unknown; ml?: unknown; transitionNet?: unknown }
+    let b: { prompt?: unknown; songs?: unknown; minutes?: unknown; ml?: unknown; transitionNet?: unknown; spec?: unknown }
     try {
       b = JSON.parse(await readBody(req))
     } catch {
@@ -82,6 +82,13 @@ async function handleJobs(req: IncomingMessage, res: ServerResponse, path: strin
     if (Number.isFinite(minutes) && minutes >= 5 && minutes <= 180) args.push('--minutes', String(Math.round(minutes)))
     if (b.ml === 'off' || b.ml === 'experimental') args.push('--ml', b.ml)
     if (b.transitionNet === true) args.push('--transitionnet')
+    if (b.spec && typeof b.spec === 'object') {
+      // AI interpretation from the /mix page: validated again by the CLI (parseSpec).
+      const specPath = join(ROOT, 'jobs', `${jobId}.spec.json`)
+      mkdirSync(join(ROOT, 'jobs'), { recursive: true })
+      writeFileSync(specPath, JSON.stringify(b.spec))
+      args.push('--spec', specPath)
+    }
     const job: LocalJob = { id: jobId, prompt, status: 'running', lines: [], startedAt: Date.now() }
     jobs.set(jobId, job)
     const child = spawn(process.execPath, args, { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })

@@ -4,11 +4,12 @@
  */
 import { heuristicSpec, INTERPRET_SYSTEM, extractJson, parseSpec, type MixSpec } from '../../src/mixgen/spec'
 import { researchYouTubeEnabled } from '../mixgen/research'
+import { readFileSync } from 'node:fs'
 import { runResearch } from './run'
 import type { MlOptions } from '../../src/mixgen/ml'
 
 function args(argv: string[]) {
-  const out: { prompt?: string; songs?: number; minutes?: number; job?: string; ml: Partial<MlOptions> } = { ml: {} }
+  const out: { prompt?: string; songs?: number; minutes?: number; job?: string; specFile?: string; ml: Partial<MlOptions> } = { ml: {} }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--songs') out.songs = Number(argv[++i])
@@ -18,6 +19,7 @@ function args(argv: string[]) {
     else if (a === '--no-mixgraph') out.ml.mixgraph = false
     else if (a === '--no-transitionnet') out.ml.transitionNet = false
     else if (a === '--transitionnet') out.ml.transitionNet = true
+    else if (a === '--spec') out.specFile = argv[++i]
     else if (a === '--no-critic') out.ml.critic = false
     else if (a === '--no-ml-ordering') out.ml.ordering = false
     else if (!a.startsWith('--')) out.prompt = out.prompt ? `${out.prompt} ${a}` : a
@@ -53,7 +55,10 @@ export async function cli(argv = process.argv.slice(2)): Promise<void> {
     console.error('usage: npm run mixgen -- "<prompt>" [--songs N] [--minutes M] [--job id]')
     process.exit(2)
   }
-  const { spec, source } = await interpret(a.prompt)
+  // An interpretation made elsewhere (e.g. the AI interpreter on the local /mix page) takes precedence.
+  const { spec, source } = a.specFile
+    ? { spec: parseSpec(JSON.parse(readFileSync(a.specFile, 'utf8'))), source: 'AI interpreter (from /mix)' }
+    : await interpret(a.prompt)
   if (a.songs) (spec.song_count = Math.max(2, Math.min(30, a.songs))), spec.explicit.push('song_count')
   if (a.minutes) (spec.target_duration_minutes = Math.max(5, Math.min(180, a.minutes))), spec.explicit.push('target_duration_minutes')
   const jobId = a.job ?? `research-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`

@@ -116,7 +116,9 @@ export interface Preselection {
 export function preselect(spec: ResolvedSpec, pool: TrackCandidate[], mixable: (c: TrackCandidate) => boolean, spares = 0.5): Preselection {
   const pop = popularityPercentiles(pool)
   const all = pool.filter((c) => !isExcluded(spec, c) && (!isContinuousMix(c) || spec.songs.some((s) => matchesSongRequest(s, c)))).map((c) => scoreCandidate(spec, c, pop.get(c.trackKey) ?? 0.5))
-  const ranked = all.filter((s) => mixable(s.candidate)).sort((a, b) => b.score - a.score)
+  // Exact song list without substitutions: only the requested recordings are eligible.
+  const exactSongs = !spec.allowSubstitutions && spec.songs.length > 0
+  const ranked = all.filter((s) => mixable(s.candidate) && (!exactSongs || s.requestedSong)).sort((a, b) => b.score - a.score)
   const unavailable: Unavailability[] = []
   const searched = [...new Set(pool.map((c) => c.source))]
   for (const a of spec.artists) {

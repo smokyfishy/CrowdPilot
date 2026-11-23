@@ -244,3 +244,19 @@ describe('full-mix renderer on synthetic tracks (mechanics only, not a quality c
     expect(alignLag(x.slice(3000, 5000), [x], 3010, 40).lag).toBe(-10)
   })
 })
+
+describe('song-list prompts', () => {
+  it('parses an exact list of "Title by Artist" requests', () => {
+    const s = heuristicSpec('Create a high energy mix, specifically mixing the beatdrops/middle of the songs of I Need You by TWOFACED, Closure by D.O.D, Love somebody by cutback!, and Play Hard by David Guetta.')
+    expect(s.songs.map((x) => [x.title, x.artist])).toEqual([['I Need You', 'TWOFACED'], ['Closure', 'D.O.D'], ['Love somebody', 'cutback!'], ['Play Hard', 'David Guetta']])
+    expect(s.allow_song_substitutions).toBe(false)
+    expect(s.energy_curve).toBe('constant_high')
+    expect(s.features).toEqual(expect.arrayContaining(['big_drops', 'drop_sections']))
+    expect(resolveSpec(s).songCount).toBe(4)
+  })
+  it('keeps "of" inside real titles and ignores non-song "by" phrases', () => {
+    const s = heuristicSpec('Mix these songs: Edge of Seventeen by Stevie Nicks and Titanium by David Guetta')
+    expect(s.songs.map((x) => x.title)).toEqual(['Edge of Seventeen', 'Titanium'])
+    expect(heuristicSpec('A mix inspired by 90s rave').songs).toEqual([])
+  })
+})

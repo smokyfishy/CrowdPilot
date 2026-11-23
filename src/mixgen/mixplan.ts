@@ -103,6 +103,12 @@ function stylePreference(style: TransitionStyle, spec: ResolvedSpec, pos: number
   }
   const f = spec.features
   if (f.includes('big_drops') && style === 'drop_swap') c -= 0.7
+  // Drop-focused sets ("mix the drops / middle of the songs"): build into each next drop.
+  if (f.includes('drop_sections')) {
+    if (style === 'drop_swap') c -= 2.0
+    else if (style === 'loop_roll' || style === 'short_fade' || style === 'bass_swap') c -= 0.4
+    else if (style === 'long_blend' || style === 'percussion_led') c += 0.6
+  }
   if (f.includes('festival_closer') && pos === n - 2 && style === 'drop_swap') c -= 1.2
   if (f.includes('long_blends') && style === 'long_blend') c -= 0.6
   if (f.includes('filter_fx') && style === 'filter_sweep') c -= 0.7
