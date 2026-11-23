@@ -4,6 +4,7 @@
  * transition with deck stems → objective measurements. WAVs per transition for listening.
  *   MIXGEN_REPORT=C:/crowdpilot-data/mixgen/renders/research/research-techhouse-4.report.json \
  *   npx vitest run -c vitest.eval.config.ts evaluation/mixgen.ablation.eval.ts
+ * MIXGEN_ABLATION_VARIANTS optionally selects comma-separated variant names.
  * Metrics are objective proxies; the critic score is reported but is partly circular for variants
  * that use the critic. Listening (the WAVs) is the real test.
  */
@@ -36,9 +37,9 @@ const VARIANTS: Array<{ name: string; ml: Partial<MlOptions>; crossfade?: boolea
   { name: 'rules+techniques', ml: { mode: 'off' }, techniques: true },
   { name: 'mixgraph', ml: { transitionNet: false, critic: false } },
   { name: 'mixgraph+critic', ml: { transitionNet: false } },
-  { name: 'all', ml: {} },
-  { name: 'all+techniques', ml: {}, techniques: true },
-  { name: 'transitionnet-only', ml: { mixgraph: false, ordering: false, critic: false } },
+  { name: 'all', ml: { transitionNet: true } },
+  { name: 'all+techniques', ml: { transitionNet: true }, techniques: true },
+  { name: 'transitionnet-only', ml: { mixgraph: false, ordering: false, critic: false, transitionNet: true } },
 ]
 
 it('ML ablation on real recordings', async () => {
@@ -68,7 +69,10 @@ it('ML ablation on real recordings', async () => {
   const bn = await nodeBeatNet()
   const referee = (await nodeMlRuntime(process.cwd())).models.critic! // scores every variant identically (circular for critic variants)
   const results: Array<Record<string, unknown>> = []
-  for (const v of VARIANTS) {
+  const requested = process.env.MIXGEN_ABLATION_VARIANTS?.split(',').map((name) => name.trim())
+  const variants = requested ? VARIANTS.filter((variant) => requested.includes(variant.name)) : VARIANTS
+  if (requested && variants.length !== new Set(requested).size) throw new Error('Unknown ablation variant')
+  for (const v of variants) {
     const ml = await nodeMlRuntime(process.cwd(), v.ml)
     const summaries = new Map(entries.map((e) => [e.key, e.summary]))
     const sev = ml.on.ordering ? pairSeverity(ml, [...summaries.keys()], summaries, (sa, sb) => candidateTransitions(pt(sa, 'a'), pt(sb, 'b'), DEFAULT_OPTIONS)) : new Map<string, number>()
