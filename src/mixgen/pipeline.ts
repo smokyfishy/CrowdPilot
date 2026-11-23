@@ -278,7 +278,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
         if (r) {
           stemInfo.set(k, r.info)
           stemLoad.set(k, r.load)
-          if (!r.info.clean) log(`stems: ${e.candidate.title} failed the separation check (bass bleed ${r.info.bleed}); no layering on this track`)
+          if (!r.info.clean) log(`stems: ${e.candidate.title} failed the separation check (bass bleed ${r.info.bleed}${r.info.residualDb !== undefined ? `, reconstruction residual ${r.info.residualDb} dB` : ''}); no layering on this track`)
         }
       } catch (err) {
         log(`stems: ${e.candidate.title}: ${(err as Error).message}`)
@@ -304,7 +304,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     }
     // Preview audio for the closed loop: 16 kHz mono, small LRU (browser memory).
     const mono = new Map<string, Float32Array>()
-    const stems16 = new Map<string, { vocals: Float32Array; inst: Float32Array }>()
+    const stems16 = new Map<string, { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }>()
     const audio = async (k: string) => {
       const hit = mono.get(k)
       if (hit) {
@@ -324,7 +324,11 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       let hit = stems16.get(k)
       if (!hit) {
         const st = await load()
-        hit = { vocals: monoAt(st.vocals, 44100, PREVIEW_RATE), inst: monoAt(st.inst, 44100, PREVIEW_RATE) }
+        hit = {
+          vocals: monoAt(st.vocals, 44100, PREVIEW_RATE),
+          inst: monoAt(st.inst, 44100, PREVIEW_RATE),
+          ...(st.drums && st.bass && st.other ? { drums: monoAt(st.drums, 44100, PREVIEW_RATE), bass: monoAt(st.bass, 44100, PREVIEW_RATE), other: monoAt(st.other, 44100, PREVIEW_RATE) } : {}),
+        }
         stems16.set(k, hit)
         if (stems16.size > 4) stems16.delete(stems16.keys().next().value!)
       }
@@ -352,12 +356,18 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     proTrace = res.trace
     if (ml) {
       ml.trace.decisions.push(...proDjDecisions(res.trace))
-      // honesty: the global planner never executes TransitionNet v1 trajectories
-      const tn = ml.trace.models.find((x) => x.name === 'transitionnet')
-      if (tn?.used) {
-        tn.used = false
-        ml.trace.fallbacks.push('TransitionNet v1 (short-blend trajectories) not used: long-form transitions come from the staged performance generator' + (host.propose ? ' with TransitionNet v2 proposals' : ' (rule solver)'))
+      // honesty: a model is "used" only if it actually produced candidates that were rendered and measured
+      const mu = res.trace.closedLoop?.modelUse
+      const mark = (name: string, used: boolean, why: string) => {
+        const m = ml.trace.models.find((x) => x.name === name)
+        if (!m) return
+        if (m.used && !used) ml.trace.fallbacks.push(`${name} loaded but produced no rendered candidate in this mix (${why})`)
+        m.used = m.loaded && used
       }
+      mark('transitionnet', (mu?.transitionnetV1.rendered ?? 0) > 0, 'no short beat-matched template needed a variant')
+      mark('transitionnet_v2', (mu?.transitionnetV2.rendered ?? 0) > 0, 'no long-form window reached the closed loop')
+      mark('mixgraph_human_cue', (mu?.humanCue.rendered ?? 0) > 0, 'no pair offered a distinct human-prior slot')
+      if (mu) ml.trace.counts = { ...ml.trace.counts, transitionnet_v2_proposals: mu.transitionnetV2.proposals, transitionnet_v2_rendered: mu.transitionnetV2.rendered, transitionnet_v2_in_final_mix: mu.transitionnetV2.final, transitionnet_v1_variants: mu.transitionnetV1.variants, transitionnet_v1_rendered: mu.transitionnetV1.rendered, transitionnet_v1_in_final_mix: mu.transitionnetV1.final, human_cue_candidates: mu.humanCue.candidates, human_cue_rendered: mu.humanCue.rendered, human_cue_in_final_mix: mu.humanCue.final, critic_scored_previews: mu.critic.scored }
     }
     host.progress({ stage: 'ordering', done: 1, total: 1, detail: `global plan: ${order.length} tracks${res.trace.closedLoop ? `, ${res.trace.closedLoop.previews} rendered previews, ${res.trace.closedLoop.rounds} round(s)` : ''}` })
     host.progress({ stage: 'transitions', done: plan.transitions.length, total: Math.max(1, plan.transitions.length), detail: plan.transitions.map((t) => (t.plan.performance ? `${t.plan.overlapBars}-bar ${t.plan.performance.strategy}` : t.plan.style)).join(', ') })

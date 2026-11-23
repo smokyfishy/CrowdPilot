@@ -19,7 +19,7 @@ import { buildPerformance, feasibleStrategies, longformEligible } from './longfo
 import { closedLoop, type ClosedLoopMemory, type ClosedLoopResult, type PreviewAudioHost, type Proposal } from './closedloop'
 import { orderSet, type OrderTrack } from './select'
 import { rankCandidatesWith, validPlan, type MlDecision, type MlRuntime } from './ml'
-import { criticFromMix, mixgraphRank } from '../ml/dj-brain'
+import { applyTransitionNet, criticFromMix, mixgraphRank, transitionNetPredict } from '../ml/dj-brain'
 import { longformFeatures, transitionNetV2Predict } from '../ml/transitionnet-v2'
 import type { StemInfo } from './techniques'
 import type { ResolvedSpec } from './spec'
@@ -149,7 +149,32 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
       const criticOn = !!(ml?.on.critic && ml.models.critic)
       components.push({ name: 'Closed-loop audio evaluation', kind: 'measurement', used: true, note: 'explicit signal metrics on rendered previews (production renderer); conservative thresholds, not human taste' })
       components.push({ name: 'DJCritic (LightGBM)', kind: 'trained', used: criticOn, note: criticOn ? 'capped term in the preview score; trained on synthetic objective severity; unpromoted' : 'not loaded' })
+      const tnV1On = !!(ml?.on.transitionNet && ml.models.transitionNet)
+      const humanOn = !!(ml?.models.mixgraph && (ml.on.mixgraph || ml.on.ordering))
+      components.push({ name: 'TransitionNet v1 (MLP trajectories)', kind: 'trained', used: tnV1On, note: tnV1On ? 'adds a learned-trajectory variant to short beat-matched templates; rendered and measured against the template (it raised bass doubling in the earlier ablation, so it never bypasses the loop)' : 'not loaded / off' })
+      components.push({ name: 'MixGraph human cue prior (LightGBM)', kind: 'trained', used: humanOn, note: humanOn ? 'proposes the most human-DJ-like cue/overlap slot per pair as an extra closed-loop candidate (not a cost term: as a cost term it hurt held-out severity)' : 'not loaded' })
       loop = await closedLoop(tracks, spec, setOpts, input.audio, {
+        tnV1: tnV1On
+          ? (p, a, b) => {
+              if (p.overlapBars < 4 || p.overlapBars > 32 || (p as TransitionPlan & { tech?: unknown }).tech) return null
+              try {
+                const next = applyTransitionNet(p, transitionNetPredict(ml!.models.transitionNet!, a.summary, b.summary, p))
+                if (next === p || !validPlan(next)) return null
+                return { ...next, mlSource: 'transitionnet' } as TransitionPlan
+              } catch {
+                return null
+              }
+            }
+          : undefined,
+        humanPick: humanOn
+          ? (list, a, b) => {
+              const cands = list.filter((e) => e.plan.overlapBars <= 32 && e.plan.style !== 'staged_blend').slice(0, 24)
+              if (cands.length < 2) return null
+              const ranked = mixgraphRank(cands.map((e) => e.plan), a.summary, b.summary, ml!.models.mixgraph!)
+              const best = ranked.reduce((m, r) => (r.humanLogit > m.humanLogit ? r : m), ranked[0])
+              return cands.find((e) => e.plan === best.plan) ?? null
+            }
+          : undefined,
         budget: input.budget,
         rounds: input.rounds,
         critic: criticOn ? (p, mix, rate, t0, t1) => criticFromMix(ml!.models.critic!, p, mix, rate, t0, t1) : undefined,

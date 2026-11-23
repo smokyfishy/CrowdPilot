@@ -50,14 +50,16 @@ export interface MlOptions {
 export const ML_DEFAULTS: MlOptions = {
   mode: 'experimental',
   mixgraph: true,
-  transitionNet: false,
+  // global planner: TransitionNet v1 only adds closed-loop variants that are rendered and measured
+  transitionNet: true,
   critic: true,
   ordering: true,
   alpha: 4,
   beta: 0,
   orderWeight: 4,
   criticAlternatives: 4,
-  transitionNetV2: false,
+  // TransitionNet v2 proposes long-form strategy/parameters; the closed loop renders it against rule alternatives
+  transitionNetV2: true,
 }
 
 export interface MlModelInfo {

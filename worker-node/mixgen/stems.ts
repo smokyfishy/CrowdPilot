@@ -121,12 +121,28 @@ export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis,
   // reconstruction check: the stems must sum back to the original (large residual = separation artifacts)
   let residualDb: number | undefined
   if (st && extra?.mix) {
+    // Different decoders add different start delays (encoder priming), so align before comparing:
+    // find the lag (±50 ms) that best matches stems-sum to the mix on a 20 s excerpt, then measure.
     const mix = extra.mix[0]
+    const sum = (i: number) => (st.vocals[0][i] ?? 0) + (st.inst[0][i] ?? 0)
     const n = Math.min(mix.length, st.vocals[0].length, st.inst[0].length)
+    const c0 = Math.min(Math.max(0, Math.floor(n / 3)), Math.max(0, n - 20 * rate))
+    const c1 = Math.min(n, c0 + 20 * rate)
+    let bestLag = 0
+    let best = -Infinity
+    const maxLag = Math.round(0.05 * rate)
+    for (let lag = -maxLag; lag <= maxLag; lag++) {
+      let c = 0
+      for (let i = c0; i < c1; i += 8) c += mix[i] * sum(i + lag)
+      if (c > best) {
+        best = c
+        bestLag = lag
+      }
+    }
     let e = 0
     let m = 0
-    for (let i = 0; i < n; i += 4) {
-      const d = mix[i] - st.vocals[0][i] - st.inst[0][i]
+    for (let i = Math.max(0, -bestLag); i < n - Math.max(0, bestLag); i += 4) {
+      const d = mix[i] - sum(i + bestLag)
       e += d * d
       m += mix[i] * mix[i]
     }

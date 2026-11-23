@@ -20,6 +20,13 @@
   "version": "20261122",
   "bytes": 1509663
  },
+ "transitionnet_v2": {
+  "file": "transitionnet_v2.json",
+  "sha256": "68813c157b8cd6ef3429519068c508ba3b77199ca6c20bba22495204c16880ae",
+  "promoted": false,
+  "version": "20261123",
+  "bytes": 101006
+ },
  "critic_quality": {
   "file": "critic_quality.json",
   "sha256": "33761ddc0d4e82345a2da1db7f6c28035cf13ef4e845556058ca32c41e54d283",

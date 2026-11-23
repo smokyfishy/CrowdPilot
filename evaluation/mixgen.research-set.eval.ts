@@ -19,6 +19,7 @@ import { makeAnalyzer } from '../worker-node/mixgen/host'
 import { nodeMlRuntime } from '../worker-node/mixgen/ml-runtime'
 import { RESEARCH_COMMENT, researchYouTubeEnabled } from '../worker-node/mixgen/research'
 import { dir, readIndex } from '../worker-node/mixgen/storage'
+import { loadStems, separate, stemInfo } from '../worker-node/mixgen/stems'
 
 const setFile = process.env.RESEARCH_SET
 it.skipIf(!setFile)('research mix from cached recordings with the professional DJ planner', async () => {
@@ -52,6 +53,14 @@ it.skipIf(!setFile)('research mix from cached recordings with the professional D
     sink: { write: (b) => enc.write(b) },
     ml: await nodeMlRuntime(process.cwd()),
     previewBudget: 200,
+    // Demucs htdemucs 4-stem separation (local worker), with the separation-quality gate
+    stems: process.env.RESEARCH_STEMS === '0' ? undefined : async (audio, analysis) => {
+      const path = index[audio.trackKey].path
+      const files = await separate(path, audio.sha256)
+      const st = await loadStems(files)
+      const mix = await decodePcm(path, 44100)
+      return { info: stemInfo(st.vocals, 44100, analysis, { stems: st, mix: mix.channels }), load: () => loadStems(files) }
+    },
     log: (m) => process.stderr.write(`  ${m}\n`),
     progress: (e) => process.stderr.write(`${e.stage} ${e.done}/${e.total} ${e.detail ?? ''}\n`),
   }, { title: set.prompt })
@@ -68,4 +77,6 @@ it.skipIf(!setFile)('research mix from cached recordings with the professional D
   writeFileSync(join(dir('renders', 'research'), `${set.job}.report.json`), JSON.stringify({ jobId: set.job, mode: 'research', prompt: set.prompt, specSource: 'hand-picked cached set', spec: resolved, durationSec: res.manifest.durationSec, validation: res.validation, songs, unavailable: [], notice: RESEARCH_COMMENT }, null, 1))
   process.stderr.write(`RESEARCH SET ${set.job}: ${(res.manifest.durationSec / 60).toFixed(1)} min, validation ${res.validation.ok ? 'passed' : res.validation.failures.join('; ')}\n`)
   for (const t of res.manifest.transitions) process.stderr.write(`  ${t.index + 1}. ${t.label} ${t.overlapBars} bars\n`)
+  process.stderr.write(`MODELS ${JSON.stringify(res.manifest.ml?.models.map((m) => ({ name: m.name, loaded: m.loaded, used: m.used })))}\n`)
+  process.stderr.write(`MODEL USE ${JSON.stringify(res.manifest.prodj?.closedLoop?.modelUse)}\n`)
 }, 3_600_000)

@@ -31,8 +31,8 @@ export const PREVIEW_RATE = 16000
 export interface PreviewAudioHost {
   /** Whole-track mono audio at PREVIEW_RATE. */
   audio(key: string): Promise<Float32Array>
-  /** Mono vocal / instrumental stems at PREVIEW_RATE (local worker only). */
-  stems?(key: string): Promise<{ vocals: Float32Array; inst: Float32Array } | null>
+  /** Mono stems at PREVIEW_RATE (local worker only): vocals + instrumental, plus drums/bass/other for 4-stem separations. */
+  stems?(key: string): Promise<{ vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array } | null>
 }
 
 export interface Proposal {
@@ -59,6 +59,10 @@ export interface ClosedLoopOptions {
   critic?: (plan: TransitionPlan, mix: Float32Array, rate: number, t0: number, t1: number) => { quality: number; artifact: number } | null
   /** TransitionNet v2 proposal for a long-form window, or null when unavailable. */
   propose?: (ctx: { a: SetTrack; b: SetTrack; base: TransitionPlan }) => Proposal | null
+  /** TransitionNet v1: learned fader/EQ/filter trajectories for a short beat-matched template (validated), or null. */
+  tnV1?: (p: TransitionPlan, a: SetTrack, b: SetTrack) => TransitionPlan | null
+  /** MixGraph human cue prior: the pair's candidate with the most human-like cue/overlap, or null. */
+  humanPick?: (list: Edge[], a: SetTrack, b: SetTrack) => Edge | null
   stems?: Map<string, StemInfo>
   log?: (m: string) => void
   progress?: (done: number, total: number, detail: string) => void
@@ -90,7 +94,7 @@ export interface EvaluatedCandidate {
   components: Record<string, number>
   overlapBars: number
   strategy?: string
-  source: 'rules' | 'transitionnet-v2' | 'legacy'
+  source: 'rules' | 'transitionnet-v2' | 'transitionnet-v1' | 'legacy'
   round: number
   refined: boolean
   critic?: { quality: number; artifact: number }
@@ -105,6 +109,8 @@ export interface ClosedLoopResult {
   chosen: Array<{ pair: string; sig: string; score?: number; hardFail?: boolean; label: string; metrics?: QualityResult['metrics']; components?: Record<string, number> }>
   replans: Array<{ round: number; order: string[]; cost: number; poorPairs: string[] }>
   notes: string[]
+  /** Per learned model: candidates it produced that were rendered and measured, and how many ended in the final set. */
+  modelUse: { transitionnetV2: { proposals: number; rendered: number; final: number }; transitionnetV1: { variants: number; rendered: number; final: number }; humanCue: { candidates: number; rendered: number; final: number }; critic: { scored: number } }
 }
 
 interface Measured {
@@ -116,7 +122,7 @@ interface Measured {
 }
 
 const labelOf = (p: TransitionPlan) =>
-  p.performance ? `${p.overlapBars}-bar ${p.performance.strategy}${p.performance.source === 'transitionnet-v2' ? ' (TN v2)' : ''}` : `${p.overlapBars}-bar ${p.style}${(p as TechniquePlan).tech ? ` + ${(p as TechniquePlan).tech!.technique}` : ''}`
+  p.performance ? `${p.overlapBars}-bar ${p.performance.strategy}${p.performance.source === 'transitionnet-v2' ? ' (TN v2)' : ''}` : `${p.overlapBars}-bar ${p.style}${(p as TechniquePlan).tech ? ` + ${(p as TechniquePlan).tech!.technique}` : ''}${(p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet' ? ' (TN v1)' : ''}`
 
 /** Renders a candidate preview with the production renderer (stems/deck edits/reverb applied like renderMix). */
 export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTrack, host: PreviewAudioHost) {
@@ -129,9 +135,10 @@ export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTra
   let Bd = [await host.audio(b.key)]
   if (tech?.stems && host.stems) {
     const [sa, sb] = [await host.stems(a.key), await host.stems(b.key)]
+    const arr = (x: { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }) => ({ vocals: [x.vocals], inst: [x.inst], ...(x.drums && x.bass && x.other ? { drums: [x.drums], bass: [x.bass], other: [x.other] } : {}) })
     if (sa && sb) {
-      A = routeStems(A, { vocals: [sa.vocals], inst: [sa.inst] }, rate, plan.outCueSec - 0.1, plan.outCueSec + plan.durationSec + 0.1, (t) => (t - plan.outCueSec) / plan.beatSec, tech.stems.out)
-      Bd = routeStems(Bd, { vocals: [sb.vocals], inst: [sb.inst] }, rate, plan.inCueSec - 0.1, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1, (t) => (t - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
+      A = routeStems(A, arr(sa), rate, plan.outCueSec - 0.1, plan.outCueSec + plan.durationSec + 0.1, (t) => (t - plan.outCueSec) / plan.beatSec, tech.stems.out)
+      Bd = routeStems(Bd, arr(sb), rate, plan.inCueSec - 0.1, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1, (t) => (t - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
     }
   }
   if (tech?.deckEdits?.out?.length) A = applyDeckEdits(A, rate, tech.deckEdits.out)
@@ -208,6 +215,10 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   const replans: ClosedLoopResult['replans'] = []
   const notes: string[] = []
   let previews = 0
+  const modelUse: ClosedLoopResult['modelUse'] = { transitionnetV2: { proposals: 0, rendered: 0, final: 0 }, transitionnetV1: { variants: 0, rendered: 0, final: 0 }, humanCue: { candidates: 0, rendered: 0, final: 0 }, critic: { scored: 0 } }
+  const humanSigs = new Set<string>()
+  const isV1 = (p: TransitionPlan) => (p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet'
+  const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
   const ctlKey = (p: TransitionPlan) => JSON.stringify([edgeSig(p.fromItemId, p.toItemId, p), p.style, p.out, p.in, p.filter, p.echo, p.echoIn, p.crossfader, p.outLoop, p.outPerf, (p as TechniquePlan).tech?.stems, (p as TechniquePlan).tech?.deckEdits])
 
   const evaluate = async (p: TransitionPlan, a: SetTrack, b: SetTrack): Promise<QualityResult | null> => {
@@ -222,6 +233,10 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     await new Promise((res) => setTimeout(res, 0))
     const r = await renderPreview(p, a, b, host)
     const critic = opts.critic?.(p, r.mix, r.rate, r.t0, r.t1) ?? undefined
+    if (critic) modelUse.critic.scored++
+    if (isV2(p)) modelUse.transitionnetV2.rendered++
+    if (isV1(p)) modelUse.transitionnetV1.rendered++
+    if (humanSigs.has(edgeSig(p.fromItemId, p.toItemId, p))) modelUse.humanCue.rendered++
     const q = evaluateTransition(r, { plan: p, pa: a.profile, pb: b.profile, beatsA: a.netBeats, beatsB: b.netBeats, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }, critic })
     cache.set(k, q)
     return q
@@ -247,12 +262,21 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   /** All performance variants of one candidate slot. */
   const variantsOf = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => {
     const p = e.plan
-    if (!longformEligible(p)) return [p]
+    if (!longformEligible(p)) {
+      const out = [p]
+      const v1 = opts.tnV1?.(p, a, b)
+      if (v1) {
+        modelUse.transitionnetV1.variants++
+        out.push(v1)
+      }
+      return out
+    }
     const compat = e.compat ?? overlapCompat(a.profile, b.profile, p.outCueSec, p.inCueSec, p.overlapBars)
     const dropAtEnd = p.incomingDropSec !== undefined
     const stems = { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }
     const out: TransitionPlan[] = []
     const proposal = opts.propose?.({ a, b, base: p })
+    if (proposal) modelUse.transitionnetV2.proposals++
     if (proposal) {
       out.push(buildPerformance({ base: p, pa: a.profile, pb: b.profile, strategy: proposal.strategy, params: proposal.params, stems, source: 'transitionnet-v2', compat }))
       // the cue head may also propose moving the incoming cue by a phrase (a separate slot, rendered too)
@@ -280,6 +304,13 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     }
     const shortAlt = list.find((x) => !longformEligible(x.plan) && !has(x))
     if (shortAlt && picks.length < M + 1) picks.push(shortAlt)
+    // MixGraph's human cue prior proposes the most DJ-like cue/overlap slot of this pair (rendered and measured like any other)
+    const human = opts.humanPick?.(list, a, b)
+    if (human) {
+      modelUse.humanCue.candidates++
+      humanSigs.add(human.sig)
+      if (!has(human)) picks.push(human)
+    }
     let best: { q: QualityResult; plan: TransitionPlan; edge: Edge } | null = null
     for (const cand of picks) {
       let candBest: { q: QualityResult; plan: TransitionPlan } | null = null
@@ -287,7 +318,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
         const q = await evaluate(v, a, b)
         if (!q) continue
         scores.push(q.score)
-        evaluated.push({ pair: pairLabel, sig: cand.sig, label: labelOf(v), score: round3(q.score), hardFail: q.hardFail, failures: q.failures, components: roundAll(q.components), overlapBars: v.overlapBars, strategy: v.performance?.strategy, source: v.performance ? v.performance.source : 'legacy', round, refined: false, critic: q.critic })
+        evaluated.push({ pair: pairLabel, sig: cand.sig, label: labelOf(v), score: round3(q.score), hardFail: q.hardFail, failures: q.failures, components: roundAll(q.components), overlapBars: v.overlapBars, strategy: v.performance?.strategy, source: v.performance ? v.performance.source : isV1(v) ? 'transitionnet-v1' : 'legacy', round, refined: false, critic: q.critic })
         if (!candBest || rank(q) < rank(candBest.q)) candBest = { q, plan: v }
       }
       if (!candBest) continue
@@ -432,7 +463,12 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     const m = measured.get(e.sig)
     return { pair: `${e.plan.fromItemId}|${e.plan.toItemId}`, sig: e.sig, score: m ? round3(m.q.score) : undefined, hardFail: m?.q.hardFail, label: labelOf(e.plan), metrics: m?.q.metrics, components: m ? roundAll(m.q.components) : undefined }
   })
-  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes }
+  for (const e of final.edges) {
+    if (isV2(e.plan)) modelUse.transitionnetV2.final++
+    if (isV1(e.plan)) modelUse.transitionnetV1.final++
+    if (humanSigs.has(e.sig)) modelUse.humanCue.final++
+  }
+  return { set: final, rounds: round + 1, previews, evaluated, chosen, replans, notes, modelUse }
 }
 
 /** Hard failures always rank below clean candidates; then lower score wins. Length earns nothing. */

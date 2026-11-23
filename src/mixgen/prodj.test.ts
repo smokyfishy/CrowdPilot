@@ -291,4 +291,19 @@ describe('global set planning + closed loop on synthetic recordings', () => {
     expect(r.chosen.some((c) => c.score !== undefined)).toBe(true)
     expect(r.replans.length).toBeGreaterThanOrEqual(1)
   }, 120_000)
+  it('every learned model hook produces candidates that are rendered, measured and counted', async () => {
+    const mono = new Map(set.map((t, i) => [t.key, monoAt(tracks[i].t.channels, RATE, PREVIEW_RATE)]))
+    const r = await closedLoop(set, spec, { count: 3 }, { audio: async (k) => mono.get(k)! }, {
+      budget: 40, rounds: 1, candidatesPerEdge: 3, strategiesPerCandidate: 1, refinements: 0,
+      propose: () => ({ strategy: 'layered_blend', params: { headroom: 0.7 }, source: 'transitionnet-v2' }),
+      tnV1: (p) => ({ ...p, out: { ...p.out, high: [{ beat: 0, value: -3 }, { beat: 4, value: -3 }] }, mlSource: 'transitionnet' }) as TransitionPlan,
+      humanPick: (list) => list[list.length - 1] ?? null,
+      critic: () => ({ quality: 0.3, artifact: 0.1 }),
+    })
+    expect(r.modelUse.transitionnetV2.proposals).toBeGreaterThan(0)
+    expect(r.modelUse.transitionnetV2.rendered).toBeGreaterThan(0)
+    expect(r.modelUse.humanCue.candidates).toBeGreaterThan(0)
+    expect(r.modelUse.critic.scored).toBe(r.previews)
+    expect(r.evaluated.some((e) => e.source === 'transitionnet-v2')).toBe(true)
+  }, 120_000)
 })
