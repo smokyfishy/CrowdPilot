@@ -14,7 +14,7 @@
  *    including the tempo-recovery ramp after beat-matched blends).
  */
 import type { AnalysisSummary } from '../dsp/analyze'
-import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
+import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, tempoMatch, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
 import { energyDirection } from './energy'
 import { refineWithLocalBeats } from '../dj/phase'
 import { beatmatchable } from '../dj/transitions'
@@ -68,6 +68,10 @@ export interface MixPlan {
 }
 
 const MIN_SOLO_BARS = 8
+
+function abruptHandoff(plan: TransitionPlan): boolean {
+  return plan.style === 'cut' || SLAM.has(plan.style)
+}
 
 function stylePreference(style: TransitionStyle, spec: ResolvedSpec, pos: number, n: number): number {
   const creative = new Set<TransitionStyle>(['filter_sweep', 'drop_swap', 'echo_out', 'loop_roll'])
@@ -291,7 +295,21 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       const t = (p as TechniquePlan).tech?.technique
       return t && recentTech[0] === t ? 0.8 : t && recentTech.slice(0, 3).includes(t) ? 0.3 : 0
     }
-    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) }))
+    // On a smooth creative brief, an abrupt handoff needs a musical payoff
+    // when the grids support a blend at a similar tempo.
+    const blendFeasibility = beatmatchable(sa) && beatmatchable(sb)
+      ? Math.max(0, 1 - Math.abs(tempoMatch(sa.bpm, sb.bpm).ratio - 1) / 0.05)
+      : 0
+    const scored = raw.map((p) => {
+      const abruptCost = spec.transitionStyle === 'smooth_creative' && abruptHandoff(p)
+        ? (p.incomingDropSec === undefined ? 2 * blendFeasibility : 0.35)
+        : 0
+      return {
+        p,
+        c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b)
+          + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) + abruptCost,
+      }
+    })
     scored.sort((x, y) => x.c - y.c)
     // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
     // region, so the duration DP can choose earlier exits / later entries even when they cost a
@@ -311,6 +329,14 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       region.add(r)
       push(p, c)
       if (keep.length >= Math.ceil(K * 0.6)) break
+    }
+    // Keep a choice of continuity and creative accents for the set-level search.
+    if (spec.transitionStyle === 'smooth_creative') {
+      for (const abrupt of [false, true]) {
+        if (keep.some((p) => abruptHandoff(p) === abrupt) || keep.length >= K) continue
+        const best = scored.find(({ p }) => abruptHandoff(p) === abrupt)
+        if (best) push(best.p, best.c)
+      }
     }
     for (const { p, c } of scored) {
       if (keep.length >= K) break
@@ -358,7 +384,11 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
         const entryNext = p.inCueSec + inTrackSpan(p)
         const bucket = Math.round(dur / BUCKET)
         const key = `${cIdx}|${bucket}`
-        const cost = pc.cell.cost + p.costs.total
+        const prior = i > 0 ? options[i - 1][pc.choice] : undefined
+        const consecutiveAccents = spec.transitionStyle === 'smooth_creative'
+          && prior && abruptHandoff(prior) && abruptHandoff(p)
+        const accentCost = consecutiveAccents ? (prior.style === p.style ? 2.5 : 1.5) : 0
+        const cost = pc.cell.cost + p.costs.total + accentCost
         const ex = next.get(key)
         if (!ex || cost < ex.cell.cost) {
           next.set(key, { choice: cIdx, cell: { cost, dur, back: pIdx, choice: cIdx }, entry: entryNext, mixEntry: dur, recTrack: rec.track, recMix: rec.mix })
