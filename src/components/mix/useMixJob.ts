@@ -48,6 +48,17 @@ const ELSEWHERE_MS = 90_000
 
 export type JobView = 'generating' | 'elsewhere' | 'review' | 'failed' | 'ready'
 
+/**
+ * Set once the page is being torn down (reload, close, external navigation). The tab's
+ * in-flight requests are then aborted; those errors are the unload, not a failed mix, so
+ * they must not be written to the record (the reopened page resumes instead).
+ */
+let unloading = false
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => (unloading = true))
+  window.addEventListener('pageshow', () => (unloading = false))
+}
+
 const flag = (k: string) => {
   try {
     return sessionStorage.getItem(k)
@@ -140,6 +151,7 @@ export function useMixJob(mixId: string, rec: { recordId: string; data: MixData 
         l.manifest = m
         l.job.dispose()
       } catch (e) {
+        if (unloading) return
         l.error = (e as Error).message || 'Unknown error'
         await l.job.patch({ status: 'failed', error: l.error.slice(0, 1000) }).catch(() => undefined)
       }

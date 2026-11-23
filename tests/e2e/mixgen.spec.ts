@@ -1,6 +1,6 @@
 /**
  * Browser end-to-end: prompt → LLM interpretation → discovery → policy-checked audio
- * acquisition → in-browser analysis (Beat This!) → selection review → render worker →
+ * acquisition → in-browser analysis (Beat This!) → render worker (no review step) →
  * private upload → player (waveform from the render, playback, seeking, track navigation,
  * transition inspection). Uses REAL providers and audio; long-running by design.
  *   DEEPSPACE_PORT=5192 npx playwright test -c tests/playwright.config.ts tests/e2e/mixgen.spec.ts
@@ -19,21 +19,45 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   const logs: string[] = []
   page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && logs.push(`${m.type()}: ${m.text()}`))
   await page.goto('/mix')
+  await expect(page.getByRole('heading', { name: 'Create your mix' })).toBeVisible()
+  await page.screenshot({ path: 'test-results/mix-create.png', fullPage: true })
   await page.getByTestId('mix-prompt').fill(PROMPT)
-  await page.getByTestId('mix-interpret').click()
-  const interp = page.getByTestId('mix-interpretation')
-  await expect(interp).toBeVisible({ timeout: 90_000 })
-  await expect(interp.getByLabel('Songs')).toHaveValue('12')
-  await expect(interp.getByLabel('Minutes')).toHaveValue('40')
-  await page.getByTestId('mix-start').click()
-  await page.waitForURL(/\/mix\/[0-9a-f-]{36}$/, { timeout: 30_000 })
-  await expect(page.getByTestId('mix-progress')).toBeVisible()
+  await page.getByTestId('mix-generate').click()
+  await page.waitForURL(/\/mix\/[0-9a-f-]{36}$/, { timeout: 120_000 })
 
-  // Review step: real selection with acquisition status.
-  const sel = page.getByTestId('mix-selection')
-  await expect(sel).toBeVisible({ timeout: 30 * 60_000 })
-  await expect(sel.locator('li')).toHaveCount(12)
-  await page.getByTestId('mix-render').click()
+  // One compact progress component driven by real stage events.
+  const gen = page.getByTestId('mix-generating')
+  await expect(gen).toBeVisible()
+  await expect(gen.getByRole('heading', { level: 1 })).not.toBeEmpty()
+  await expect(gen.getByRole('progressbar', { name: 'Overall progress' })).toBeVisible()
+  await expect(gen.getByRole('list', { name: 'Generation stages' }).locator('li')).toHaveCount(4)
+  await expect(page.getByTestId('mix-status')).not.toBeEmpty()
+  // The raw 11-stage list is only in the collapsed technical details.
+  await expect(page.getByTestId('mix-progress')).toBeHidden()
+  await expect(page.getByText(/\d+ \/ \d+/).filter({ visible: true })).toHaveCount(0)
+  const pct = () => gen.getByRole('progressbar').getAttribute('aria-valuenow').then(Number)
+  await expect.poll(pct, { timeout: 10 * 60_000 }).toBeGreaterThan(10)
+  await page.screenshot({ path: 'test-results/mix-generating.png', fullPage: true })
+
+  // Reload mid-run: the same job resumes (no duplicate), progress is restored.
+  const url = page.url()
+  page.once('dialog', (d) => void d.accept())
+  await page.reload()
+  expect(page.url()).toBe(url)
+  await expect(page.getByTestId('mix-generating')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByTestId('mix-elsewhere')).toHaveCount(0)
+
+  // Navigate away inside the app and come back: the in-tab job keeps running.
+  await page.getByRole('link', { name: 'Your mixes' }).click()
+  await expect(page.getByTestId('recent-mixes')).toContainText('In progress')
+  await page.goBack() // in-app history: no reload, the job keeps running in this tab
+  await expect(page.getByTestId('mix-generating')).toBeVisible()
+
+  // Real selection appears once the tracks are chosen.
+  await expect(page.getByTestId('mix-selection').locator('li')).not.toHaveCount(0, { timeout: 30 * 60_000 })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: 'test-results/mix-generating-mobile.png', fullPage: true })
+  await page.setViewportSize({ width: 1280, height: 900 })
 
   // Player: waveform canvas, tracklist, timeline.
   await expect(page.getByTestId('mix-play')).toBeVisible({ timeout: 20 * 60_000 })
