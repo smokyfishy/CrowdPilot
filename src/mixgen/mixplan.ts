@@ -17,6 +17,8 @@ import type { AnalysisSummary } from '../dsp/analyze'
 import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
 import { energyDirection } from './energy'
 import { refineWithLocalBeats } from '../dj/phase'
+import { beatmatchable } from '../dj/transitions'
+import { genrePreference, techniqueCandidates, type StemInfo, type TechniquePlan } from './techniques'
 import type { ResolvedSpec } from './spec'
 
 export interface PlannedTrack {
@@ -220,6 +222,8 @@ export interface PlanMixOptions {
    * applied. The returned order and `costs.total` feed the duration DP. Must be pure and fast.
    */
   rankCandidates?: (cands: TransitionPlan[], a: AnalysisSummary, b: AnalysisSummary, pairIndex: number) => TransitionPlan[]
+  /** Advanced techniques (src/mixgen/techniques.ts); stems enable layering/mashups when present. */
+  techniques?: { enabled: boolean; stems?: Map<string, StemInfo> }
 }
 
 export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMixOptions = {}): MixPlan {
@@ -259,7 +263,12 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
         raw[k] = plan
       }
     }
-    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) }))
+    if (opts.techniques?.enabled) {
+      raw.push(
+        ...techniqueCandidates(raw, { spec, a: sa, b: sb, stemsA: opts.techniques.stems?.get(a.key), stemsB: opts.techniques.stems?.get(b.key), gridA: beatmatchable(sa), gridB: beatmatchable(sb), maxTempo: ride }),
+      )
+    }
+    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) }))
     scored.sort((x, y) => x.c - y.c)
     // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
     // region, so the duration DP can choose earlier exits / later entries even when they cost a
@@ -267,7 +276,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     const keep: TransitionPlan[] = []
     const sig = new Set<string>()
     const push = (p: TransitionPlan, c: number) => {
-      const k = `${p.style}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
+      const k = `${p.style}|${(p as TechniquePlan).tech?.technique ?? ''}|${p.outCueSec.toFixed(1)}|${p.inCueSec.toFixed(1)}|${p.overlapBars}`
       if (sig.has(k)) return
       sig.add(k)
       keep.push({ ...p, ruleCost: p.costs.total, costs: { ...p.costs, total: c } } as TransitionPlan)

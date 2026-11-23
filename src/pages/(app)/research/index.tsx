@@ -26,6 +26,7 @@ export default function ResearchHome() {
   const [ml, setMl] = useState<'default' | 'off' | 'experimental'>('default')
   const [tn, setTn] = useState(false)
   const [style, setStyle] = useState('')
+  const [stems, setStems] = useState<'' | 'on' | 'off'>('')
   const [active, setActive] = useState<Job | null>(null)
   const [past, setPast] = useState<string[]>([])
   const [err, setErr] = useState<string | null>(null)
@@ -63,7 +64,7 @@ export default function ResearchHome() {
     const r = await fetch('/__research/jobs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, songs: songs ? Number(songs) : undefined, minutes: minutes ? Number(minutes) : undefined, ml, transitionNet: tn, style: style || undefined }),
+      body: JSON.stringify({ prompt, songs: songs ? Number(songs) : undefined, minutes: minutes ? Number(minutes) : undefined, ml, transitionNet: tn, style: style || undefined, stems: stems === '' ? undefined : stems === 'on' }),
     })
     const b = (await r.json()) as { id?: string; error?: string }
     if (!r.ok || !b.id) return setErr(b.error ?? `failed (${r.status})`)
@@ -100,6 +101,13 @@ export default function ResearchHome() {
               <option value="default">Default (MixGraph + DJCritic)</option>
               <option value="off">Off (rules only)</option>
               <option value="experimental">Experimental</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted-foreground">Stem layering
+            <select className={field} value={stems} onChange={(e) => setStems(e.target.value as typeof stems)}>
+              <option value="">Auto (≤ 8 songs)</option>
+              <option value="on">On (slower)</option>
+              <option value="off">Off</option>
             </select>
           </label>
           <label className="flex h-10 items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={tn} onChange={(e) => setTn(e.target.checked)} /> TransitionNet</label>

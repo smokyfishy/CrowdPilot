@@ -12,6 +12,7 @@ import type { ResolvedSpec } from './spec'
 import type { Unavailability } from './types'
 import type { ValidationReport } from './validate'
 import type { MlTrace, ScoredPlan } from './ml'
+import type { TechniquePlan } from './techniques'
 
 export const MANIFEST_VERSION = 1
 
@@ -57,6 +58,8 @@ export interface ManifestTransition {
   fromTitle: string
   toTitle: string
   style: TransitionStyle
+  /** Advanced technique executed on top of the base style (rule-selected; see techniques.ts). */
+  technique?: { name: string; rationale: string[]; confidence: number }
   label: string
   mixStartSec: number
   mixEndSec: number
@@ -73,6 +76,8 @@ export interface ManifestTransition {
     out: { gain: ManifestCurve; low: ManifestCurve; mid: ManifestCurve; high: ManifestCurve; filter?: ManifestCurve }
     in: { gain: ManifestCurve; low: ManifestCurve; mid: ManifestCurve; high: ManifestCurve; filter?: ManifestCurve }
     echoSend?: ManifestCurve
+    stems?: { outVocals: ManifestCurve; outInst: ManifestCurve; inVocals: ManifestCurve; inInst: ManifestCurve }
+    reverbSend?: ManifestCurve
   }
   effects: Array<{ kind: string; startSec: number; endSec: number; detail: string }>
   reasons: string[]
@@ -200,6 +205,14 @@ export function buildManifest(input: {
     const sb = summarize(b.analysis)
     const effects: ManifestTransition['effects'] = []
     const t0 = rt?.mixStartSec ?? tt.mixStartSec
+    const tech = (p as TechniquePlan).tech
+    if (tech?.stems) effects.push({ kind: 'stems', startSec: t0, endSec: t0 + p.durationSec, detail: 'stem routing (vocals / instrumental) with gain automation' })
+    for (const e of [...(tech?.deckEdits?.out ?? []), ...(tech?.deckEdits?.in ?? [])]) {
+      const s0 = t0 + (e.startSec - (tech?.deckEdits?.out?.includes(e) ? p.outCueSec : p.inCueSec)) / (tech?.deckEdits?.out?.includes(e) ? 1 : p.tempoRatio)
+      const detail = e.kind === 'stabs' ? `sample stabs at ${e.intervals.join('→')}-beat intervals` : e.kind === 'juggle' ? `beat juggle, pattern ${e.pattern.join('')} (copy ${e.offsetBeats} beats back)` : `tone play ${e.semitones.map((x) => (x >= 0 ? '+' : '') + x).join(' ')} semitones`
+      effects.push({ kind: e.kind, startSec: s0, endSec: s0 + e.beats * e.beatSec, detail })
+    }
+    if (tech?.reverb) effects.push({ kind: 'reverb', startSec: t0, endSec: t0 + p.durationSec + tech.reverb.decaySec, detail: `reverb wash, decay ${tech.reverb.decaySec}s` })
     if (p.filter?.out || p.filter?.in) effects.push({ kind: 'filter', startSec: t0, endSec: t0 + p.durationSec, detail: 'bipolar DJ filter sweep' })
     if (p.echo) effects.push({ kind: 'echo', startSec: t0, endSec: t0 + p.durationSec + p.echo.delayBeats * p.beatSec * 6, detail: `echo ${p.echo.delayBeats} beat(s), feedback ${p.echo.feedback}` })
     if (p.outPerf) {
@@ -217,7 +230,8 @@ export function buildManifest(input: {
       fromTitle: `${a.candidate.artist} – ${a.candidate.title}`,
       toTitle: `${b.candidate.artist} – ${b.candidate.title}`,
       style: p.style,
-      label: STYLE_LABEL[p.style],
+      label: tech ? tech.label : STYLE_LABEL[p.style],
+      technique: tech ? { name: tech.technique, rationale: tech.rationale, confidence: Math.round(tech.confidence * 100) / 100 } : undefined,
       mixStartSec: t0,
       mixEndSec: rt?.mixEndSec ?? tt.mixEndSec,
       overlapBars: p.overlapBars,
@@ -240,6 +254,8 @@ export function buildManifest(input: {
         out: { gain: curveSec(p.out.gain, p.beatSec)!, low: curveSec(p.out.low, p.beatSec)!, mid: curveSec(p.out.mid, p.beatSec)!, high: curveSec(p.out.high, p.beatSec)!, filter: curveSec(p.filter?.out, p.beatSec) },
         in: { gain: curveSec(p.in.gain, p.beatSec)!, low: curveSec(p.in.low, p.beatSec)!, mid: curveSec(p.in.mid, p.beatSec)!, high: curveSec(p.in.high, p.beatSec)!, filter: curveSec(p.filter?.in, p.beatSec) },
         echoSend: curveSec(p.echo?.send, p.beatSec),
+        stems: tech?.stems ? { outVocals: curveSec(tech.stems.out.vocals, p.beatSec)!, outInst: curveSec(tech.stems.out.inst, p.beatSec)!, inVocals: curveSec(tech.stems.in.vocals, p.beatSec)!, inInst: curveSec(tech.stems.in.inst, p.beatSec)! } : undefined,
+        reverbSend: curveSec(tech?.reverb?.send, p.beatSec),
       },
       effects,
       reasons: p.reasons,

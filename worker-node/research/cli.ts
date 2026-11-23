@@ -9,7 +9,7 @@ import { runResearch } from './run'
 import type { MlOptions } from '../../src/mixgen/ml'
 
 function args(argv: string[]) {
-  const out: { prompt?: string; songs?: number; minutes?: number; job?: string; specFile?: string; style?: string; ml: Partial<MlOptions> } = { ml: {} }
+  const out: { prompt?: string; songs?: number; minutes?: number; job?: string; specFile?: string; style?: string; stems?: boolean; ml: Partial<MlOptions> } = { ml: {} }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--songs') out.songs = Number(argv[++i])
@@ -21,6 +21,8 @@ function args(argv: string[]) {
     else if (a === '--transitionnet') out.ml.transitionNet = true
     else if (a === '--spec') out.specFile = argv[++i]
     else if (a === '--style') out.style = argv[++i]
+    else if (a === '--stems') out.stems = true
+    else if (a === '--no-stems') out.stems = false
     else if (a === '--no-critic') out.ml.critic = false
     else if (a === '--no-ml-ordering') out.ml.ordering = false
     else if (!a.startsWith('--')) out.prompt = out.prompt ? `${out.prompt} ${a}` : a
@@ -67,7 +69,7 @@ export async function cli(argv = process.argv.slice(2)): Promise<void> {
   console.log(`\nCrowdPilot RESEARCH MODE (local only, not for distribution) — job ${jobId}`)
   console.log(`interpretation: ${source}\n${JSON.stringify(spec)}\n`)
   const t0 = Date.now()
-  const r = await runResearch(spec, { jobId, repoRoot: process.cwd(), prompt: a.prompt, specSource: source, ml: a.ml, onProgress: (e) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s] ${e.stage.padEnd(12)} ${e.done}/${e.total} ${e.detail ?? ''}`) })
+  const r = await runResearch(spec, { jobId, repoRoot: process.cwd(), prompt: a.prompt, specSource: source, ml: a.ml, stems: a.stems, onProgress: (e) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s] ${e.stage.padEnd(12)} ${e.done}/${e.total} ${e.detail ?? ''}`) })
   const m = r.result.manifest
   console.log('\nAcquisition (actual results):')
   for (const s of r.songs) {

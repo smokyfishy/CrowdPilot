@@ -22,7 +22,8 @@ function Curve({ c, color, db, total, label }: { c?: ManifestCurve; color: strin
 export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransition; onClose: () => void; onSeek: (s: number) => void }) {
   const total = Math.max(t.overlapSec, ...t.curves.out.gain.t, ...t.curves.in.gain.t, 0.5)
   const rows: Array<[string, string]> = [
-    ['Technique', t.label],
+    ['Technique', t.label + (t.technique ? ` — chosen by rules from the analysis (no trained model for this technique); confidence ${t.technique.confidence}` : '')],
+    ...(t.technique ? ([['Why', t.technique.rationale.join('; ')]] as Array<[string, string]>) : []),
     ['Starts at', `${fmtTime(t.mixStartSec)} (mix)`],
     ['Overlap', `${t.overlapBars} bars · ${t.overlapSec.toFixed(1)} s`],
     ['Outgoing cue', `${t.outCueSec.toFixed(2)} s into the outgoing track`],
@@ -66,6 +67,9 @@ export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransit
           <Curve c={t.curves.out.high} color="#8a87b8" db total={total} label="High EQ (dB)" />
           <Curve c={t.curves.out.filter} color="#b5654a" total={total} label="Filter knob (−1 LP … +1 HP)" />
           <Curve c={t.curves.echoSend} color="#c2a35a" total={total} label="Echo send" />
+          <Curve c={t.curves.reverbSend} color="#9fb4c7" total={total} label="Reverb send" />
+          <Curve c={t.curves.stems?.outVocals} color="#e8a3c0" total={total} label="Vocal stem (gain)" />
+          <Curve c={t.curves.stems?.outInst} color="#a3c0e8" total={total} label="Instrumental stem (gain)" />
         </div>
         <div className="grid gap-2">
           <p className="text-sm font-medium text-foreground">Incoming deck</p>
@@ -74,6 +78,8 @@ export function TransitionInspector({ t, onClose, onSeek }: { t: ManifestTransit
           <Curve c={t.curves.in.mid} color="#7f9c8a" db total={total} label="Mid EQ (dB)" />
           <Curve c={t.curves.in.high} color="#8a87b8" db total={total} label="High EQ (dB)" />
           <Curve c={t.curves.in.filter} color="#b5654a" total={total} label="Filter knob (−1 LP … +1 HP)" />
+          <Curve c={t.curves.stems?.inVocals} color="#e8a3c0" total={total} label="Vocal stem (gain)" />
+          <Curve c={t.curves.stems?.inInst} color="#a3c0e8" total={total} label="Instrumental stem (gain)" />
         </div>
       </div>
       {t.effects.length > 0 && (

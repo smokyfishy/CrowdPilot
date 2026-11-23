@@ -14,8 +14,10 @@ import { discover, relevant, type DiscoveryProvider } from './discovery'
 import { orderSet, preselect, type OrderTrack, type ScoredCandidate } from './select'
 import { planMix, type MixPlan, type PlannedTrack } from './mixplan'
 import { renderMix, type AudioSink, type PcmTrack, type RenderResult } from './mix-render'
-import { beatmatchable, candidateTransitions, DEFAULT_OPTIONS, type PlanTrack } from '../dj/transitions'
-import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, traceAutomation, type MlRuntime, type ScoredPlan } from './ml'
+import { beatmatchable, candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
+import { applyDeckEdits, routeStems, type StemInfo, type TechniquePlan } from './techniques'
+import { resample } from '../dsp/resample'
+import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, traceAutomation, type CriticAudio, type MlRuntime, type ScoredPlan } from './ml'
 import { buildManifest, type MixManifest } from './manifest'
 import { validateMix, type ValidationReport } from './validate'
 import { resolveSpec, type MixSpec, type ResolvedSpec } from './spec'
@@ -49,6 +51,8 @@ export interface PipelineHost {
   previous?: { pool?: TrackCandidate[]; analyses?: Map<string, AnalyzedEntry> }
   /** Learned-DJ runtime (src/mixgen/ml.ts). Absent = rules only (logged in the manifest). */
   ml?: MlRuntime
+  /** Stem separation (local worker): vocal activity + separation check, and a loader for the stems. */
+  stems?: (audio: AcquiredAudio, analysis: TrackAnalysis) => Promise<{ info: StemInfo; load: () => Promise<{ vocals: Float32Array[]; inst: Float32Array[] }> } | null>
   concurrency?: number
 }
 
@@ -269,7 +273,26 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
     const s = summarize(e.analysis)
     return { key: k, title: `${e.candidate.artist} – ${e.candidate.title}`, summary: s, trimDb: trimFor(e.analysis.loudness.integratedLufs, e.analysis.loudness.truePeakDbtp), netBeats: e.analysis.netBeats }
   })
-  const plan = planMix(planned, spec, ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {})
+  // Stems (local worker only): separated for the ordered set, used for layering/mashup techniques.
+  const stemInfo = new Map<string, StemInfo>()
+  const stemLoad = new Map<string, () => Promise<{ vocals: Float32Array[]; inst: Float32Array[] }>>()
+  if (host.stems) {
+    for (const [i, t] of planned.entries()) {
+      host.progress({ stage: 'transitions', done: i, total: planned.length, detail: `separating stems ${i + 1}/${planned.length} (vocals / instrumental)` })
+      try {
+        const e = analyses.get(t.key)!
+        const r = await host.stems(e.audio, e.analysis)
+        if (r) {
+          stemInfo.set(t.key, r.info)
+          stemLoad.set(t.key, r.load)
+          if (!r.info.clean) log(`stems: ${t.title} failed the separation check (bass bleed ${r.info.bleed}); no layering on this track`)
+        }
+      } catch (err) {
+        log(`stems: ${t.title}: ${(err as Error).message}`)
+      }
+    }
+  }
+  const plan = planMix(planned, spec, { ...(ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {}), techniques: { enabled: true, stems: stemInfo } })
   // DJCritic: choose among same-cue alternatives using rendered previews of the real audio.
   if (ml?.on.critic && plan.transitions.length) {
     const mono = new Map<string, Float32Array>()
@@ -293,7 +316,15 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       const alts = buildAlternatives(ml, tr.plan as ScoredPlan, a.summary, b.summary, allow)
       if (!alts.length) continue
       const audio = { out: await monoOf(a.key), in: await monoOf(b.key) }
-      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audio, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)
+      const tech = (tr.plan as TechniquePlan).tech
+      let audioFor: CriticAudio | ((p: TransitionPlan) => CriticAudio) = audio
+      if (tech) {
+        // a technique's preview must contain its own stem routing / deck edits
+        const [pa, pb] = [await host.decode(analyses.get(a.key)!.audio), await host.decode(analyses.get(b.key)!.audio)]
+        const [sa, sb] = tech.stems ? [await stemLoad.get(a.key)?.(), await stemLoad.get(b.key)?.()] : [undefined, undefined]
+        audioFor = (p) => ((p as TechniquePlan).tech ? techPreview(p as TechniquePlan, pa, pb, sa, sb) : audio)
+      }
+      tr.plan = criticSelect(ml, tr.plan as ScoredPlan, alts, audioFor, { out: a.trimDb, in: b.trimDb }, `${i + 1}→${i + 2}`, lively)
     }
   }
   if (ml) plan.transitions.forEach((tr, i) => traceAutomation(ml, tr.plan, `${i + 1}→${i + 2}`))
@@ -322,6 +353,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       release(key) {
         loaded.delete(key)
       },
+      loadStems: async (key) => (stemLoad.get(key) ? await stemLoad.get(key)!() : null),
     },
     host.sink,
     onRender,
@@ -336,4 +368,27 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   manifest.validation = validation
   host.progress({ stage: 'ready', done: 1, total: 1 })
   return { spec, pool: pool0, acquisition, analyses, order: ord.order, plan, render, manifest, validation, unavailable }
+}
+
+/** 16 kHz mono preview audio of a technique plan (stem routing + deck edits applied, cropped). */
+function techPreview(p: TechniquePlan, a: PcmTrack, b: PcmTrack, sa?: { vocals: Float32Array[]; inst: Float32Array[] }, sb?: { vocals: Float32Array[]; inst: Float32Array[] }): CriticAudio {
+  const tech = p.tech!
+  let outDeck = a.channels
+  let inDeck = b.channels
+  if (tech.stems && sa && sb) {
+    outDeck = routeStems(outDeck, sa, a.rate, p.outCueSec - 0.1, p.outCueSec + p.durationSec + 0.1, (t) => (t - p.outCueSec) / p.beatSec, tech.stems.out)
+    inDeck = routeStems(inDeck, sb, b.rate, p.inCueSec - 0.1, p.inCueSec + p.durationSec * p.tempoRatio + 0.1, (t) => (t - p.inCueSec) / (p.beatSec * p.tempoRatio), tech.stems.in)
+  }
+  if (tech.deckEdits?.out?.length) outDeck = applyDeckEdits(outDeck, a.rate, tech.deckEdits.out)
+  if (tech.deckEdits?.in?.length) inDeck = applyDeckEdits(inDeck, b.rate, tech.deckEdits.in)
+  const crop = (ch: Float32Array[], rate: number, s0: number, s1: number) => {
+    const i0 = Math.max(0, Math.floor(s0 * rate))
+    const i1 = Math.min(ch[0].length, Math.ceil(s1 * rate))
+    const m = new Float32Array(Math.max(0, i1 - i0))
+    for (const c of ch) for (let k = 0; k < m.length; k++) m[k] += c[i0 + k] / ch.length
+    return { mono: rate === 16000 ? m : resample(m, rate, 16000), start: i0 / rate }
+  }
+  const o = crop(outDeck, a.rate, p.outCueSec - 10, p.outCueSec + p.durationSec + 10)
+  const i = crop(inDeck, b.rate, p.inCueSec - 1, p.inCueSec + p.durationSec * Math.max(1, p.tempoRatio) + 10)
+  return { out: o.mono, in: i.mono, outStart: o.start, inStart: i.start }
 }

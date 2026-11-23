@@ -18,6 +18,15 @@
 import { renderTransition } from '../dj/render'
 import { BEATMATCHED, type TransitionPlan } from '../dj/transitions'
 import { MasterLimiter, MixAnalyzer, type MixMetrics } from './meter'
+import { applyDeckEdits, reverb, routeStems, type TechniquePlan } from './techniques'
+import type { CurvePoint } from '../dj/transitions'
+
+function curveAtBeat(c: CurvePoint[], beat: number): number {
+  if (!c.length) return 0
+  if (beat <= c[0].beat) return c[0].value
+  for (let i = 1; i < c.length; i++) if (beat <= c[i].beat) return c[i - 1].value + ((c[i].value - c[i - 1].value) * (beat - c[i - 1].beat)) / Math.max(1e-9, c[i].beat - c[i - 1].beat)
+  return c[c.length - 1].value
+}
 import type { MixPlan } from './mixplan'
 
 export interface PcmTrack {
@@ -28,6 +37,8 @@ export interface PcmTrack {
 export interface TrackLoader {
   load(key: string): Promise<PcmTrack>
   release?(key: string): void
+  /** Vocal / instrumental stems at the mix rate (local worker with a separation model), or null. */
+  loadStems?(key: string): Promise<{ vocals: Float32Array[]; inst: Float32Array[] } | null>
 }
 
 export interface AudioSink {
@@ -203,17 +214,42 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     // Render the transition with pre-roll and enough post-roll to finish the tempo recovery.
     const recSec = BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > 1e-4 ? p.tempoRecoveryBars * 4 * p.beatSec : 0
     const post = recSec + TAIL_PAD
+    // Technique controls (stems, deck edits, reverb) are executed here, around renderTransition.
+    const tech = (p as TechniquePlan).tech
+    let outDeck = stereo(cur)
+    let inDeck = stereo(next)
+    if (tech?.stems && loader.loadStems) {
+      const [so, si] = await Promise.all([loader.loadStems(tl.key), loader.loadStems(nextTl.key)])
+      if (so && si) {
+        const span = p.durationSec
+        outDeck = routeStems(outDeck, so, rate, p.outCueSec - 0.1, p.outCueSec + span + 0.1, (t) => (t - p.outCueSec) / p.beatSec, tech.stems.out)
+        inDeck = routeStems(inDeck, si, rate, p.inCueSec - 0.1, p.inCueSec + span * p.tempoRatio + 0.1, (t) => (t - p.inCueSec) / (p.beatSec * p.tempoRatio), tech.stems.in)
+      }
+    }
+    if (tech?.deckEdits?.out?.length) outDeck = applyDeckEdits(outDeck, rate, tech.deckEdits.out)
+    if (tech?.deckEdits?.in?.length) inDeck = applyDeckEdits(inDeck, rate, tech.deckEdits.in)
     const r = renderTransition({
       rate,
-      out: stereo(cur),
-      in: stereo(next),
+      out: outDeck,
+      in: inDeck,
       plan: p,
       preRollSec: PRE,
       postRollSec: post,
       outTrimDb: tl.trimDb,
       inTrimDb: nextTl.trimDb,
+      stems: !!tech?.reverb,
     })
     const rch = r.channels.length >= 2 ? r.channels : [r.channels[0], r.channels[0]]
+    if (tech?.reverb && r.stemA) {
+      // post-fader reverb send on the outgoing deck: its tail keeps ringing after the fader closes
+      const send = new Float32Array(r.stemA.length)
+      for (let k = 0; k < send.length; k++) {
+        const beat = (k - r.transitionStartSample) / rate / p.beatSec
+        send[k] = r.stemA[k] * (beat < 0 ? 0 : curveAtBeat(tech.reverb.send, beat))
+      }
+      const wet = reverb(send, rate, tech.reverb.decaySec)
+      for (const ch of rch) for (let k = 0; k < ch.length; k++) ch[k] += wet[k] * tech.reverb.wet
+    }
     const renderStartTrack = Math.round(p.outCueSec * rate) - r.transitionStartSample // outgoing sample at render offset 0
     // 1) body of the current track up to the splice-in point (+ crossfade into the render)
     const spliceIn = Math.round(SPLICE_IN * rate)

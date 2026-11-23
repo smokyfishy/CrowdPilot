@@ -19,6 +19,7 @@ import type { AnalysisSummary } from '../dsp/analyze'
 import { resample } from '../dsp/resample'
 import { automationFor, BEATMATCHED, OVERLAP_BARS, type TransitionPlan } from '../dj/transitions'
 import { CTRL_CHANNELS, type ParamVector } from '../ml/controls'
+import type { TechniquePlan } from './techniques'
 import { applyTransitionNet, criticScore, mixgraphRank, transitionNetPredict, type DjModels, type MlMode, type Registry } from '../ml/dj-brain'
 
 export interface MlOptions {
@@ -194,6 +195,7 @@ export function rankCandidatesWith(rt: MlRuntime) {
     }
     if (rt.on.transitionNet) {
       out = out.map((p) => {
+        if ((p as TechniquePlan).tech) return { ...p, mlSource: 'rules' as const } // technique automation is not TransitionNet's domain
         try {
           const pred = timed(rt, 'transitionnet', () => transitionNetPredict(rt.models.transitionNet!, a, b, p))
           const next = applyTransitionNet(p, pred)
@@ -279,9 +281,11 @@ export function pairSeverity(rt: MlRuntime, keys: string[], summaries: Map<strin
 // ───────────────────────── DJCritic selection ─────────────────────────
 
 export interface CriticAudio {
-  /** Mono 16 kHz PCM of each track (whole track). */
+  /** Mono 16 kHz PCM of each track (whole track, or a crop starting at outStart/inStart seconds). */
   out: Float32Array
   in: Float32Array
+  outStart?: number
+  inStart?: number
 }
 
 export function monoAt(channels: Float32Array[], rate: number, target = 16000): Float32Array {
@@ -303,7 +307,7 @@ export function monoAt(channels: Float32Array[], rate: number, target = 16000): 
  * clearly worse (quality more than 0.25 above the best alternative). The objective it was trained on
  * prefers the safest technique, which would otherwise flatten every creative transition.
  */
-export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: TransitionPlan[], audio: CriticAudio, trims: { out: number; in: number }, pairLabel: string, guard = false): TransitionPlan {
+export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: TransitionPlan[], audio: CriticAudio | ((p: TransitionPlan) => CriticAudio), trims: { out: number; in: number }, pairLabel: string, guard = false): TransitionPlan {
   if (!rt.on.critic) return chosen
   const pool: TransitionPlan[] = [chosen]
   for (const a of alternatives) {
@@ -318,7 +322,11 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
     return chosen
   }
   try {
-    const scores = pool.map((p) => timed(rt, 'critic', () => criticScore(rt.models.critic!, p, audio.out, 0, audio.in, 0, 16000, trims)))
+    const audioOf = typeof audio === 'function' ? audio : () => audio
+    const scores = pool.map((p) => {
+      const au = audioOf(p) // a technique's preview includes its own stem routing / deck edits
+      return timed(rt, 'critic', () => criticScore(rt.models.critic!, p, au.out, au.outStart ?? 0, au.in, au.inStart ?? 0, 16000, trims))
+    })
     bump(rt, 'critic_previews', pool.length)
     const okIdx = scores.map((s, i) => [s, i] as const).filter(([s]) => s.artifact <= 0.8)
     let choice = (okIdx.length ? okIdx : scores.map((s, i) => [s, i] as const)).reduce((b, x) => (x[0].quality < b[0].quality ? x : b))[1]
@@ -327,7 +335,7 @@ export function criticSelect(rt: MlRuntime, chosen: ScoredPlan, alternatives: Tr
       guardNote = ` — guard mode: kept the creative choice (Δquality ${(scores[0].quality - scores[choice].quality).toFixed(3)} ≤ 0.25, artifact ${scores[0].artifact.toFixed(2)} ≤ 0.5)`
       choice = 0
     }
-    const label = (p: TransitionPlan) => `${p.style}${(p as ScoredPlan).mlSource === 'transitionnet' ? ' (TransitionNet)' : ' (template)'}`
+    const label = (p: TransitionPlan) => ((p as TechniquePlan).tech ? `${(p as TechniquePlan).tech!.technique} on ${p.style}` : `${p.style}${(p as ScoredPlan).mlSource === 'transitionnet' ? ' (TransitionNet)' : ' (template)'}`)
     rt.trace.decisions.push({
       stage: 'selection',
       model: 'critic_quality+critic_artifact',
@@ -370,7 +378,8 @@ export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: Analysis
   const out: ScoredPlan[] = []
   const variant = (style: TransitionPlan['style']): ScoredPlan => {
     const auto = automationFor(style, B)
-    const v: ScoredPlan = { ...chosen, style, out: auto.out, in: auto.in, handoffBeat: auto.handoffBeat, reasons: [...chosen.reasons.filter((r) => !r.startsWith('TransitionNet')), 'DJCritic alternative'], mlSource: 'rules' }
+    const v: ScoredPlan & { tech?: unknown } = { ...chosen, style, out: auto.out, in: auto.in, handoffBeat: auto.handoffBeat, reasons: [...chosen.reasons.filter((r) => !r.startsWith('TransitionNet')), 'DJCritic alternative'], mlSource: 'rules' }
+    delete v.tech
     if (auto.filter) v.filter = auto.filter
     else delete v.filter
     if (auto.echo) v.echo = auto.echo
@@ -379,7 +388,8 @@ export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: Analysis
     else delete v.outPerf
     return v
   }
-  if (chosen.mlSource === 'transitionnet') out.push(variant(chosen.style))
+  // the plain transition is always an alternative (a technique must beat it, or a creative brief must want it)
+  if (chosen.mlSource === 'transitionnet' || (chosen as TechniquePlan).tech) out.push(variant(chosen.style))
   for (const s of fam) {
     if (s === chosen.style || !allow(s) || !OVERLAP_BARS[s].includes(chosen.overlapBars)) continue
     const v = variant(s)
