@@ -236,6 +236,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   // Candidate edges per pair (default cues ∪ shortened variants), styled and diversified.
   const options: TransitionPlan[][] = []
   const recent: TransitionStyle[] = []
+  const recentTech: string[] = []
   for (let i = 0; i < n - 1; i++) {
     const a = tracks[i]
     const b = tracks[i + 1]
@@ -268,7 +269,11 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
         ...techniqueCandidates(raw, { spec, a: sa, b: sb, stemsA: opts.techniques.stems?.get(a.key), stemsB: opts.techniques.stems?.get(b.key), gridA: beatmatchable(sa), gridB: beatmatchable(sb), maxTempo: ride }),
       )
     }
-    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) }))
+    const variety = (p: TransitionPlan) => {
+      const t = (p as TechniquePlan).tech?.technique
+      return t && recentTech[0] === t ? 0.8 : t && recentTech.slice(0, 3).includes(t) ? 0.3 : 0
+    }
+    const scored = raw.map((p) => ({ p, c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a.summary, b.summary) + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) }))
     scored.sort((x, y) => x.c - y.c)
     // Keep diverse candidates. Pass 1: the cheapest candidate for each distinct (out cue, in cue)
     // region, so the duration DP can choose earlier exits / later entries even when they cost a
@@ -295,7 +300,10 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     }
     keep.sort((x, y) => x.costs.total - y.costs.total)
     options.push(opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep)
-    if (options[i][0]) recent.unshift(options[i][0].style)
+    if (options[i][0]) {
+      recent.unshift(options[i][0].style)
+      recentTech.unshift((options[i][0] as TechniquePlan).tech?.technique ?? '')
+    }
   }
 
   // DP over pairs: state = chosen candidate of the previous pair; value tracks duration buckets.

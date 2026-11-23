@@ -382,10 +382,12 @@ export function genrePreference(style: string, technique: Technique | undefined,
     if (technique === 'double_drop') c -= 0.7
     if (style === 'short_fade' || style === 'bass_swap') c -= 0.3
   }
-  // Techniques are not free: without a lively brief, the simpler transition must win unless clearly better.
-  if (technique) c += lively ? 0.2 : 1.2
-  if (technique === 'beat_juggle' || technique === 'tone_play') c += lively ? 0.4 : 1.5
-  if (technique === 'spinback') c += spec.transitionStyle === 'creative' ? 0.2 : 1.0
+  // A creative brief asks for techniques; an energetic one tolerates them; otherwise the simpler
+  // transition must win unless a technique is clearly better (DJCritic still guards every choice).
+  const s = spec.transitionStyle
+  if (technique) c += s === 'creative' ? -0.4 : s === 'energetic' ? 0 : s === 'smooth_creative' ? 0.3 : 1.2
+  if (technique === 'beat_juggle' || technique === 'tone_play') c += s === 'creative' ? 0.2 : lively ? 0.5 : 1.5
+  if (technique === 'spinback') c += s === 'creative' ? 0 : 1.0
   return c
 }
 
