@@ -27,8 +27,8 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await page.screenshot({ path: 'test-results/mix-create.png', fullPage: true })
   await page.getByTestId('mix-prompt').fill(PROMPT)
   if (TRANSITIONNET_ONLY) {
-    await page.getByText('Advanced options', { exact: true }).click()
-    await page.getByTestId('pref-automation-model').selectOption('transitionnet-only')
+    await page.getByTestId('mix-advanced').locator('summary').click({ timeout: 15_000 })
+    await page.getByTestId('pref-automation-model').selectOption('transitionnet-only', { timeout: 15_000 })
   }
   await page.getByTestId('mix-generate').click()
   await page.waitForURL(/\/mix\/[0-9a-f-]{36}$/, { timeout: 120_000 })

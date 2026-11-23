@@ -227,6 +227,8 @@ function musicEnd(s: AnalysisSummary): number {
 }
 
 export interface PlanMixOptions {
+  /** Favor long drop-aligned blends on smooth briefs with learned automation. */
+  preferLongDropBlends?: boolean
   candidatesPerPair?: number
   planner?: Partial<PlannerOptions>
   /** Tolerance (fraction of target) with no duration penalty. */
@@ -245,6 +247,9 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
   const n = tracks.length
   const K = opts.candidatesPerPair ?? 18
   const notes: string[] = []
+  const preferLongDropBlends = opts.preferLongDropBlends
+    && (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'smooth_creative')
+  const longDropBlend = (p: TransitionPlan) => p.style === 'long_blend' && p.incomingDropSec !== undefined
   if (n === 0) return { tracks: [], transitions: [], durationSec: 0, targetDurationSec: spec.targetDurationSec, totalCost: 0, notes: ['no tracks'], candidates: [] }
   const pt = (t: PlannedTrack, s = t.summary): PlanTrack => ({ itemId: t.key, trackKey: t.key, title: t.title, mixable: true, summary: s, durationSec: s.durationSec })
 
@@ -261,7 +266,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     const popt: PlannerOptions = {
       ...DEFAULT_OPTIONS,
       maxTempoDeviation: ride,
-      preferDropLandings: spec.features.includes('big_drops') || spec.features.includes('drop_sections'),
+      preferDropLandings: !!preferLongDropBlends || spec.features.includes('big_drops') || spec.features.includes('drop_sections'),
       ...opts.planner,
       recentStyles: [...recent],
       energyDirection: energyDirection(spec.energyCurve, i, n, spec.intensity),
@@ -307,7 +312,8 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       return {
         p,
         c: p.costs.total + stylePreference(p.style, spec, i, n) + energyContinuity(p, a, b)
-          + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) + abruptCost,
+          + genrePreference(p.style, (p as TechniquePlan).tech?.technique, spec) + variety(p) + abruptCost
+          - (preferLongDropBlends && longDropBlend(p) ? 2 : 0),
       }
     })
     scored.sort((x, y) => x.c - y.c)
@@ -329,6 +335,10 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
       region.add(r)
       push(p, c)
       if (keep.length >= Math.ceil(K * 0.6)) break
+    }
+    if (preferLongDropBlends && keep.length < K && !keep.some(longDropBlend)) {
+      const drop = scored.find(({ p }) => longDropBlend(p))
+      if (drop) push(drop.p, drop.c)
     }
     // Keep a choice of continuity and creative accents for the set-level search.
     if (spec.transitionStyle === 'smooth_creative') {

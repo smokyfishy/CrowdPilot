@@ -292,7 +292,11 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       }
     }
   }
-  const plan = planMix(planned, spec, { ...(ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {}), techniques: { enabled: true, stems: stemInfo } })
+  const plan = planMix(planned, spec, {
+    ...(ml && (ml.on.mixgraph || ml.on.transitionNet) ? { rankCandidates: rankCandidatesWith(ml) } : {}),
+    preferLongDropBlends: ml?.on.transitionNet,
+    techniques: { enabled: true, stems: stemInfo },
+  })
   // DJCritic: choose among same-cue alternatives using rendered previews of the real audio.
   if (ml?.on.critic && plan.transitions.length) {
     const mono = new Map<string, Float32Array>()
