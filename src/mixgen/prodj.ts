@@ -135,6 +135,8 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
   let candidates: TransitionPlan[][] = []
   let edges: Edge[] | undefined
   let loop: ClosedLoopResult | undefined
+  let setEnd: number | undefined
+  let setStart: number | undefined
   const setOpts = {
     count,
     fixedOrder: input.fixedOrder,
@@ -194,6 +196,8 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
       if (!set) throw new Error('set planning found no feasible arrangement')
       order = set.order
       edges = set.edges
+      setEnd = set.endSec
+      setStart = set.startSec
       trace.setPlan = { explored: res.explored, pairsEvaluated: res.pairsEvaluated, candidates: res.sets.map((s) => ({ order: s.order, cost: r3(s.cost) })), parts: roundParts(set.parts) }
       candidates = order.slice(0, -1).map((k, i) => (res.edgeLists.get(`${k}|${order[i + 1]}`) ?? []).slice(0, 12).map((e) => e.plan))
     }
@@ -226,7 +230,9 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
     const t = byKey.get(k)!
     return { key: t.key, title: t.title, summary: t.summary, trimDb: t.trimDb, netBeats: t.netBeats }
   })
-  const tl = buildTimeline(planned, plans)
+  const endSec = loop?.set.endSec ?? setEnd
+  const startSec = loop?.set.startSec ?? setStart
+  const tl = buildTimeline(planned, plans, endSec, startSec)
   const notes: string[] = []
   if (Math.abs(tl.durationSec - spec.targetDurationSec) > 0.03 * spec.targetDurationSec) notes.push(`Duration ${Math.round(tl.durationSec)} s vs requested ${spec.targetDurationSec} s.`)
   if (loop) notes.push(...loop.notes)

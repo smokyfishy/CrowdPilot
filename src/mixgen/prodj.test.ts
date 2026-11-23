@@ -11,6 +11,7 @@ import { evaluateTransition } from './audio-quality'
 import { closedLoop, PREVIEW_RATE } from './closedloop'
 import { validPlan, monoAt } from './ml'
 import { resolveSpec, MixSpec } from './spec'
+import { avoided, matchesAny } from './technique-match'
 
 /** Synthetic profile: per-bar arrays from simple descriptions. */
 function profile(n: number, f: Partial<Record<'bass' | 'vocal' | 'mid' | 'perc', (k: number) => number>> & { chroma?: (k: number) => number[]; phrase?: number } = {}): TrackProfile {
@@ -268,6 +269,14 @@ describe('global set planning + closed loop on synthetic recordings', () => {
       expect(best.edges[i].plan.outCueSec).toBeGreaterThanOrEqual(entry + 8 * set[0].summary.barSec - 0.5)
     }
     expect(narrativeFor(spec, 3).map((x) => x.role)[0]).toBe('opening')
+  })
+  it('requested techniques are honoured and a short requested length is met', () => {
+    const want = resolveSpec(MixSpec.parse({ genres: ['tech house'], song_count: 3, target_duration_minutes: 5, techniques: { prefer: ['drop_swap'], avoid: ['loop_roll'] }, features: ['big_drops'] }))
+    const res = planSet(set, want, { count: 3 })
+    const best = res.sets[0]
+    expect(best.edges.every((e) => !avoided(e.plan, ['loop_roll']))).toBe(true)
+    expect(best.edges.some((e) => matchesAny(e.plan, ['drop_swap']))).toBe(true)
+    expect(Math.abs(best.durationSec - 300) / 300).toBeLessThanOrEqual(0.1)
   })
   it('measured feedback changes the planner: a penalised edge is replaced', () => {
     const res = planSet(set, spec, { count: 3 })

@@ -43,6 +43,10 @@ export interface TimelineTrack {
   /** Mix-time (s) when it is the main track (after the incoming overlap). */
   mixMainSec: number
   trimDb: number
+  /** Last track ending before its musical end: fade length (s) ending at exitSec. */
+  endFadeSec?: number
+  /** First track starting inside the track: fade-in length (s) from entrySec. */
+  startFadeSec?: number
 }
 
 export interface TimelineTransition {
@@ -473,10 +477,10 @@ export function pairOptions(a: PlannedTrack, b: PlannedTrack, i: number, n: numb
 }
 
 /** Exact mix timeline for an ordered track list and its chosen transition plans (one per adjacent pair). */
-export function buildTimeline(tracks: PlannedTrack[], plans: TransitionPlan[]): { tracks: TimelineTrack[]; transitions: TimelineTransition[]; durationSec: number } {
+export function buildTimeline(tracks: PlannedTrack[], plans: TransitionPlan[], endSec?: number, startSec?: number): { tracks: TimelineTrack[]; transitions: TimelineTransition[]; durationSec: number } {
   const n = tracks.length
-  const start0 = musicStart(tracks[0].summary)
-  const lastEnd = musicEnd(tracks[n - 1].summary)
+  const start0 = startSec ?? musicStart(tracks[0].summary)
+  const lastEnd = endSec ?? musicEnd(tracks[n - 1].summary)
   const tl: TimelineTrack[] = []
   const tt: TimelineTransition[] = []
   let entry = start0
@@ -490,7 +494,7 @@ export function buildTimeline(tracks: PlannedTrack[], plans: TransitionPlan[]): 
     const p = plans[i] // outgoing transition of track i (undefined for last)
     if (!p) {
       const tail = recMix + Math.max(0, lastEnd - entry - recTrack)
-      tl.push({ key: t.key, entrySec: tl.length ? tt[i - 1].plan.inCueSec : start0, exitSec: lastEnd, mixInSec: mixIn, mixOutSec: mixCursor + tail, mixMainSec: mixMain, trimDb: t.trimDb })
+      tl.push({ key: t.key, entrySec: tl.length ? tt[i - 1].plan.inCueSec : start0, exitSec: lastEnd, mixInSec: mixIn, mixOutSec: mixCursor + tail, mixMainSec: mixMain, trimDb: t.trimDb, ...(endSec !== undefined ? { endFadeSec: 4 * t.summary.barSec } : {}) })
       mixCursor += tail
       break
     }
@@ -499,7 +503,7 @@ export function buildTimeline(tracks: PlannedTrack[], plans: TransitionPlan[]): 
     const mixEnd = mixStart + p.durationSec
     const rec = recovery(p)
     tt.push({ index: i, plan: p, mixStartSec: mixStart, mixEndSec: mixEnd, inEndSec: p.inCueSec + inTrackSpan(p), recoverySec: rec.mix, recoveryTrackSec: rec.track })
-    tl.push({ key: t.key, entrySec: i === 0 ? start0 : tt[i - 1].plan.inCueSec, exitSec: p.outCueSec + p.durationSec, mixInSec: mixIn, mixOutSec: mixEnd, mixMainSec: mixMain, trimDb: t.trimDb })
+    tl.push({ key: t.key, entrySec: i === 0 ? start0 : tt[i - 1].plan.inCueSec, exitSec: p.outCueSec + p.durationSec, mixInSec: mixIn, mixOutSec: mixEnd, mixMainSec: mixMain, trimDb: t.trimDb, ...(i === 0 && startSec !== undefined ? { startFadeSec: 2 * t.summary.barSec } : {}) })
     mixIn = mixStart
     mixMain = mixEnd
     entry = p.inCueSec + inTrackSpan(p)

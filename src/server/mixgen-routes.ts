@@ -22,7 +22,8 @@ import { TokenBucket } from '../domain/rate-limit'
 import { ccLabel } from '../providers/catalog/jamendo'
 import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery, discover, relevant } from '../mixgen/discovery'
 import { decideAccess, POLICY_VERSION, type PolicyContext } from '../mixgen/policy'
-import { EditOp, extractJson, heuristicSpec, INTERPRET_SYSTEM, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
+import { EditOp, extractJson, guardSpec, heuristicSpec, INTERPRET_SYSTEM, MIX_SPEC_JSON_SCHEMA, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
+import { geminiClient, type LlmCall } from './llm'
 import { STAGES } from '../mixgen/types'
 import { appScope, createRoomTools } from './room-tools'
 import type { VerifyResult } from 'deepspace/worker'
@@ -60,33 +61,70 @@ async function body<T>(c: C, max = 64 * 1024): Promise<T | null> {
   }
 }
 
+/**
+ * Prompt → MixSpec. Interpreters are tried in order (Gemini 3.8 Flash, then Claude); each gets one
+ * repair round with its validation errors. A valid interpretation passes the deterministic guard
+ * (stated duration / track count / BPM / genres / "Title by Artist" songs win over the model). If every
+ * model fails, the conservative heuristic is used and labelled.
+ */
 export async function interpretPrompt(
-  llm: ((system: string, prompt: string) => Promise<string>) | null,
+  llms: LlmCall | LlmCall[] | ((system: string, prompt: string) => Promise<string>) | null,
   input: { prompt: string; current?: unknown; edit?: string },
-): Promise<{ spec: MixSpec; source: 'llm' | 'heuristic'; editOps: EditOp[]; warning?: string }> {
+): Promise<{ spec: MixSpec; source: 'llm' | 'heuristic'; model: string; corrections: string[]; attempts: string[]; editOps: EditOp[]; warning?: string }> {
+  const chain: LlmCall[] = !llms ? [] : typeof llms === 'function' ? [{ name: 'llm', call: (sys, p) => llms(sys, p) }] : Array.isArray(llms) ? llms : [llms]
+  const attempts: string[] = []
+  const tag = (spec: MixSpec, model: string, corrections: string[]): MixSpec => ({ ...spec, interpretation: { model, corrections: corrections.slice(0, 20), attempts: attempts.slice(0, 10) } })
   if (input.edit && input.current) {
     const current = parseSpec(input.current)
-    if (llm) {
+    for (const llm of chain) {
       try {
-        const out = extractJson(await llm(REFINE_SYSTEM, `Current spec:\n${JSON.stringify(current)}\n\nEdit request: ${input.edit}`)) as { spec?: unknown; edit_ops?: unknown[] }
+        const out = extractJson(await llm.call(REFINE_SYSTEM, `Current spec:\n${JSON.stringify({ ...current, interpretation: undefined })}\n\nEdit request: ${input.edit}`)) as { spec?: unknown; edit_ops?: unknown[] }
         const spec = parseSpec(out.spec ?? out)
         const editOps = (out.edit_ops ?? []).map((o) => EditOp.safeParse(o)).filter((r) => r.success).map((r) => r.data!)
-        return { spec, source: 'llm', editOps }
+        return { spec: tag(spec, llm.name, []), source: 'llm', model: llm.name, corrections: [], attempts, editOps }
       } catch (e) {
-        return { spec: mergeHeuristicEdit(current, input.edit), source: 'heuristic', editOps: heuristicEditOps(input.edit), warning: `AI interpreter failed (${(e as Error).message.slice(0, 120)}); applied a basic edit.` }
+        attempts.push(`${llm.name}: ${(e as Error).message.slice(0, 160)}`)
       }
     }
-    return { spec: mergeHeuristicEdit(current, input.edit), source: 'heuristic', editOps: heuristicEditOps(input.edit), warning: 'AI interpreter unavailable; applied a basic edit.' }
+    const spec = mergeHeuristicEdit(current, input.edit)
+    return { spec: tag(spec, 'heuristic', []), source: 'heuristic', model: 'heuristic', corrections: [], attempts, editOps: heuristicEditOps(input.edit), warning: chain.length ? `AI interpreter failed (${attempts.join(' | ').slice(0, 200)}); applied a basic edit.` : 'AI interpreter unavailable; applied a basic edit.' }
   }
-  if (llm) {
+  const schema = { name: 'mix_spec', schema: MIX_SPEC_JSON_SCHEMA }
+  for (const llm of chain) {
+    let text = ''
     try {
-      const spec = parseSpec(extractJson(await llm(INTERPRET_SYSTEM, input.prompt)))
-      return { spec, source: 'llm', editOps: [] }
+      text = await llm.call(INTERPRET_SYSTEM, input.prompt, schema)
     } catch (e) {
-      return { spec: heuristicSpec(input.prompt), source: 'heuristic', editOps: [], warning: `AI interpreter failed (${(e as Error).message.slice(0, 120)}); used a basic interpretation.` }
+      // some endpoints reject json_schema: retry once in plain JSON mode before moving on
+      try {
+        text = await llm.call(INTERPRET_SYSTEM, input.prompt)
+      } catch (e2) {
+        attempts.push(`${llm.name}: ${(e2 as Error).message.slice(0, 160)}`)
+        continue
+      }
+      attempts.push(`${llm.name} structured output unavailable (${(e as Error).message.slice(0, 80)}); used JSON mode`)
+    }
+    for (let round = 0; round < 2; round++) {
+      try {
+        const g = guardSpec(input.prompt, parseSpec(extractJson(text)))
+        return { spec: tag(g.spec, llm.name, g.corrections), source: 'llm', model: llm.name, corrections: g.corrections, attempts, editOps: [] }
+      } catch (e) {
+        const why = (e as Error).message.slice(0, 400)
+        if (round === 1) {
+          attempts.push(`${llm.name}: invalid after repair (${why.slice(0, 120)})`)
+          break
+        }
+        try {
+          text = await llm.call(INTERPRET_SYSTEM, `${input.prompt}\n\nYour previous JSON was invalid: ${why}\nReturn the corrected JSON object only.`, schema)
+        } catch (e2) {
+          attempts.push(`${llm.name}: repair failed (${(e2 as Error).message.slice(0, 120)})`)
+          break
+        }
+      }
     }
   }
-  return { spec: heuristicSpec(input.prompt), source: 'heuristic', editOps: [], warning: 'AI interpreter unavailable; used a basic interpretation.' }
+  const spec = heuristicSpec(input.prompt)
+  return { spec: tag(spec, 'heuristic', []), source: 'heuristic', model: 'heuristic', corrections: [], attempts, editOps: [], warning: chain.length ? `AI interpreter failed (${attempts.join(' | ').slice(0, 200)}); used a basic interpretation.` : 'AI interpreter unavailable; used a basic interpretation.' }
 }
 
 /** Deterministic edit fallback for common refinements. */
@@ -154,15 +192,17 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const edit = typeof b?.edit === 'string' ? b.edit.trim().slice(0, 1000) : undefined
     if (!prompt && !edit) return err(c, 400, 'INVALID', 'Describe the mix you want.')
     const jwt = c.req.header('Authorization')!.slice(7)
-    let llm: ((system: string, prompt: string) => Promise<string>) | null = null
+    // Gemini 3.8 Flash first (Google AI Studio, or a FreeLLMAPI router locally), Claude as backup
+    const chain: LlmCall[] = []
+    if (c.env.GEMINI_API_KEY) chain.push(geminiClient({ apiKey: c.env.GEMINI_API_KEY, baseUrl: c.env.GEMINI_BASE_URL, model: c.env.GEMINI_MODEL }))
     try {
       const model = createDeepSpaceAI(c.env, 'anthropic', { authToken: jwt })(MIXGEN_MODEL)
-      llm = async (system, p) => (await generateText({ model, system, prompt: p, maxOutputTokens: 1500, temperature: 0 })).text
+      chain.push({ name: MIXGEN_MODEL, call: async (system, p) => (await generateText({ model, system, prompt: p, maxOutputTokens: 2500, temperature: 0 })).text })
     } catch {
-      llm = null
+      /* Claude unavailable: Gemini (if configured) then the heuristic */
     }
     try {
-      const r = await interpretPrompt(llm, { prompt, current: b?.current, edit })
+      const r = await interpretPrompt(chain, { prompt, current: b?.current, edit })
       return c.json({ ...r, resolved: resolveSpec(r.spec) })
     } catch (e) {
       return err(c, 400, 'INVALID', (e as Error).message.slice(0, 300))

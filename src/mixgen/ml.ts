@@ -74,7 +74,7 @@ export interface MlModelInfo {
 }
 
 export interface MlDecision {
-  stage: 'ordering' | 'ranking' | 'automation' | 'selection' | 'planning' | 'performance' | 'closed_loop'
+  stage: 'ordering' | 'ranking' | 'automation' | 'selection' | 'planning' | 'performance' | 'closed_loop' | 'request'
   model: string
   pair?: string
   inputs: Record<string, number | string>

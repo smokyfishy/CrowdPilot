@@ -24,6 +24,47 @@ export const ENERGY_CURVES = [
 export type EnergyCurve = (typeof ENERGY_CURVES)[number]
 
 export const TRANSITION_STYLES = ['smooth', 'smooth_creative', 'creative', 'energetic', 'minimal'] as const
+
+/** DJ techniques a user can ask for (or ban) by name. */
+export const TECHNIQUE_NAMES = ['drop_swap', 'loop_roll', 'echo_out', 'bass_swap', 'filter_sweep', 'long_blend', 'cut', 'scratch', 'brake', 'spinback', 'acapella', 'mashup', 'double_drop', 'reverb_wash', 'beat_juggle', 'stabs'] as const
+export type TechniqueName = (typeof TECHNIQUE_NAMES)[number]
+
+/** Phrases that name a technique (deterministic detection, used by the guard and the heuristic). */
+export const TECHNIQUE_PHRASES: Array<[TechniqueName, RegExp]> = [
+  ['drop_swap', /drop[- ]?swaps?|build(?:s|ing)?(?: up)? (?:in)?to (?:the |a )?drops?|swap(?:ping)? on the drops?/],
+  ['loop_roll', /loop[- ]?rolls?|beat[- ]?rolls?/],
+  ['echo_out', /echo[- ]?outs?/],
+  ['bass_swap', /bass[- ]?swaps?/],
+  ['filter_sweep', /filter[- ]?sweeps?/],
+  ['long_blend', /long blends?/],
+  ['cut', /hard cuts?|quick cuts?/],
+  ['scratch', /scratch(?:es|ing)?|turntablism/],
+  ['brake', /vinyl brakes?|brake stops?/],
+  ['spinback', /spin[- ]?backs?/],
+  ['acapella', /acapellas?|a cappellas?/],
+  ['mashup', /mash[- ]?ups?/],
+  ['double_drop', /double[- ]?drops?/],
+  ['reverb_wash', /reverb (?:wash|tails?)/],
+  ['beat_juggle', /beat[- ]?juggl(?:e|es|ing)/],
+  ['stabs', /(?:sample )?stabs?/],
+]
+
+/** Techniques named in a prompt: [prefer, avoid] ("no loop rolls" / "without echo outs" → avoid). */
+export function detectTechniques(prompt: string): { prefer: TechniqueName[]; avoid: TechniqueName[] } {
+  const p = prompt.toLowerCase()
+  const prefer: TechniqueName[] = []
+  const avoid: TechniqueName[] = []
+  for (const [name, re] of TECHNIQUE_PHRASES) {
+    const m = new RegExp(re.source, 'g')
+    for (let mm = m.exec(p); mm; mm = m.exec(p)) {
+      const before = p.slice(Math.max(0, mm.index - 24), mm.index)
+      if (/\b(no|not|without|avoid|never|don'?t (?:use|do|want)|stop|less)\b[^,.;]*$/.test(before)) {
+        if (!avoid.includes(name)) avoid.push(name)
+      } else if (!prefer.includes(name) && !avoid.includes(name)) prefer.push(name)
+    }
+  }
+  return { prefer: prefer.filter((t) => !avoid.includes(t)), avoid }
+}
 export type TransitionStylePref = (typeof TRANSITION_STYLES)[number]
 
 export const SongRef = z.object({
@@ -60,12 +101,16 @@ export const MixSpec = z.object({
   transition_style: z.enum(TRANSITION_STYLES).nullable().default(null),
   /** Musical moments the user explicitly asked for. */
   features: z.array(z.enum(['big_drops', 'drop_sections', 'festival_closer', 'strong_basslines', 'breakdowns', 'long_blends', 'scratching', 'filter_fx', 'echo_fx'])).max(9).default([]),
+  /** Transition techniques the user named: use these where the music allows / never use these. */
+  techniques: z.object({ prefer: z.array(z.enum(TECHNIQUE_NAMES)).max(16).default([]), avoid: z.array(z.enum(TECHNIQUE_NAMES)).max(16).default([]) }).default({ prefer: [], avoid: [] }),
   allow_reordering: z.boolean().nullable().default(null),
   allow_song_substitutions: z.boolean().nullable().default(null),
   /** Fields the user explicitly stated (names of the keys above). */
   explicit: z.array(z.string()).max(40).default([]),
   /** One-line human summary of the interpretation (shown on the review screen). */
   summary: z.string().trim().max(400).default(''),
+  /** Which interpreter produced this spec and what the deterministic guard corrected (recorded with the mix). */
+  interpretation: z.object({ model: z.string().max(80), corrections: z.array(z.string().max(200)).max(20).default([]), attempts: z.array(z.string().max(200)).max(10).default([]) }).optional(),
 })
 export type MixSpec = z.infer<typeof MixSpec>
 
@@ -85,13 +130,19 @@ export interface ResolvedSpec {
   energyCurve: EnergyCurve
   intensity: number
   moods: string[]
+  /** Era the user asked for ("90s", "2010s", "current"), or null. */
+  era: string | null
   vocals: 'vocal' | 'instrumental' | 'mixed'
   transitionStyle: TransitionStylePref
   features: MixSpec['features']
+  /** Named techniques to prefer / avoid. */
+  techniques: { prefer: TechniqueName[]; avoid: TechniqueName[] }
   allowReordering: boolean
   allowSubstitutions: boolean
   /** Which values came from defaults (for honest display). */
   defaulted: string[]
+  /** Interpreter model, guard corrections and failed attempts (from MixSpec.interpretation). */
+  interpretation?: MixSpec['interpretation']
 }
 
 export const DEFAULTS = {
@@ -140,18 +191,22 @@ export function resolveSpec(spec: MixSpec): ResolvedSpec {
     energyCurve: d('energy_curve', spec.energy_curve, DEFAULTS.energyCurve),
     intensity: d('intensity', spec.intensity, DEFAULTS.intensity),
     moods: spec.moods,
+    era: spec.era,
     vocals: d('vocals', spec.vocals, DEFAULTS.vocals),
     // No stated style: high-energy / drop-focused requests get energetic transitions (effects, drop
     // swaps, loop rolls, tempo rides); everything else stays smooth.
     transitionStyle: d(
       'transition_style',
       spec.transition_style,
-      spec.energy_curve === 'constant_high' || spec.energy_curve === 'festival_climax' || (spec.intensity ?? 0) >= 0.8 || spec.features.includes('drop_sections') ? 'energetic' : DEFAULTS.transitionStyle,
+      (spec.techniques?.prefer ?? []).some((t) => t === 'drop_swap' || t === 'loop_roll' || t === 'echo_out' || t === 'scratch' || t === 'brake' || t === 'spinback') ? 'creative'
+        : spec.energy_curve === 'constant_high' || spec.energy_curve === 'festival_climax' || (spec.intensity ?? 0) >= 0.8 || spec.features.includes('drop_sections') ? 'energetic' : DEFAULTS.transitionStyle,
     ),
     features: spec.features,
+    techniques: spec.techniques ?? { prefer: [], avoid: [] },
     allowReordering: d('allow_reordering', spec.allow_reordering, true),
     allowSubstitutions: d('allow_song_substitutions', spec.allow_song_substitutions, true),
     defaulted,
+    interpretation: spec.interpretation,
   }
 }
 
@@ -162,31 +217,150 @@ function defaultTitle(spec: MixSpec, genres: string[]): string {
 }
 
 /** System prompt for the LLM interpreter. The model must return JSON matching MixSpec. */
-export const INTERPRET_SYSTEM = `You convert a DJ-mix request into a JSON object. Output ONLY JSON, no prose.
-Schema (all keys required; use null or [] when the user did not say it — NEVER invent constraints):
+export const INTERPRET_SYSTEM = `You are the request interpreter of an AI DJ. Convert the user's DJ-mix request into ONE JSON object that matches the schema. Output ONLY the JSON object.
+
+Golden rule: capture EVERYTHING the user asked for, and NOTHING they did not. When the user did not say something, use null or []. Never invent artists, songs, numbers or constraints.
+
+Schema (every key required):
 {
- "title": string|null,                      // only if the user named the mix
- "genres": string[],                        // genres/subgenres mentioned, lower case
- "artists": string[],                       // artists the user likes/requests
+ "title": string|null,                 // only if the user named the mix
+ "genres": string[],                   // genres/subgenres mentioned, lower case, e.g. "tech house", "melodic techno", "drum and bass"
+ "artists": string[],                  // artists the user names as wanted/liked, spelled exactly as written
  "artist_matching": "only_these"|"similar_artists_allowed"|"any"|null,
- "songs": [{"artist": string|null, "title": string, "version": string|null}],  // specific songs requested
- "excluded_artists": string[], "excluded_songs": string[],
- "popularity": "high"|"mixed"|"underground"|null,   // "popular/hits/familiar" → high; "underground/deep cuts" → underground
- "song_count": integer|null, "target_duration_minutes": number|null,
- "bpm_range": [min,max]|null,               // only if BPM stated
+ "songs": [{"artist": string|null, "title": string, "version": string|null}], // specific songs requested; version = "extended mix", "Fisher remix", …
+ "excluded_artists": string[], "excluded_songs": string[],   // "no X", "without X", "avoid X"
+ "popularity": "high"|"mixed"|"underground"|null,
+ "song_count": integer|null,           // number of tracks if stated
+ "target_duration_minutes": number|null, // total length if stated ("an hour" = 60, "1.5 hours" = 90, a range "30-40 min" = its middle)
+ "bpm_range": [min,max]|null,          // only if BPM is stated; a single BPM "128 bpm" = [126,130]
  "energy_curve": "constant_high"|"gradual_build"|"gradual_build_to_peak"|"multiple_peaks"|"chill_to_energetic"|"festival_climax"|"groovy_then_harder"|"high_then_relaxed"|"steady"|null,
- "intensity": number 0..1|null,
- "moods": string[], "era": string|null,
+ "intensity": number 0..1|null,        // overall energy if stated: chill/lounge 0.3, warm-up 0.45, groovy 0.55, club 0.7, peak-time/banging 0.9
+ "moods": string[],                    // adjectives about feel: "dark", "uplifting", "summery", "emotional", "groovy", "euphoric"
+ "era": string|null,                   // "90s", "2000s", "2010s", "classic", "current/new" → "current"
  "vocals": "vocal"|"instrumental"|"mixed"|null,
  "transition_style": "smooth"|"smooth_creative"|"creative"|"energetic"|"minimal"|null,
- "features": ("big_drops"|"festival_closer"|"strong_basslines"|"breakdowns"|"long_blends"|"scratching"|"filter_fx"|"echo_fx")[],
- "allow_reordering": boolean|null, "allow_song_substitutions": boolean|null,
- "explicit": string[],                      // names of the keys above that the user explicitly stated
- "summary": string                          // one sentence restating the request
+ "features": ("big_drops"|"drop_sections"|"festival_closer"|"strong_basslines"|"breakdowns"|"long_blends"|"scratching"|"filter_fx"|"echo_fx")[],
+ "techniques": {"prefer": T[], "avoid": T[]}, // transition techniques the user NAMES; T = "drop_swap"|"loop_roll"|"echo_out"|"bass_swap"|"filter_sweep"|"long_blend"|"cut"|"scratch"|"brake"|"spinback"|"acapella"|"mashup"|"double_drop"|"reverb_wash"|"beat_juggle"|"stabs"
+ "allow_reordering": boolean|null,     // false when the user says "in this order"/"keep the order"
+ "allow_song_substitutions": boolean|null, // false when the user says "only these songs"/"exactly these"
+ "explicit": string[],                 // names of the keys above that the user explicitly stated
+ "summary": string                     // one sentence restating the request faithfully
 }
-"similar artists" / "and artists like them" → artist_matching "similar_artists_allowed".
-"start groovy, gradually increase the energy" → "groovy_then_harder" or "gradual_build_to_peak" (pick the closest).
-"finish with a festival-style closing track" → features includes "festival_closer".`
+
+Mapping rules:
+- popularity: "popular", "hits", "big tracks", "mainstream", "well-known", "familiar", "bangers everyone knows" → "high"; "underground", "deep cuts", "lesser-known", "obscure" → "underground".
+- artist_matching: names + "and similar"/"artists like"/"in the style of" → "similar_artists_allowed"; "only"/"just"/"exclusively" + names → "only_these".
+- energy_curve: "build up gradually"/"slow build" → "gradual_build"; "build to a peak"/"climax" → "gradual_build_to_peak"; "start chill/groovy then harder/increase" → "groovy_then_harder" (groovy) or "chill_to_energetic" (chill); "high energy throughout"/"non-stop bangers" → "constant_high"; "peaks and valleys"/"waves"/"ups and downs" → "multiple_peaks"; "end with a festival moment" → "festival_climax"; "start high, wind down"/"cool down at the end" → "high_then_relaxed"; "consistent/even energy" → "steady".
+- transition_style: "smooth/seamless/long blends" → "smooth"; "smooth but creative" → "smooth_creative"; "creative/effects/tricks/like a real DJ/turntablism" → "creative"; "hard cuts/fast/high-energy switches" → "energetic"; "minimal/simple" → "minimal".
+- features: "drops"/"big drops" → "big_drops"; "mix the drops"/"drop to drop"/"only the best parts/middle of the songs" → "drop_sections"; "festival closer"/"closing anthem" → "festival_closer"; "basslines"/"heavy bass" → "strong_basslines"; "breakdowns" → "breakdowns"; "long blends" → "long_blends"; "scratching"/"turntablism" → "scratching"; "filters" → "filter_fx"; "echo/delay" → "echo_fx".
+- techniques: name-level requests go here and are binding. "drop swap", "build into the drop", "swap on the drop" → prefer "drop_swap" (NOT loop_roll); "loop roll(s)" → "loop_roll"; "echo out" → "echo_out"; "bass swap" → "bass_swap"; "no loop rolls"/"without echo outs" → avoid. Never add a technique the user did not name.
+- vocals: "instrumental"/"no vocals"/"fewer vocals" → "instrumental"; "vocal tracks"/"sing-along"/"with vocals" → "vocal".
+- "Title by Artist" lists are songs; keep each title and artist exactly as written.
+- Put a key in "explicit" ONLY if the user stated it (directly or with the words above).
+
+Example — "45-min tech house set, 12 tracks, start groovy then go harder, John Summit and Dom Dolla vibes, big drops, no vocals":
+{"title":null,"genres":["tech house"],"artists":["John Summit","Dom Dolla"],"artist_matching":"similar_artists_allowed","songs":[],"excluded_artists":[],"excluded_songs":[],"popularity":null,"song_count":12,"target_duration_minutes":45,"bpm_range":null,"energy_curve":"groovy_then_harder","intensity":null,"moods":[],"era":null,"vocals":"instrumental","transition_style":null,"features":["big_drops"],"techniques":{"prefer":[],"avoid":[]},"allow_reordering":null,"allow_song_substitutions":null,"explicit":["genres","artists","artist_matching","song_count","target_duration_minutes","energy_curve","vocals","features"],"summary":"A 45-minute, 12-track tech house set in the style of John Summit and Dom Dolla that starts groovy and gets harder, with big drops and no vocals."}
+
+Example — "5 minute electronic mix, drop swaps building into each drop, no loop rolls":
+{"title":null,"genres":["electronic"],"artists":[],"artist_matching":null,"songs":[],"excluded_artists":[],"excluded_songs":[],"popularity":null,"song_count":null,"target_duration_minutes":5,"bpm_range":null,"energy_curve":null,"intensity":null,"moods":[],"era":null,"vocals":null,"transition_style":null,"features":["big_drops"],"techniques":{"prefer":["drop_swap"],"avoid":["loop_roll"]},"allow_reordering":null,"allow_song_substitutions":null,"explicit":["genres","target_duration_minutes","features","techniques"],"summary":"A 5-minute electronic mix that builds into each drop with drop swaps and never uses loop rolls."}
+
+Example — "Mix Closure by D.O.D, Animals by Martin Garrix and Rattle by Bingo Players, in that order, 128 bpm":
+{"title":null,"genres":[],"artists":["D.O.D","Martin Garrix","Bingo Players"],"artist_matching":null,"songs":[{"artist":"D.O.D","title":"Closure","version":null},{"artist":"Martin Garrix","title":"Animals","version":null},{"artist":"Bingo Players","title":"Rattle","version":null}],"excluded_artists":[],"excluded_songs":[],"popularity":null,"song_count":3,"target_duration_minutes":null,"bpm_range":[126,130],"energy_curve":null,"intensity":null,"moods":[],"era":null,"vocals":null,"transition_style":null,"features":[],"techniques":{"prefer":[],"avoid":[]},"allow_reordering":false,"allow_song_substitutions":null,"explicit":["songs","song_count","bpm_range","allow_reordering"],"summary":"Mix Closure (D.O.D), Animals (Martin Garrix) and Rattle (Bingo Players) in that order at about 128 BPM."}`
+
+const nullable = (t: Record<string, unknown>) => ({ anyOf: [t, { type: 'null' }] })
+const strArr = { type: 'array', items: { type: 'string' } }
+
+/** JSON schema of MixSpec for structured LLM output (mirrors the Zod schema; Zod still validates). */
+export const MIX_SPEC_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    title: nullable({ type: 'string' }),
+    genres: strArr,
+    artists: strArr,
+    artist_matching: nullable({ type: 'string', enum: ['only_these', 'similar_artists_allowed', 'any'] }),
+    songs: { type: 'array', items: { type: 'object', properties: { artist: nullable({ type: 'string' }), title: { type: 'string' }, version: nullable({ type: 'string' }) }, required: ['artist', 'title', 'version'] } },
+    excluded_artists: strArr,
+    excluded_songs: strArr,
+    popularity: nullable({ type: 'string', enum: ['high', 'mixed', 'underground'] }),
+    song_count: nullable({ type: 'integer' }),
+    target_duration_minutes: nullable({ type: 'number' }),
+    bpm_range: nullable({ type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 }),
+    energy_curve: nullable({ type: 'string', enum: [...ENERGY_CURVES] }),
+    intensity: nullable({ type: 'number' }),
+    moods: strArr,
+    era: nullable({ type: 'string' }),
+    vocals: nullable({ type: 'string', enum: ['vocal', 'instrumental', 'mixed'] }),
+    transition_style: nullable({ type: 'string', enum: [...TRANSITION_STYLES] }),
+    features: { type: 'array', items: { type: 'string', enum: ['big_drops', 'drop_sections', 'festival_closer', 'strong_basslines', 'breakdowns', 'long_blends', 'scratching', 'filter_fx', 'echo_fx'] } },
+    techniques: { type: 'object', properties: { prefer: { type: 'array', items: { type: 'string', enum: [...TECHNIQUE_NAMES] } }, avoid: { type: 'array', items: { type: 'string', enum: [...TECHNIQUE_NAMES] } } }, required: ['prefer', 'avoid'] },
+    allow_reordering: nullable({ type: 'boolean' }),
+    allow_song_substitutions: nullable({ type: 'boolean' }),
+    explicit: strArr,
+    summary: { type: 'string' },
+  },
+  required: ['title', 'genres', 'artists', 'artist_matching', 'songs', 'excluded_artists', 'excluded_songs', 'popularity', 'song_count', 'target_duration_minutes', 'bpm_range', 'energy_curve', 'intensity', 'moods', 'era', 'vocals', 'transition_style', 'features', 'techniques', 'allow_reordering', 'allow_song_substitutions', 'explicit', 'summary'],
+}
+
+/**
+ * Deterministic cross-check of an LLM interpretation against facts that can be read unambiguously
+ * from the prompt: stated duration, track count, BPM, genre keywords and "Title by Artist" songs.
+ * Where the model contradicts or drops one of those, the stated value wins. Returns the corrected
+ * spec and a list of corrections (recorded with the mix).
+ */
+export function guardSpec(prompt: string, spec: MixSpec): { spec: MixSpec; corrections: string[] } {
+  const h = heuristicSpec(prompt)
+  const p = prompt.toLowerCase()
+  // ranges ("30-40 minutes", "10 to 12 tracks") are the model's job (it takes the middle); don't override them
+  const durRange = /\d+\s*(?:-|–|to)\s*\d+\s*-?\s*(?:min|minute|hour)/.test(p)
+  const cntRange = /\d+\s*(?:-|–|to)\s*\d+\s+(?:[a-z]+\s+)?(?:tracks|songs|records)/.test(p)
+  if (durRange) h.target_duration_minutes = null
+  if (cntRange) h.song_count = null
+  // genre keywords with word boundaries ("popular" is not "pop")
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  h.genres = h.genres.filter((g) => new RegExp(`(^|[^a-z])${esc(g)}([^a-z]|$)`).test(p))
+  const s: MixSpec = { ...spec, explicit: [...spec.explicit] }
+  const corrections: string[] = []
+  const mark = (k: string) => !s.explicit.includes(k) && s.explicit.push(k)
+  if (h.target_duration_minutes != null && s.target_duration_minutes !== h.target_duration_minutes) {
+    corrections.push(`duration ${s.target_duration_minutes ?? 'missing'} → ${h.target_duration_minutes} min (stated in the request)`)
+    s.target_duration_minutes = h.target_duration_minutes
+    mark('target_duration_minutes')
+  }
+  if (h.song_count != null && s.song_count !== h.song_count) {
+    corrections.push(`track count ${s.song_count ?? 'missing'} → ${h.song_count} (stated in the request)`)
+    s.song_count = h.song_count
+    mark('song_count')
+  }
+  if (h.bpm_range && (!s.bpm_range || s.bpm_range[0] !== h.bpm_range[0] || s.bpm_range[1] !== h.bpm_range[1])) {
+    corrections.push(`BPM ${s.bpm_range ? s.bpm_range.join('–') : 'missing'} → ${h.bpm_range.join('–')} (stated in the request)`)
+    s.bpm_range = h.bpm_range
+    mark('bpm_range')
+  }
+  const have = new Set(s.genres.map((g) => g.toLowerCase()))
+  const missingGenres = h.genres.filter((g) => !have.has(g) && ![...have].some((x) => x.includes(g) || g.includes(x)))
+  if (missingGenres.length) {
+    corrections.push(`added genre(s) named in the request: ${missingGenres.join(', ')}`)
+    s.genres = [...s.genres, ...missingGenres]
+    mark('genres')
+  }
+  const named = detectTechniques(prompt)
+  const prefer = new Set(s.techniques?.prefer ?? [])
+  const avoid = new Set(s.techniques?.avoid ?? [])
+  const addP = named.prefer.filter((t) => !prefer.has(t) && !avoid.has(t))
+  const addA = named.avoid.filter((t) => !avoid.has(t))
+  if (addP.length || addA.length) {
+    corrections.push(`techniques named in the request: ${[...addP.map((t) => `+${t}`), ...addA.map((t) => `no ${t}`)].join(', ')}`)
+    for (const t of addA) prefer.delete(t)
+    s.techniques = { prefer: [...prefer, ...addP].filter((t) => !addA.includes(t)), avoid: [...avoid, ...addA] }
+    mark('techniques')
+  }
+  if (!s.songs.length && h.songs.length) {
+    corrections.push(`added ${h.songs.length} song(s) listed as "Title by Artist"`)
+    s.songs = h.songs
+    mark('songs')
+  }
+  return { spec: MixSpec.parse(s), corrections }
+}
 
 export const REFINE_SYSTEM = `You update an existing DJ-mix JSON specification according to the user's edit request.
 Return the COMPLETE updated JSON object using the same schema as the input, changing only what the edit implies
@@ -194,6 +368,23 @@ Return the COMPLETE updated JSON object using the same schema as the input, chan
 "reduce vocals" → vocals "instrumental"; "smoother transitions" → transition_style "smooth"). Add changed keys to "explicit".
 If the edit refers to a specific track position (e.g. "replace the third song"), keep the spec and put the instruction into
 "edit_ops" as {"op":"replace","position":3}. Output ONLY JSON: {"spec": <spec>, "edit_ops": [...]}`
+
+/** Year range of an era phrase ("90s", "2010s", "early 2000s", "classic", "current"), or null. */
+export function eraYears(era: string | null | undefined, now = new Date().getFullYear()): [number, number] | null {
+  if (!era) return null
+  const e = era.toLowerCase()
+  if (/current|new|latest|recent|modern|this year/.test(e)) return [now - 2, now]
+  if (/classic|old ?school|throwback/.test(e)) return [1985, 2009]
+  const dec = /(?:19|20)?(\d)0'?s/.exec(e)
+  if (dec) {
+    const full = /((?:19|20)\d0)s/.exec(e)
+    const start = full ? Number(full[1]) : Number(dec[1]) >= 5 ? 1900 + Number(dec[1]) * 10 : 2000 + Number(dec[1]) * 10
+    const half = /early/.test(e) ? [0, 4] : /late/.test(e) ? [5, 9] : [0, 9]
+    return [start + half[0], start + half[1]]
+  }
+  const yr = /(19|20)\d\d/.exec(e)
+  return yr ? [Number(yr[0]) - 1, Number(yr[0]) + 1] : null
+}
 
 export const EditOp = z.discriminatedUnion('op', [
   z.object({ op: z.literal('replace'), position: z.number().int().min(1).max(30) }),
@@ -241,7 +432,10 @@ export function heuristicSpec(prompt: string): MixSpec {
   const genres: string[] = []
   let rest = p
   for (const g of GENRE_WORDS) {
-    if (rest.includes(g)) {
+    // whole words only ("popular" is not "pop", "housed" is not "house")
+    const at = rest.indexOf(g)
+    const wordOk = at >= 0 && !/[a-z]/.test(rest[at - 1] ?? ' ') && !/[a-z]/.test(rest[at + g.length] ?? ' ')
+    if (wordOk) {
       genres.push(g === 'drum & bass' || g === 'dnb' ? 'drum and bass' : g)
       rest = rest.split(g).join(' ')
     }
@@ -316,7 +510,8 @@ export function heuristicSpec(prompt: string): MixSpec {
     vocals,
     transition_style: transition,
     features,
-    explicit: [...explicit, ...(similar && artists.length ? ['artist_matching'] : []), ...(onlyThese ? ['artist_matching', 'allow_song_substitutions'] : [])],
+    techniques: detectTechniques(prompt),
+    explicit: [...explicit, ...(detectTechniques(prompt).prefer.length || detectTechniques(prompt).avoid.length ? ['techniques'] : []), ...(similar && artists.length ? ['artist_matching'] : []), ...(onlyThese ? ['artist_matching', 'allow_song_substitutions'] : [])],
     summary: `Basic interpretation (AI interpreter unavailable): ${prompt.slice(0, 300)}`,
   })
   return spec

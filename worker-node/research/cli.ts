@@ -2,7 +2,8 @@
  * npm run mixgen -- "<prompt>" [--songs N] [--minutes M] [--job id]
  * Local research mode only (the launcher sets CP_RESEARCH_YOUTUBE=1 for this process).
  */
-import { heuristicSpec, INTERPRET_SYSTEM, extractJson, parseSpec, type MixSpec } from '../../src/mixgen/spec'
+import { guardSpec, heuristicSpec, INTERPRET_SYSTEM, MIX_SPEC_JSON_SCHEMA, extractJson, parseSpec, type MixSpec } from '../../src/mixgen/spec'
+import { geminiClient } from '../../src/server/llm'
 import { researchYouTubeEnabled } from '../mixgen/research'
 import { readFileSync } from 'node:fs'
 import { runResearch } from './run'
@@ -30,8 +31,22 @@ function args(argv: string[]) {
   return out
 }
 
-/** Optional local LLM interpretation (Anthropic Messages API) when ANTHROPIC_API_KEY is set. */
+/**
+ * Local LLM interpretation: Gemini 3.8 Flash first (GEMINI_API_KEY; GEMINI_BASE_URL=http://localhost:3001/v1
+ * for a FreeLLMAPI router, Google AI Studio otherwise), then Claude (ANTHROPIC_API_KEY), then the heuristic.
+ */
 async function interpret(prompt: string): Promise<{ spec: MixSpec; source: string }> {
+  if (process.env.GEMINI_API_KEY) {
+    const g = geminiClient({ apiKey: process.env.GEMINI_API_KEY, baseUrl: process.env.GEMINI_BASE_URL, model: process.env.GEMINI_MODEL })
+    try {
+      const raw = await g.call(INTERPRET_SYSTEM, prompt, { name: 'mix_spec', schema: MIX_SPEC_JSON_SCHEMA }).catch(() => g.call(INTERPRET_SYSTEM, prompt))
+      const guarded = guardSpec(prompt, parseSpec(extractJson(raw)))
+      if (guarded.corrections.length) console.warn(`interpretation corrected: ${guarded.corrections.join('; ')}`)
+      return { spec: { ...guarded.spec, interpretation: { model: g.name, corrections: guarded.corrections, attempts: [] } }, source: `llm (${g.name})` }
+    } catch (e) {
+      console.warn(`Gemini interpretation failed (${(e as Error).message}); trying the next interpreter.`)
+    }
+  }
   const key = process.env.ANTHROPIC_API_KEY
   if (key) {
     try {
@@ -43,12 +58,12 @@ async function interpret(prompt: string): Promise<{ spec: MixSpec; source: strin
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as { content?: Array<{ type: string; text?: string }> }
       const text = (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('')
-      return { spec: parseSpec(extractJson(text)), source: 'llm' }
+      return { spec: guardSpec(prompt, parseSpec(extractJson(text))).spec, source: 'llm (claude)' }
     } catch (e) {
       console.warn(`LLM interpretation failed (${(e as Error).message}); using the basic interpreter.`)
     }
   }
-  return { spec: heuristicSpec(prompt), source: 'heuristic (no ANTHROPIC_API_KEY)' }
+  return { spec: heuristicSpec(prompt), source: 'heuristic (no working LLM: set GEMINI_API_KEY or ANTHROPIC_API_KEY)' }
 }
 
 export async function cli(argv = process.argv.slice(2)): Promise<void> {

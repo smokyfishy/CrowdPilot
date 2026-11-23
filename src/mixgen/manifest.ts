@@ -129,6 +129,8 @@ export interface MixManifest {
   ml?: Omit<MlTrace, 'options'> & { options?: MlTrace['options'] }
   /** Professional DJ planner trace (global plan, long-form performances, closed-loop measurements). */
   prodj?: ProDjTrace
+  /** Does the mix reflect the request? Per requested item: requested vs achieved (src/mixgen/fidelity.ts). */
+  requestFidelity?: import('./fidelity').RequestFidelity
 }
 
 function curveSec(c: CurvePoint[] | undefined, beatSec: number): ManifestCurve | undefined {

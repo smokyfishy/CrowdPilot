@@ -20,7 +20,7 @@
  *                 + MEASURED closed-loop quality when the edge was rendered (src/mixgen/closedloop.ts)
  * The search returns several complete-set arrangements; the closed loop renders and re-plans.
  */
-import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, type TransitionPlan } from '../dj/transitions'
+import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, DEFAULT_WEIGHTS, type TransitionPlan } from '../dj/transitions'
 import { camelotDistance } from '../dsp/key'
 import { refineWithLocalBeats } from '../dj/phase'
 import { energyDirection, targetEnergy } from './energy'
@@ -29,6 +29,7 @@ import { genrePreference } from './techniques'
 import { cueCandidates, grooveSimilarity, overlapCompat, type OverlapCompat, type TrackProfile } from './profile'
 import { longformEligible } from './longform'
 import { gridAlignment } from './audio-quality'
+import { avoided, matchesAny } from './technique-match'
 import type { TechniquePlan } from './techniques'
 import type { ResolvedSpec } from './spec'
 
@@ -48,7 +49,7 @@ export interface Edge {
   plan: TransitionPlan
   /** Total planner cost of the edge (rule + compat + prior + learned + measured). */
   cost: number
-  parts: { rule: number; compat: number; prior: number; learned: number; measured: number }
+  parts: { rule: number; compat: number; prior: number; learned: number; measured: number; request?: number }
   compat?: OverlapCompat
   kind: 'pair' | 'window'
   sig: string
@@ -86,6 +87,10 @@ export interface PlannedSet {
   cost: number
   durationSec: number
   parts: Record<string, number>
+  /** Track time where the LAST track ends (earlier than its musical end when the requested length needs it). */
+  endSec?: number
+  /** Track time where the FIRST track starts (short sets may open inside it). */
+  startSec?: number
 }
 
 export interface SetPlanResult {
@@ -138,7 +143,13 @@ function genreJaccard(a: string[], b: string[]): number {
 }
 
 /** Overlap-length prior (planner units): 32 bars default for house/techno/EDM; 48–64 only when compatible. */
+/** Short sets (little time per track): wide cue windows, short overlaps, early endings allowed. */
+export function isShortSet(spec: ResolvedSpec): boolean {
+  return spec.targetDurationSec / Math.max(1, spec.songCount) < 150
+}
+
 function lengthPrior(bars: number, compatCost: number, longGenre: boolean, spec: ResolvedSpec): number {
+  if (isShortSet(spec)) return bars <= 8 ? -0.3 : bars === 16 ? -0.45 : bars === 32 ? 0.6 : 2.5
   if (!longGenre || spec.transitionStyle === 'energetic') return 0
   if (bars === 32) return -0.45
   if (bars === 16) return -0.15
@@ -158,19 +169,20 @@ export function windowCandidates(a: SetTrack, b: SetTrack, spec: ResolvedSpec, m
   const { ratio } = tempoMatch(sa.bpm, sb.bpm)
   if (Math.abs(ratio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) return []
   const beatSec = 60 / sa.bpm
-  const outs = cueCandidates(a.profile, 'out', maxOut)
-  const ins = cueCandidates(b.profile, 'in', maxIn)
+  const short = isShortSet(spec)
+  const outs = cueCandidates(a.profile, 'out', short ? maxOut + 4 : maxOut, short ? { outFrom: 0.2 } : undefined)
+  const ins = cueCandidates(b.profile, 'in', short ? maxIn + 4 : maxIn, short ? { inTo: 0.7 } : undefined)
   const tailA = musicEnd(sa)
   const leadB = Math.max(0, (sb.silentLeadSec ?? 0) - 0.05)
   const keyDist = sa.keyConf >= 0.1 && sb.keyConf >= 0.1 ? camelotDistance(sa.camelot, sb.camelot) : 3
   const res: Array<{ plan: TransitionPlan; compat: OverlapCompat }> = []
-  for (const bars of [16, 32, 48, 64]) {
+  for (const bars of short ? [16, 32] : [16, 32, 48, 64]) {
     const beats = bars * 4
     const overlapSec = beats * beatSec
     for (const o of outs) {
       // allow up to 8 bars past the outgoing's end (bridged by an outgoing loop), never more
       if (o.sec + overlapSec > tailA + 8 * 4 * beatSec) continue
-      if (o.sec < sa.durationSec * 0.35) continue
+      if (o.sec < sa.durationSec * (short ? 0.15 : 0.35)) continue
       for (const i of ins) {
         if (i.sec < leadB) continue
         if (i.sec + overlapSec * ratio > sb.durationSec * 0.8) continue
@@ -216,6 +228,8 @@ export function windowCandidates(a: SetTrack, b: SetTrack, spec: ResolvedSpec, m
 interface State {
   order: string[]
   used: Set<string>
+  /** Track time where the FIRST track starts (later than its music start in short sets). */
+  start?: number
   entry: number
   recTrack: number
   recMix: number
@@ -253,6 +267,10 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       const sig = edgeSig(a.key, b.key, plan) + `|${plan.style}|${(plan as TechniquePlan).tech?.technique ?? ''}`
       if (seen.has(sig)) return
       seen.add(sig)
+      // techniques the user named: never an avoided one; a preferred one wherever the music allows
+      if (avoided(plan, spec.techniques.avoid)) return
+      const wanted = spec.techniques.prefer
+      const request = wanted.length ? (matchesAny(plan, wanted) ? -2.5 : 0.4) : 0
       const beatmatched = BEATMATCHED.has(plan.style) && plan.overlapBars >= 8
       const c = compat ?? (beatmatched ? overlapCompat(a.profile, b.profile, plan.outCueSec, plan.inCueSec, plan.overlapBars) : undefined)
       const compatCost = c ? c.cost : 0
@@ -271,10 +289,12 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
           align = 2 * Math.min(1, Math.max(0, (g.medianMs - 12) / 40)) + Math.min(1, Math.max(0, (g.p90Ms - 30) / 60))
         }
       }
-      list.push({ plan, cost: rule + compatCost + prior + learned + align, parts: { rule, compat: compatCost + align, prior, learned, measured: 0 }, compat: c, kind, sig: edgeSig(a.key, b.key, plan) })
+      list.push({ plan, cost: rule + compatCost + prior + learned + align + request, parts: { rule, compat: compatCost + align, prior, learned, measured: 0, request }, compat: c, kind, sig: edgeSig(a.key, b.key, plan) })
     }
     // legacy candidate family (all styles/techniques; position-neutral scoring)
-    for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, { ...opts.pairOpts, rankCandidates: undefined, candidatesPerPair: 14 })) push(p, p.costs.total, 'pair')
+    // short sets: leaving a track early is the point, so no truncation cost and a wider shortlist
+    const shortSet = isShortSet(spec)
+    for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, { ...opts.pairOpts, rankCandidates: undefined, candidatesPerPair: shortSet ? 28 : 14, ...(shortSet ? { planner: { weights: { ...DEFAULT_WEIGHTS, truncation: 0 } } } : {}) })) push(p, p.costs.total, 'pair')
     // long-form windows (16–64 bars)
     if (opts.longform !== false) {
       const wins = windowCandidates(a, b, spec)
@@ -312,6 +332,13 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
     if (nv.role === 'recovery') c += 0.5 * Math.max(0, t.energy - nv.energy - 0.1)
     if (spec.features.includes('big_drops') && pos >= n * 0.4) c -= Math.min(0.6, t.dropStrength / 8)
     if (spec.vocals === 'instrumental') c += 0.8 * avgVocal(t)
+    if (spec.vocals === 'vocal') c -= 0.6 * avgVocal(t)
+    // requested BPM range, on the ANALYSED tempo (octave-folded): 0.15 per % outside the range
+    if (spec.bpmRange && t.summary.bpm > 0) {
+      const [lo, hi] = spec.bpmRange
+      const off = Math.min(...[t.summary.bpm, t.summary.bpm * 2, t.summary.bpm / 2].map((b) => (b < lo ? (lo - b) / lo : b > hi ? (b - hi) / hi : 0)))
+      c += 15 * off
+    }
     if (!t.gridOk) c += 1.5
     return c - t.pref
   }
@@ -338,7 +365,8 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
     const tech = (e.plan as TechniquePlan).tech?.technique ?? e.plan.style
     // variety of non-blend techniques: a repeated slam/creative move gets stale fast (dev-set tuning)
     const recent3 = st.styles.slice(0, 3).filter((x) => x === tech).length
-    parts.techVariety = BEATMATCHED.has(e.plan.style) ? 0 : (st.styles[0] === tech ? 1.2 : 0) + 0.6 * recent3
+    // variety never overrides a technique the user asked for
+    parts.techVariety = BEATMATCHED.has(e.plan.style) || matchesAny(e.plan, spec.techniques.prefer) ? 0 : (st.styles[0] === tech ? 1.2 : 0) + 0.6 * recent3
     parts.accent = spec.transitionStyle === 'smooth_creative' && st.edges.length && abruptHandoff(st.edges[st.edges.length - 1].plan) && abruptHandoff(e.plan) ? 1.5 : 0
     if (spec.features.includes('festival_closer') && pos === n - 1 && e.plan.style === 'drop_swap') parts.closer = -1.2
     parts.pairPenalty = opts.pairPenalty?.get(pairKey(a.key, b.key)) ?? 0
@@ -349,6 +377,12 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
   let beam: State[] = []
   for (const t of fixed ? [byKey.get(fixed[0])!] : tracks) {
     beam.push({ order: [t.key], used: new Set([t.key]), entry: musicStart(t.summary), recTrack: 0, recMix: 0, dur: 0, cost: slotCost(t, 0), edges: [], styles: [], parts: { slot: slotCost(t, 0) } })
+    // short sets may open inside the first track (a phrase start before ~60 %), with a fade-in
+    if (isShortSet(spec)) {
+      for (const c of cueCandidates(t.profile, 'in', 6, { inTo: 0.6 }).filter((x) => x.sec > musicStart(t.summary) + 8 * t.summary.barSec)) {
+        beam.push({ order: [t.key], used: new Set([t.key]), start: c.sec, entry: c.sec, recTrack: 0, recMix: 0, dur: 0, cost: slotCost(t, 0) + 0.3, edges: [], styles: [], parts: { slot: slotCost(t, 0), lateStart: 0.3 } })
+      }
+    }
   }
   beam.sort((x, y) => x.cost - y.cost)
   beam = beam.slice(0, W)
@@ -384,6 +418,7 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
           const ns: State = {
             order: [...st.order, b.key],
             used,
+            start: st.start,
             entry: plan.inCueSec + inTrackSpan(plan),
             recTrack: rec.track,
             recMix: rec.mix,
@@ -407,13 +442,21 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
   // close: last track plays to its musical end; duration fit
   const finals = beam.map((st) => {
     const last = byKey.get(st.order[st.order.length - 1])!
-    const tail = st.recMix + Math.max(0, musicEnd(last.summary) - st.entry - st.recTrack)
-    const durationSec = st.dur + tail
-    const err = Math.max(0, Math.abs(durationSec - target) - tol)
-    // the mix validator fails a set more than 10 % off the requested length: treat > 9 % as near-hard
-    const rel = Math.abs(durationSec - target) / target
-    const durCost = (err / 60) * 3.5 + (rel > 0.09 ? 10 + 100 * (rel - 0.09) : 0)
-    return { order: st.order, edges: st.edges, cost: st.cost + durCost, durationSec, parts: { ...st.parts, duration: durCost } }
+    const fullEnd = musicEnd(last.summary)
+    // the last track normally plays to its end; when the requested length needs it, it may end at a
+    // phrase boundary (≥ 16 bars after it became the main track) with a fade-out
+    const minEnd = st.entry + st.recTrack + 16 * last.summary.barSec
+    const ends = [fullEnd, ...last.profile.phraseBars.map((k) => last.profile.barStart + k * last.profile.barSec).filter((t) => t >= minEnd && t < fullEnd - 8 * last.summary.barSec)]
+    let bestEnd = { endSec: fullEnd, durationSec: 0, durCost: Infinity }
+    for (const endSec of ends) {
+      const durationSec = st.dur + st.recMix + Math.max(0, endSec - st.entry - st.recTrack)
+      const err = Math.max(0, Math.abs(durationSec - target) - tol)
+      // the mix validator fails a set more than 10 % off the requested length: treat > 9 % as near-hard
+      const rel = Math.abs(durationSec - target) / target
+      const durCost = (err / 60) * 3.5 + (rel > 0.09 ? 10 + 100 * (rel - 0.09) : 0) + (endSec < fullEnd ? 0.6 : 0)
+      if (durCost < bestEnd.durCost) bestEnd = { endSec, durationSec, durCost }
+    }
+    return { order: st.order, edges: st.edges, cost: st.cost + bestEnd.durCost, durationSec: bestEnd.durationSec, endSec: bestEnd.endSec < fullEnd ? bestEnd.endSec : undefined, startSec: st.start, parts: { ...st.parts, duration: bestEnd.durCost } }
   })
   finals.sort((x, y) => x.cost - y.cost)
   const sets: PlannedSet[] = []

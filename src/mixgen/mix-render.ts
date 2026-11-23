@@ -180,6 +180,17 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
   let pendingXf: Float32Array[] | null = null // last xf samples of a render, to crossfade into the next body
   let mixMain = 0
   let mixIn = 0
+  // a set that opens inside its first track fades in over 2 bars
+  if (plan.tracks[0].startFadeSec) {
+    const fl = Math.round(plan.tracks[0].startFadeSec * rate)
+    const g0 = gain(plan.tracks[0].trimDb)
+    await emit(stereo(first).map((c) => {
+      const out = new Float32Array(fl)
+      for (let k = 0; k < fl; k++) out[k] = (c[cursor + k] ?? 0) * g0 * Math.sin((Math.PI / 2) * (k / fl))
+      return out
+    }))
+    cursor += fl
+  }
   for (let i = 0; i < n; i++) {
     const tl = plan.tracks[i]
     const g = gain(tl.trimDb)
@@ -194,7 +205,8 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
         cursor += xf
         pendingXf = null
       }
-      const fadeLen = Math.round(1.5 * rate)
+      // musical end: a gentle 1.5 s fade; an early (phrase) ending for the requested length: a 4-bar fade-out
+      const fadeLen = Math.round((tl.endFadeSec ?? 1.5) * rate)
       await emitBody(cur, cursor, end - fadeLen, g)
       const ch = stereo(cur)
       await emit(ch.map((c) => {

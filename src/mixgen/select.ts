@@ -13,7 +13,7 @@ import { normalize, similarity } from '../providers/catalog/match'
 import { tempoMatch } from '../dj/transitions'
 import { artistMatches, matchesSongRequest } from './identity'
 import { targetEnergy } from './energy'
-import type { ResolvedSpec } from './spec'
+import { eraYears, type ResolvedSpec } from './spec'
 import type { TrackCandidate, Unavailability } from './types'
 
 export interface ScoredCandidate {
@@ -97,6 +97,14 @@ export function scoreCandidate(spec: ResolvedSpec, c: TrackCandidate, pop: numbe
     const b = c.providerBpm
     const inRange = [b, b * 2, b / 2].some((x) => x >= lo - 1 && x <= hi + 1)
     score += inRange ? 0.6 : -2
+  }
+  const years = eraYears(spec.era)
+  const year = c.publishedAt ? Number(c.publishedAt.slice(0, 4)) : NaN
+  if (years && Number.isFinite(year)) {
+    // upload/publish year is only a proxy for release year: a moderate nudge, not a filter
+    const inEra = year >= years[0] && year <= years[1]
+    score += inEra ? 0.8 : -0.5
+    if (inEra) reasons.push(`era ${spec.era}`)
   }
   const d = c.durationSec ?? 0
   if (d && (d < 100 || d > 720)) score -= 2

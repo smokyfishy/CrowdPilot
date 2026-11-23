@@ -19,6 +19,7 @@ import { applyDeckEdits, routeStems, type StemInfo, type StemPcm, type Technique
 import { resample } from '../dsp/resample'
 import { buildAlternatives, criticSelect, monoAt, pairSeverity, rankCandidatesWith, sameTransitionSlot, traceAutomation, type CriticAudio, type MlRuntime, type ScoredPlan } from './ml'
 import { buildManifest, type MixManifest } from './manifest'
+import { requestFidelity } from './fidelity'
 import { planProDj, proDjDecisions, type ProDjModes, type ProDjTrace } from './prodj'
 import { newClosedLoopMemory, PREVIEW_RATE, type ClosedLoopMemory, type Proposal } from './closedloop'
 import type { SetTrack } from './setplan'
@@ -515,6 +516,20 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const manifest = buildManifest({ spec, plan, render, analyses, order, unavailable, permissions: perms, acquisition, title: opts.title })
   manifest.ml = ml?.trace ?? { mode: 'off', options: undefined, models: [], decisions: [], fallbacks: ['no ML runtime provided by this host: rule-based planner only'], timingsMs: {}, counts: {} }
   if (proTrace) manifest.prodj = proTrace
+  // does the mix reflect the request? (measured, recorded; never changes the mix)
+  try {
+    const fid = requestFidelity(spec, rawSpec.explicit ?? [], order, analyses, plan)
+    manifest.requestFidelity = fid
+    manifest.ml?.decisions.push({
+      stage: 'request',
+      model: `interpreter: ${fid.interpreter ?? 'unknown'}`,
+      inputs: { checks: fid.checks.length, corrections: (fid.corrections ?? []).join('; ') || 'none' },
+      prediction: Object.fromEntries(fid.checks.map((c) => [`${c.ok ? '✓' : '✗'} ${c.field}`, `${c.requested} → ${c.achieved}`])),
+      decision: `request fidelity ${Math.round(fid.score * 100)}% (${fid.checks.filter((c) => c.ok).length}/${fid.checks.length} requested items met)`,
+    })
+  } catch (e) {
+    log(`request fidelity: ${(e as Error).message}`)
+  }
   const validation = validateMix(manifest, render)
   host.progress({ stage: 'validating', done: 1, total: 1, detail: validation.ok ? 'passed' : validation.failures.join('; ') })
   manifest.validation = validation

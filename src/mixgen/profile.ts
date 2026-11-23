@@ -205,7 +205,9 @@ export interface CueCandidate {
  * intros, outros, breakdowns, builds, drops, instrumental passages, vocal sections. More than the
  * analyzer's top-4 cues so the planner can trade arrangement against compatibility.
  */
-export function cueCandidates(p: TrackProfile, role: 'in' | 'out', max = 10): CueCandidate[] {
+export function cueCandidates(p: TrackProfile, role: 'in' | 'out', max = 10, range?: { outFrom?: number; inTo?: number }): CueCandidate[] {
+  const outFrom = range?.outFrom ?? 0.45
+  const inTo = range?.inTo ?? 0.5
   const n = p.nBars
   const grid = new Set(p.phraseBars)
   for (let k = 0; k < n; k += 8) grid.add(k)
@@ -214,8 +216,8 @@ export function cueCandidates(p: TrackProfile, role: 'in' | 'out', max = 10): Cu
   const out: CueCandidate[] = []
   for (const k of [...grid].sort((x, y) => x - y)) {
     const pos = k / Math.max(1, n)
-    if (role === 'out' && (pos < 0.45 || k > n - 8)) continue
-    if (role === 'in' && (pos > 0.5 || k < 0)) continue
+    if (role === 'out' && (pos < outFrom || k > n - 8)) continue
+    if (role === 'in' && (pos > inTo || k < 0)) continue
     const vocal = avg(p.vocal, k, k + 8)
     const r = p.region[k] ?? 'body'
     let s = 0

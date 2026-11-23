@@ -25,6 +25,7 @@ import { overlapCompat } from './profile'
 import { edgeSig, planSet, type Edge, type PlannedSet, type SetPlanOptions, type SetTrack } from './setplan'
 import { validPlan } from './ml'
 import type { ResolvedSpec } from './spec'
+import { avoided, matchesAny } from './technique-match'
 
 export const PREVIEW_RATE = 16000
 
@@ -224,6 +225,8 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   modelUse.transitionnetV1.final = 0
   modelUse.humanCue.final = 0
   const humanSigs = new Set<string>()
+  // a technique the user asked for wins unless it hard-fails or measures clearly worse (0.6)
+  const rankP = (q: QualityResult, p: TransitionPlan) => rank(q) - (!q.hardFail && matchesAny(p, spec.techniques.prefer) ? 0.6 : 0)
   const isV1 = (p: TransitionPlan) => (p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet'
   const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
   const ctlKey = (p: TransitionPlan) => JSON.stringify([edgeSig(p.fromItemId, p.toItemId, p), p.style, p.out, p.in, p.filter, p.echo, p.echoIn, p.crossfader, p.outLoop, p.outPerf, (p as TechniquePlan).tech?.stems, (p as TechniquePlan).tech?.deckEdits])
@@ -257,7 +260,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   const mu = () => (scores.length ? scores.reduce((p, q) => p + q, 0) / scores.length : 1)
   const record = (sig: string, m: Measured) => {
     const prev = measured.get(sig)
-    if (!prev || rank(m.q) < rank(prev.q)) measured.set(sig, m)
+    if (!prev || rankP(m.q, m.plan) < rankP(prev.q, prev.plan)) measured.set(sig, m)
   }
   const plannerView = () => {
     const u = mu()
@@ -267,7 +270,8 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
   }
 
   /** All performance variants of one candidate slot. */
-  const variantsOf = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => {
+  const variantsOf = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => variantsAll(e, a, b).filter((v) => !avoided(v, spec.techniques.avoid))
+  const variantsAll = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => {
     const p = e.plan
     if (!longformEligible(p)) {
       const out = [p]
@@ -309,6 +313,9 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
       const alt = list.find((x) => x.plan.overlapBars === bars && longformEligible(x.plan) && !has(x))
       if (alt && picks.length < M) picks.push(alt)
     }
+    // the user named a technique: one slot always holds the best candidate that performs it
+    const wantedAlt = spec.techniques.prefer.length ? list.find((x) => matchesAny(x.plan, spec.techniques.prefer) && !has(x)) : undefined
+    if (wantedAlt) picks.splice(1, 0, wantedAlt)
     const shortAlt = list.find((x) => !longformEligible(x.plan) && !has(x))
     if (shortAlt && picks.length < M + 1) picks.push(shortAlt)
     // MixGraph's human cue prior proposes the most DJ-like cue/overlap slot of this pair (rendered and measured like any other)
@@ -326,11 +333,11 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
         if (!q) continue
         scores.push(q.score)
         evaluated.push({ pair: pairLabel, sig: cand.sig, label: labelOf(v), score: round3(q.score), hardFail: q.hardFail, failures: q.failures, components: roundAll(q.components), overlapBars: v.overlapBars, strategy: v.performance?.strategy, source: v.performance ? v.performance.source : isV1(v) ? 'transitionnet-v1' : 'legacy', round, refined: false, critic: q.critic })
-        if (!candBest || rank(q) < rank(candBest.q)) candBest = { q, plan: v }
+        if (!candBest || rankP(q, v) < rankP(candBest.q, candBest.plan)) candBest = { q, plan: v }
       }
       if (!candBest) continue
       record(cand.sig, { base: cand.cost, plan: candBest.plan, q: candBest.q, label: labelOf(candBest.plan) })
-      if (!best || rank(candBest.q) < rank(best.q)) best = { ...candBest, edge: cand }
+      if (!best || rankP(candBest.q, candBest.plan) < rankP(best.q, best.plan)) best = { ...candBest, edge: cand }
     }
     if (!best) return null
     // refine the winner when it is not already clean
@@ -376,7 +383,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
           list2.push({ ...t, costs: { ...t.costs, total: best.edge.parts.rule } })
           extraEdges.set(pair, list2)
         }
-        if (rank(q) < rank(best.q)) best = { q, plan: t, edge: best.edge }
+        if (rankP(q, t) < rankP(best.q, best.plan)) best = { q, plan: t, edge: best.edge }
       }
     }
     if (best.q.hardFail || best.q.score > poor) {

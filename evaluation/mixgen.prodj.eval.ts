@@ -81,7 +81,8 @@ it('professional DJ upgrade: controlled comparison on real recordings', async ()
       return { key: s.trackKey, title: s.title, artist: s.artist ?? s.title, path: e.path, sha: e.sha256, analysis: a, summary: summarize(a), energy: describeEnergy(a) }
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
-  const spec = report.spec
+  // optional spec override (reproduce a specific request on these recordings)
+  const spec: ResolvedSpec = process.env.PRODJ_SPEC_JSON ? { ...report.spec, techniques: { prefer: [], avoid: [] }, ...JSON.parse(readFileSync(process.env.PRODJ_SPEC_JSON, 'utf8')) } : { techniques: { prefer: [], avoid: [] }, ...report.spec }
   const songCount = Math.min(Number(process.env.PRODJ_SONGS ?? spec.songCount), entries.length)
   const byKey = new Map(entries.map((e) => [e.key, e]))
   // stems: cached separations only (MIXGEN_STEMS=1); none → EQ-based element control

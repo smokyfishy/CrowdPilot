@@ -357,6 +357,13 @@ export function queryPlan(spec: ResolvedSpec): Array<{ provider: SourceId | '*';
   // Creative Commons uploads on YouTube (acquirable only from the artist's official channel).
   for (const g of genres.slice(0, 2)) plan.push({ provider: 'youtube', q: { genres: [g], ccOnly: true, limit: 25, why: `genre:${g}` } })
   if (spec.moods.length) plan.push({ provider: 'jamendo', q: { text: spec.moods.join(' '), genres, limit: 30, why: `mood:${spec.moods.join('+')}` } })
+  // era the user asked for ("90s house", "2010s EDM"): era-qualified searches
+  if (spec.era) {
+    for (const g of genres.slice(0, 2)) {
+      plan.push({ provider: 'youtube', q: { text: `${spec.era} ${g}`, popular, limit: 15, why: `era:${spec.era}` } })
+      plan.push({ provider: 'jamendo', q: { text: `${spec.era} ${g}`, limit: 30, why: `era:${spec.era}` } })
+    }
+  }
   if (spec.artists.length && spec.artistMatching !== 'only_these') {
     // "similar artists": genre-scoped search on YouTube to surface the scene, popular-first.
     plan.push({ provider: 'youtube', q: { genres, popular: true, limit: 15, why: `similar:${spec.artists.slice(0, 3).join('+')}` } })
