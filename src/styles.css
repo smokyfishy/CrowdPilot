@@ -109,6 +109,16 @@
   100% { opacity: 0; transform: translateY(-140px) scale(1.05); }
 }
 
+/* Mix generation: equalizer loading treatment and the indeterminate shimmer on the progress bar. */
+@keyframes eq-bar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+@keyframes bar-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
 /* Theme override blocks live in `themes.css` — imported above. */
 
 /*
