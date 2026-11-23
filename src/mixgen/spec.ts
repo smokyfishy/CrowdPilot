@@ -36,6 +36,7 @@ export type SongRef = z.infer<typeof SongRef>
 
 export const MixSpec = z.object({
   title: z.string().trim().max(120).nullable().default(null),
+  automation_model: z.enum(['standard', 'transitionnet', 'transitionnet-only']).optional(),
   genres: z.array(z.string().trim().min(1).max(60)).max(12).default([]),
   artists: z.array(z.string().trim().min(1).max(120)).max(30).default([]),
   artist_matching: z.enum(['only_these', 'similar_artists_allowed', 'any']).nullable().default(null),

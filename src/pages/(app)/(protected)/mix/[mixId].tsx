@@ -31,7 +31,7 @@ function RefineMix({ mixId, d, tracks }: { mixId: string; d: MixData; tracks: Ar
     try {
       const r = await mixApi.refine(d.spec, refine.trim())
       const carry: { exclude: string[]; include: string[] } = { exclude: [], include: [] }
-      let spec = r.spec
+      let spec = { ...r.spec, automation_model: d.spec.automation_model }
       for (const op of r.editOps) {
         const idx = Math.min(tracks.length, op.position === 99 ? tracks.length : op.position) - 1
         const t = tracks[idx]

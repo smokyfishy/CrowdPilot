@@ -109,6 +109,9 @@ export function useMixJob(mixId: string, rec: { recordId: string; data: MixData 
       },
       quality,
     )
+    const automationModel = rec?.data.spec.automation_model
+    if (automationModel === 'transitionnet') job.mlOptions = { transitionNet: true }
+    if (automationModel === 'transitionnet-only') job.mlOptions = { transitionNet: true, mixgraph: false, ordering: false, critic: false }
     const carry = flag(`mix-carry:${mixId}`)
     l = { job, running: false, events: {}, listeners: new Set([rerender]), carry: carry ? JSON.parse(carry) : undefined }
     liveJobs.set(mixId, l)

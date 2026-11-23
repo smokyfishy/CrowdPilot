@@ -13,6 +13,7 @@ test.describe.configure({ timeout: 45 * 60_000 })
 
 const PROMPT = process.env.MIXGEN_E2E_PROMPT ?? 'Generate a 40-minute tech house mix with 12 tracks, a gradual energy build, strong basslines, and smooth transitions.'
 
+const TRANSITIONNET_ONLY = process.env.MIXGEN_E2E_AUTOMATION === 'transitionnet-only'
 const TRACKS = Number(process.env.MIXGEN_E2E_TRACKS ?? 12)
 const MIN_SECONDS = Number(process.env.MIXGEN_E2E_MIN_SECONDS ?? 30 * 60)
 
@@ -25,6 +26,10 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(page.getByRole('heading', { name: 'Create your mix' })).toBeVisible()
   await page.screenshot({ path: 'test-results/mix-create.png', fullPage: true })
   await page.getByTestId('mix-prompt').fill(PROMPT)
+  if (TRANSITIONNET_ONLY) {
+    await page.getByText('Advanced options', { exact: true }).click()
+    await page.getByTestId('pref-automation-model').selectOption('transitionnet-only')
+  }
   await page.getByTestId('mix-generate').click()
   await page.waitForURL(/\/mix\/[0-9a-f-]{36}$/, { timeout: 120_000 })
 
@@ -90,11 +95,18 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   // Learned-DJ diagnostics come from the manifest's inference trace.
   const diag = page.getByTestId('ml-diagnostics')
   await diag.locator('summary').click()
-  await expect(diag).toContainText('mixgraph_quality')
-  await expect(diag).toContainText('critic_quality')
-  await expect(diag.getByText('used', { exact: true }).first()).toBeVisible()
-  await expect(diag).toContainText('Transition ranking')
-  await expect(diag).toContainText('Track order')
+  if (TRANSITIONNET_ONLY) {
+    await expect(diag.getByRole('row').filter({ hasText: 'transitionnet' }).getByText('used', { exact: true })).toBeVisible()
+    await expect(diag.getByRole('row').filter({ hasText: 'mixgraph_quality' }).getByText('used', { exact: true })).toHaveCount(0)
+    await expect(diag.getByRole('row').filter({ hasText: 'critic_quality' }).getByText('used', { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('transition-inspector')).toContainText('TransitionNet (learned automation)')
+  } else {
+    await expect(diag).toContainText('mixgraph_quality')
+    await expect(diag).toContainText('critic_quality')
+    await expect(diag.getByText('used', { exact: true }).first()).toBeVisible()
+    await expect(diag).toContainText('Transition ranking')
+    await expect(diag).toContainText('Track order')
+  }
   await page.screenshot({ path: 'test-results/mixgen-player.png', fullPage: true })
   console.log('console warnings/errors:', logs.slice(0, 20).join('\n'))
 })
