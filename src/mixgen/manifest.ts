@@ -153,6 +153,12 @@ function downsampleWave(w: { secPerBucket: number; min: number[]; max: number[] 
   return { secPerBucket: w.secPerBucket * f, min, max }
 }
 
+function transitionLabel(plan: TechniquePlan): string {
+  if (plan.tech) return plan.tech.label
+  if (plan.style === 'loop_roll' && plan.incomingDropSec === undefined) return 'Loop roll into a phrase'
+  return STYLE_LABEL[plan.style]
+}
+
 export function buildManifest(input: {
   spec: ResolvedSpec
   plan: MixPlan
@@ -198,7 +204,7 @@ export function buildManifest(input: {
       lufs: Math.round(e.analysis.loudness.integratedLufs * 10) / 10,
       energy: Math.round(e.energy.onsetDensity * 100) / 100,
       drops: e.analysis.sections.filter((x) => x.kind === 'drop').map((x) => Math.round(x.startSec * 10) / 10),
-      transitionOut: plan.transitions[i] ? STYLE_LABEL[plan.transitions[i].plan.style] : undefined,
+      transitionOut: plan.transitions[i] ? transitionLabel(plan.transitions[i].plan) : undefined,
     }
   })
   const transitions: ManifestTransition[] = plan.transitions.map((tt, i) => {
@@ -235,7 +241,7 @@ export function buildManifest(input: {
       fromTitle: `${a.candidate.artist} – ${a.candidate.title}`,
       toTitle: `${b.candidate.artist} – ${b.candidate.title}`,
       style: p.style,
-      label: tech ? tech.label : STYLE_LABEL[p.style],
+      label: transitionLabel(p),
       technique: tech ? { name: tech.technique, rationale: tech.rationale, confidence: Math.round(tech.confidence * 100) / 100 } : undefined,
       mixStartSec: t0,
       mixEndSec: rt?.mixEndSec ?? tt.mixEndSec,
