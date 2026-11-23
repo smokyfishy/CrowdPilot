@@ -62,6 +62,10 @@ export interface StemPcm {
   drums?: Float32Array[]
   bass?: Float32Array[]
   other?: Float32Array[]
+  /** Sample rate of the stem arrays (defaults to the mix rate). */
+  rate?: number
+  /** Track sample where the arrays start (a cropped window); 0 = whole track. */
+  offset?: number
 }
 
 export interface TechniqueControls {
@@ -170,6 +174,7 @@ export function routeStems(mix: Float32Array[], stems: StemPcm, rate: number, st
   const xf = Math.round(0.05 * rate)
   // element-level routing when 4 stems AND element curves exist; otherwise vocals + instrumental
   const four = !!(stems.drums && stems.bass && stems.other && (gains.drums || gains.bass || gains.other))
+  const off = stems.offset ?? 0
   const pick = (x: Float32Array[] | undefined, ci: number) => (x ? x[Math.min(ci, x.length - 1)] : undefined)
   for (let ci = 0; ci < out.length; ci++) {
     const v = pick(stems.vocals, ci)!
@@ -186,7 +191,8 @@ export function routeStems(mix: Float32Array[], stems: StemPcm, rate: number, st
       const go = four ? stemGainAt(gains.other ?? [], beat) : 0
       for (let k = i; k < Math.min(b, i + 64); k++) {
         const edge = Math.min(1, (k - a) / xf, (b - k) / xf)
-        const routed = four ? (v[k] ?? 0) * gv + (d![k] ?? 0) * gd + (bs![k] ?? 0) * gb + (o![k] ?? 0) * go : (v[k] ?? 0) * gv + (s[k] ?? 0) * gi
+        const j = k - off
+        const routed = four ? (v[j] ?? 0) * gv + (d![j] ?? 0) * gd + (bs![j] ?? 0) * gb + (o![j] ?? 0) * go : (v[j] ?? 0) * gv + (s[j] ?? 0) * gi
         out[ci][k] = routed * edge + mix[ci][k] * (1 - edge)
       }
     }

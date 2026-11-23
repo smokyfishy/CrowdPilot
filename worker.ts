@@ -125,6 +125,10 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   GUEST_TOKEN_SECRET?: string
   /** Phase 2: free non-commercial Jamendo API client id (enables Jamendo search). */
   JAMENDO_CLIENT_ID?: string
+  /** Stem separation service (Azure, infra/stems): add-only queue URL with SAS, blob container base URL and read-only SAS. */
+  STEMS_QUEUE_URL?: string
+  STEMS_BLOB_BASE?: string
+  STEMS_BLOB_SAS?: string
 }
 
 export type AppContext = { Bindings: Env }

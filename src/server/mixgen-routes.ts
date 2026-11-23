@@ -4,6 +4,8 @@
  *  POST /api/mixgen/interpret       prompt (+ optional current spec & edit) → validated MixSpec (LLM; deterministic fallback, labelled)
  *  POST /api/mixgen/discover        spec → candidate pool with central access-policy decisions (keys stay server-side)
  *  GET  /api/mixgen/audio/:key      authorized audio for the browser render worker (policy re-checked server-side, never cached)
+ *  POST /api/mixgen/stems           request Demucs stems for a mixable recording (queued on the Azure stem service)
+ *  GET  /api/mixgen/stems/:key      stem status: pending, or the separation measures + read URLs of the 4 stems
  *  POST /api/mixgen/mixes           create a mix version (draft)
  *  POST /api/mixgen/mixes/:id       update progress / selection / completion / failure (owner only, validated)
  *  DELETE /api/mixgen/mixes/:id     delete a version (and its files)
@@ -30,6 +32,9 @@ export type ResolveAuth = (req: Request, env: Env) => Promise<VerifyResult | nul
 const interprets = new TokenBucket(10, 10 / 60_000)
 const discovers = new TokenBucket(6, 6 / 60_000)
 const audioFetches = new TokenBucket(120, 120 / 60_000)
+// stem separation costs real compute: at most ~2 sets of 15 tracks per 10 minutes per user
+const stemRequests = new TokenBucket(30, 30 / 600_000)
+const stemPolls = new TokenBucket(240, 240 / 60_000)
 const writes = new TokenBucket(240, 240 / 60_000)
 
 export const MIXGEN_MODEL = 'claude-sonnet-5-5'
@@ -39,7 +44,7 @@ export const DEPLOYED_POLICY: PolicyContext = { grants: [], ytDlpAvailable: fals
 
 type C = Context<AppContext>
 
-function err(c: C, status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 502, code: string, message: string) {
+function err(c: C, status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 501 | 502, code: string, message: string) {
   return c.json({ error: { code, message } }, status)
 }
 
@@ -221,6 +226,54 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     out.set('x-crowdpilot-license', lic.label)
     out.set('x-crowdpilot-quality', quality)
     return new Response(upstream.body, { status: 200, headers: out })
+  })
+
+  // ── Stem separation (Azure Container Apps Job, infra/stems) ──
+  const stemKey = (key: string) => (/^jamendo:\d{1,12}$/.test(key) ? key.replace(':', '_') : null)
+  const stemReady = async (env: Env, key: string) => {
+    const safe = stemKey(key)
+    if (!safe || !env.STEMS_BLOB_BASE || !env.STEMS_BLOB_SAS) return null
+    const r = await fetch(`${env.STEMS_BLOB_BASE}/${safe}/info.json?${env.STEMS_BLOB_SAS}`).catch(() => null)
+    if (!r?.ok) return null
+    const info = await r.json().catch(() => null)
+    if (!info) return null
+    const urls = Object.fromEntries(['vocals', 'drums', 'bass', 'other'].map((s) => [s, `${env.STEMS_BLOB_BASE}/${safe}/${s}.opus?${env.STEMS_BLOB_SAS}`]))
+    return { status: 'ready' as const, info, urls }
+  }
+  app.post('/api/mixgen/stems', async (c) => {
+    const auth = await authed(c)
+    if (!auth) return err(c, 401, 'UNAUTHENTICATED', 'Sign in to generate a mix.')
+    if (!c.env.STEMS_QUEUE_URL || !c.env.STEMS_BLOB_BASE || !c.env.STEMS_BLOB_SAS) return err(c, 501, 'STEMS_UNAVAILABLE', 'Stem separation is not configured.')
+    const b = await body<{ key?: string }>(c)
+    const key = typeof b?.key === 'string' ? b.key : ''
+    const m = /^jamendo:(\d{1,12})$/.exec(key)
+    if (!m) return err(c, 403, 'NOT_PERMITTED', 'Stems are only separated for mixable Jamendo recordings.')
+    const ready = await stemReady(c.env, key)
+    if (ready) return c.json(ready)
+    if (!stemRequests.take(auth.userId, Date.now()).ok) return err(c, 429, 'RATE_LIMITED', 'Too many stem requests; try again in a few minutes.')
+    if (!c.env.JAMENDO_CLIENT_ID) return err(c, 502, 'UPSTREAM', 'Jamendo is not configured.')
+    // licence re-checked from Jamendo's CURRENT metadata: stems are derivatives (no ND)
+    let t: { audio?: string; license_ccurl?: string } | undefined
+    for (let attempt = 0; attempt < 4 && !t; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 300 * attempt))
+      const p = new URLSearchParams({ client_id: c.env.JAMENDO_CLIENT_ID, format: 'json', id: m[1], audioformat: 'mp32' })
+      const r = await fetch(`https://api.jamendo.com/v3.0/tracks/?${p.toString()}`).catch(() => null)
+      t = ((await r?.json().catch(() => null)) as { results?: Array<NonNullable<typeof t>> } | null)?.results?.[0]
+    }
+    if (!t?.audio) return err(c, 404, 'UNAVAILABLE', 'The recording is no longer available on Jamendo.')
+    const lic = ccLabel(t.license_ccurl)
+    if (lic.ndOrUnknown) return err(c, 403, 'NOT_PERMITTED', `${lic.label}: no derivatives allowed, so no stems.`)
+    const xml = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const q = await fetch(c.env.STEMS_QUEUE_URL, { method: 'POST', headers: { 'content-type': 'application/xml' }, body: `<QueueMessage><MessageText>${xml(JSON.stringify({ key, url: t.audio }))}</MessageText></QueueMessage>` }).catch(() => null)
+    if (!q?.ok) return err(c, 502, 'UPSTREAM', `Stem queue returned ${q?.status ?? 'no response'}.`)
+    return c.json({ status: 'queued' }, 202)
+  })
+  app.get('/api/mixgen/stems/:key', async (c) => {
+    const auth = await authed(c)
+    if (!auth) return err(c, 401, 'UNAUTHENTICATED', 'Sign in to generate a mix.')
+    if (!stemPolls.take(auth.userId, Date.now()).ok) return err(c, 429, 'RATE_LIMITED', 'Polling too fast.')
+    const ready = await stemReady(c.env, c.req.param('key'))
+    return c.json(ready ?? { status: 'pending' })
   })
 
   app.post('/api/mixgen/mixes', async (c) => {

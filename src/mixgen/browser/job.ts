@@ -19,6 +19,8 @@ import type { MixSpec } from '../spec'
 import type { AcquiredAudio, ProgressEvent, Stage, TrackCandidate } from '../types'
 import type { RenderWorkerIn, RenderWorkerOut } from './render.worker'
 import type { RenderResult } from '../mix-render'
+import type { StemPcm } from '../techniques'
+import { stemInfoFromService, type StemServiceInfo } from '../stems-shared'
 import { createMlRuntime, type MlOptions, type MlRuntime } from '../ml'
 import { loadDjModels, type Registry } from '../../ml/dj-brain'
 
@@ -281,18 +283,95 @@ export class BrowserMixJob {
         return res.analysis
       },
       sink: { write() {} },
-      render: (plan, load, onProgress) => job.renderInWorker(plan, load, onProgress),
+      render: (plan, load, onProgress, loadStems) => job.renderInWorker(plan, load, onProgress, loadStems),
+      // Demucs htdemucs 4-stem separation on the Azure stem service (infra/stems), all tracks in parallel
+      stemsConcurrency: 12,
+      stems: async (audio, analysis) => {
+        if (!/^jamendo:\d+$/.test(audio.trackKey)) return null
+        const res = await job.requestStems(audio.trackKey)
+        if (!res) return null
+        const urls = res.urls
+        const decode = async (url: string, rate: number) => {
+          const r = await fetch(url)
+          if (!r.ok) throw new Error(`stem download ${r.status}`)
+          const ab = await new OfflineAudioContext(2, 1, rate).decodeAudioData(await r.arrayBuffer())
+          return Array.from({ length: ab.numberOfChannels }, (_, c) => ab.getChannelData(c))
+        }
+        const sum3 = (d: Float32Array[], b: Float32Array[], o: Float32Array[]) => d.map((c, ci) => {
+          const x = new Float32Array(c.length)
+          const bc = b[Math.min(ci, b.length - 1)]
+          const oc = o[Math.min(ci, o.length - 1)]
+          for (let i = 0; i < x.length; i++) x[i] = c[i] + (bc[i] ?? 0) + (oc[i] ?? 0)
+          return x
+        })
+        return {
+          info: stemInfoFromService(res.info, analysis),
+          // one stem at a time, cropped to the transition window right away (keeps memory small)
+          load: async (window?: [number, number]): Promise<StemPcm> => {
+            const out: Record<string, Float32Array[]> = {}
+            let offset = 0
+            for (const s of ['vocals', 'drums', 'bass', 'other'] as const) {
+              const ch = await decode(urls[s], RATE)
+              if (window) {
+                const a = Math.max(0, Math.floor(window[0] * RATE))
+                const b = Math.min(ch[0].length, Math.ceil(window[1] * RATE))
+                offset = a
+                out[s] = ch.map((c) => c.slice(a, b))
+              } else out[s] = ch
+            }
+            return { vocals: out.vocals, inst: sum3(out.drums, out.bass, out.other), drums: out.drums, bass: out.bass, other: out.other, rate: RATE, offset }
+          },
+          loadPreview: async () => {
+            const mono = async (url: string) => {
+              const ch = await decode(url, 16000)
+              if (ch.length === 1) return ch[0]
+              const m = new Float32Array(ch[0].length)
+              for (const c of ch) for (let i = 0; i < m.length; i++) m[i] += c[i] / ch.length
+              return m
+            }
+            const [vocals, drums, bass, other] = await Promise.all([mono(urls.vocals), mono(urls.drums), mono(urls.bass), mono(urls.other)])
+            const inst = sum3([drums], [bass], [other])[0]
+            return { vocals, inst, drums, bass, other }
+          },
+        }
+      },
       progress: (ev) => job.progress(ev),
     }
   }
 
+  /** Request Demucs stems from the Azure stem service and wait until they are ready (null = unavailable). */
+  async requestStems(key: string): Promise<{ info: StemServiceInfo; urls: Record<'vocals' | 'drums' | 'bass' | 'other', string> } | null> {
+    type R = { status: 'ready'; info: StemServiceInfo; urls: Record<'vocals' | 'drums' | 'bass' | 'other', string> } | { status: 'queued' | 'pending' }
+    const start = await fetch('/api/mixgen/stems', { method: 'POST', headers: { ...(await this.headers()), 'content-type': 'application/json' }, body: JSON.stringify({ key }) }).catch(() => null)
+    if (!start || (!start.ok && start.status !== 202)) return null // not configured / not permitted / rate limited → no stems for this track
+    let r = (await start.json()) as R
+    const deadline = Date.now() + 30 * 60_000
+    while (r.status !== 'ready' && Date.now() < deadline) {
+      await new Promise((res) => setTimeout(res, 6000))
+      const p = await fetch(`/api/mixgen/stems/${encodeURIComponent(key)}`, { headers: await this.headers() }).catch(() => null)
+      if (p?.ok) r = (await p.json()) as R
+    }
+    return r.status === 'ready' ? r : null
+  }
+
   private renderBlob: { blob: Blob; mime: string } | null = null
 
-  private renderInWorker(plan: Parameters<NonNullable<PipelineHost['render']>>[0], load: (key: string) => Promise<{ channels: Float32Array[]; rate: number }>, onProgress: (d: number, t: number, detail: string) => void): Promise<RenderResult> {
+  private renderInWorker(plan: Parameters<NonNullable<PipelineHost['render']>>[0], load: (key: string) => Promise<{ channels: Float32Array[]; rate: number }>, onProgress: (d: number, t: number, detail: string) => void, loadStems?: (key: string, window?: [number, number]) => Promise<StemPcm | null>): Promise<RenderResult> {
     return new Promise((resolve, reject) => {
       const w = new Worker(new URL('./render.worker.ts', import.meta.url), { type: 'module' })
       w.onmessage = async (ev: MessageEvent<RenderWorkerOut>) => {
         const m = ev.data
+        if (m.type === 'stems') {
+          let stems: StemPcm | null = null
+          try {
+            stems = loadStems ? await loadStems(m.key, m.window) : null
+          } catch {
+            stems = null // the renderer falls back to the plain mix for this transition
+          }
+          const bufs = stems ? [stems.vocals, stems.inst, stems.drums ?? [], stems.bass ?? [], stems.other ?? []].flat().map((c) => c.buffer) : []
+          w.postMessage({ type: 'stemsPcm', id: m.id, stems } satisfies RenderWorkerIn, bufs)
+          return
+        }
         if (m.type === 'load') {
           try {
             const pcm = await load(m.key)

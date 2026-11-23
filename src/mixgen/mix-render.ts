@@ -32,7 +32,8 @@ export interface TrackLoader {
   load(key: string): Promise<PcmTrack>
   release?(key: string): void
   /** Vocal / instrumental stems at the mix rate (local worker with a separation model), or null. */
-  loadStems?(key: string): Promise<StemPcm | null>
+  /** Stems at the mix rate; `window` (track seconds) lets a host return only the cropped region (offset set). */
+  loadStems?(key: string, window?: [number, number]): Promise<StemPcm | null>
 }
 
 export interface AudioSink {
@@ -220,7 +221,10 @@ export async function renderMix(plan: MixPlan, loader: TrackLoader, sink: AudioS
     let inDeck = stereo(next)
     let stemsApplied = false
     if (tech?.stems && loader.loadStems) {
-      const [so, si] = await Promise.all([loader.loadStems(tl.key), loader.loadStems(nextTl.key)])
+      const [so, si] = await Promise.all([
+        loader.loadStems(tl.key, [Math.max(0, p.outCueSec - 1), p.outCueSec + p.durationSec + 1]),
+        loader.loadStems(nextTl.key, [Math.max(0, p.inCueSec - 1), p.inCueSec + p.durationSec * Math.max(1, p.tempoRatio) + 1]),
+      ])
       if (so && si) {
         const span = p.durationSec
         outDeck = routeStems(outDeck, so, rate, p.outCueSec - 0.1, p.outCueSec + span + 0.1, (t) => (t - p.outCueSec) / p.beatSec, tech.stems.out)

@@ -8,14 +8,17 @@
  */
 import { renderMix, type PcmTrack, type RenderResult } from '../mix-render'
 import type { MixPlan } from '../mixplan'
+import type { StemPcm } from '../techniques'
 import { OggOpusMuxer } from './ogg-opus'
 
 export type RenderWorkerIn =
   | { type: 'render'; plan: MixPlan; bitrate?: number }
   | { type: 'pcm'; id: number; channels?: Float32Array[]; rate?: number; error?: string }
+  | { type: 'stemsPcm'; id: number; stems: StemPcm | null }
 
 export type RenderWorkerOut =
   | { type: 'load'; id: number; key: string }
+  | { type: 'stems'; id: number; key: string; window?: [number, number] }
   | { type: 'progress'; done: number; total: number; detail: string }
   | { type: 'done'; result: RenderResult; blob: Blob; mime: string }
   | { type: 'error'; message: string }
@@ -23,6 +26,16 @@ export type RenderWorkerOut =
 const post = (m: RenderWorkerOut) => (self as unknown as Worker).postMessage(m)
 const waiting = new Map<number, { resolve: (p: PcmTrack) => void; reject: (e: Error) => void }>()
 let nextId = 1
+
+const waitingStems = new Map<number, (s: StemPcm | null) => void>()
+/** Stems (Azure Demucs) for a transition window, decoded on the main thread. */
+function requestStems(key: string, window?: [number, number]): Promise<StemPcm | null> {
+  const id = nextId++
+  return new Promise((resolve) => {
+    waitingStems.set(id, resolve)
+    post({ type: 'stems', id, key, window })
+  })
+}
 
 function requestPcm(key: string): Promise<PcmTrack> {
   const id = nextId++
@@ -76,7 +89,7 @@ async function render(plan: MixPlan, bitrate: number): Promise<void> {
       while (enc.encodeQueueSize > 32) await new Promise<void>((r) => enc.addEventListener('dequeue', () => r(), { once: true }))
     },
   }
-  const result = await renderMix(plan, { load: requestPcm }, sink, (done, total, detail) => post({ type: 'progress', done, total, detail }))
+  const result = await renderMix(plan, { load: requestPcm, loadStems: requestStems }, sink, (done, total, detail) => post({ type: 'progress', done, total, detail }))
   if (result.rate !== RATE) throw new Error(`render rate ${result.rate} ≠ ${RATE}`)
   await enc.flush()
   enc.close()
@@ -88,6 +101,12 @@ async function render(plan: MixPlan, bitrate: number): Promise<void> {
 
 self.onmessage = (ev: MessageEvent<RenderWorkerIn>) => {
   const m = ev.data
+  if (m.type === 'stemsPcm') {
+    const r = waitingStems.get(m.id)
+    waitingStems.delete(m.id)
+    r?.(m.stems)
+    return
+  }
   if (m.type === 'pcm') {
     const w = waiting.get(m.id)
     waiting.delete(m.id)

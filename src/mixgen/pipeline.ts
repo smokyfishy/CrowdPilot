@@ -46,7 +46,7 @@ export interface PipelineHost {
   analyze(audio: AcquiredAudio, pcm: PcmTrack): Promise<TrackAnalysis>
   sink: AudioSink
   /** Optional render override (browser: runs renderMix inside a Web Worker). */
-  render?(plan: MixPlan, load: (key: string) => Promise<PcmTrack>, onProgress: (done: number, total: number, detail: string) => void): Promise<RenderResult>
+  render?(plan: MixPlan, load: (key: string) => Promise<PcmTrack>, onProgress: (done: number, total: number, detail: string) => void, loadStems?: (key: string, window?: [number, number]) => Promise<StemPcm | null>): Promise<RenderResult>
   progress(ev: ProgressEvent): void
   log?(msg: string): void
   signal?: AbortSignal
@@ -55,8 +55,16 @@ export interface PipelineHost {
   /** Learned-DJ runtime (src/mixgen/ml.ts). Absent = rules only (logged in the manifest). */
   ml?: MlRuntime
   /** Stem separation (local worker): vocal activity + separation check, and a loader for the stems. */
-  stems?: (audio: AcquiredAudio, analysis: TrackAnalysis) => Promise<{ info: StemInfo; load: () => Promise<StemPcm> } | null>
+  stems?: (audio: AcquiredAudio, analysis: TrackAnalysis) => Promise<{
+    info: StemInfo
+    /** Stems at the mix rate; `window` (track seconds) may return a cropped region. */
+    load: (window?: [number, number]) => Promise<StemPcm>
+    /** Mono preview-rate stems for the closed loop (cheaper than `load` in the browser). */
+    loadPreview?: () => Promise<{ vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }>
+  } | null>
   concurrency?: number
+  /** Parallel stem separations (browser → Azure service: many; local Demucs on CPU: 1). */
+  stemsConcurrency?: number
   /** Closed-loop preview budget (rendered candidate transitions per mix). */
   previewBudget?: number
   /** Closed-loop measurements shared across calls of the same job (review → render). */
@@ -266,24 +274,27 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   let proTrace: ProDjTrace | undefined
   // Stems (local worker only): separated for the ordered set, used for layering/mashup techniques.
   const stemInfo = new Map<string, StemInfo>()
-  const stemLoad = new Map<string, () => Promise<StemPcm>>()
+  const stemLoad = new Map<string, (window?: [number, number]) => Promise<StemPcm>>()
+  const stemPreview = new Map<string, () => Promise<{ vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }>>()
   const separate = async (keys: string[]) => {
     if (!host.stems) return
-    for (const [i, k] of keys.entries()) {
-      if (stemInfo.has(k)) continue
+    let done = 0
+    host.progress({ stage: 'transitions', done: 0, total: keys.length, detail: `separating stems (vocals / drums / bass / other) for ${keys.length} tracks` })
+    await pool(keys.filter((k) => !stemInfo.has(k)), host.stemsConcurrency ?? 1, async (k) => {
       const e = analyses.get(k)!
-      host.progress({ stage: 'transitions', done: i, total: keys.length, detail: `separating stems ${i + 1}/${keys.length} (vocals / instrumental)` })
       try {
-        const r = await host.stems(e.audio, e.analysis)
+        const r = await host.stems!(e.audio, e.analysis)
         if (r) {
           stemInfo.set(k, r.info)
           stemLoad.set(k, r.load)
+          if (r.loadPreview) stemPreview.set(k, r.loadPreview)
           if (!r.info.clean) log(`stems: ${e.candidate.title} failed the separation check (bass bleed ${r.info.bleed}${r.info.residualDb !== undefined ? `, reconstruction residual ${r.info.residualDb} dB` : ''}); no layering on this track`)
         }
       } catch (err) {
         log(`stems: ${e.candidate.title}: ${(err as Error).message}`)
       }
-    }
+      host.progress({ stage: 'transitions', done: ++done, total: keys.length, detail: `stems ready for ${done}/${keys.length} tracks` })
+    })
   }
   if (planner === 'global') {
     const modes: ProDjModes = { global: true, longform: true, closedLoop: true, ...opts.proDj }
@@ -323,11 +334,16 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       if (!load) return null
       let hit = stems16.get(k)
       if (!hit) {
-        const st = await load()
-        hit = {
-          vocals: monoAt(st.vocals, 44100, PREVIEW_RATE),
-          inst: monoAt(st.inst, 44100, PREVIEW_RATE),
-          ...(st.drums && st.bass && st.other ? { drums: monoAt(st.drums, 44100, PREVIEW_RATE), bass: monoAt(st.bass, 44100, PREVIEW_RATE), other: monoAt(st.other, 44100, PREVIEW_RATE) } : {}),
+        const pv = stemPreview.get(k)
+        if (pv) hit = await pv()
+        else {
+          const st = await load()
+          const r = st.rate ?? 44100
+          hit = {
+            vocals: monoAt(st.vocals, r, PREVIEW_RATE),
+            inst: monoAt(st.inst, r, PREVIEW_RATE),
+            ...(st.drums && st.bass && st.other ? { drums: monoAt(st.drums, r, PREVIEW_RATE), bass: monoAt(st.bass, r, PREVIEW_RATE), other: monoAt(st.other, r, PREVIEW_RATE) } : {}),
+          }
         }
         stems16.set(k, hit)
         if (stems16.size > 4) stems16.delete(stems16.keys().next().value!)
@@ -367,6 +383,14 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       mark('transitionnet', (mu?.transitionnetV1.rendered ?? 0) > 0, 'no short beat-matched template needed a variant')
       mark('transitionnet_v2', (mu?.transitionnetV2.rendered ?? 0) > 0, 'no long-form window reached the closed loop')
       mark('mixgraph_human_cue', (mu?.humanCue.rendered ?? 0) > 0, 'no pair offered a distinct human-prior slot')
+      // the two signal models outside the learned-DJ registry, with their real usage in this mix
+      const beatnet = usable.filter((e) => e.analysis.grid.source === 'beatnet').length
+      ml.trace.models.unshift({ name: 'beat_this_small0', kind: 'Beat This! (CNN beat/downbeat tracker, ONNX)', loaded: beatnet > 0, used: beatnet > 0, version: 'small0' })
+      const stemTracks = [...stemInfo.values()]
+      ml.trace.models.push({ name: 'demucs_htdemucs', kind: 'Demucs htdemucs 4-stem separation (stem service / local worker)', loaded: !!host.stems, used: stemTracks.length > 0, version: 'htdemucs' })
+      ml.trace.counts = { ...ml.trace.counts, beat_this_tracks: beatnet, stems_tracks: stemTracks.length, stems_clean_tracks: stemTracks.filter((x) => x.clean).length }
+      if (!host.stems) ml.trace.fallbacks.push('demucs_htdemucs: this host has no stem separation')
+      else if (!stemTracks.length) ml.trace.fallbacks.push('demucs_htdemucs: stem service returned no stems for this mix (not configured, not permitted or timed out)')
       if (mu) ml.trace.counts = { ...ml.trace.counts, transitionnet_v2_proposals: mu.transitionnetV2.proposals, transitionnet_v2_rendered: mu.transitionnetV2.rendered, transitionnet_v2_in_final_mix: mu.transitionnetV2.final, transitionnet_v1_variants: mu.transitionnetV1.variants, transitionnet_v1_rendered: mu.transitionnetV1.rendered, transitionnet_v1_in_final_mix: mu.transitionnetV1.final, human_cue_candidates: mu.humanCue.candidates, human_cue_rendered: mu.humanCue.rendered, human_cue_in_final_mix: mu.humanCue.final, critic_scored_previews: mu.critic.scored }
     }
     host.progress({ stage: 'ordering', done: 1, total: 1, detail: `global plan: ${order.length} tracks${res.trace.closedLoop ? `, ${res.trace.closedLoop.previews} rendered previews, ${res.trace.closedLoop.rounds} round(s)` : ''}` })
@@ -464,7 +488,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   const loaded = new Map<string, PcmTrack>()
   const onRender = (d: number, t: number, detail: string) => host.progress({ stage: 'rendering', done: d, total: t, detail })
   const render = host.render
-    ? await host.render(plan, (key) => host.decode(analyses.get(key)!.audio), onRender)
+    ? await host.render(plan, (key) => host.decode(analyses.get(key)!.audio), onRender, async (key, window) => (stemLoad.get(key) ? await stemLoad.get(key)!(window) : null))
     : await renderMix(
     plan,
     {
@@ -478,7 +502,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       release(key) {
         loaded.delete(key)
       },
-      loadStems: async (key) => (stemLoad.get(key) ? await stemLoad.get(key)!() : null),
+      loadStems: async (key, window) => (stemLoad.get(key) ? await stemLoad.get(key)!(window) : null),
     },
     host.sink,
     onRender,
