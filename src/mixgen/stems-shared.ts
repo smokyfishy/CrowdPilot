@@ -18,8 +18,13 @@ export interface StemServiceInfo {
   version: string
 }
 
-/** Separation-quality gate (same thresholds as the local worker). */
-export const stemsClean = (bleed: number, residualDb: number | undefined) => bleed < 0.25 && (residualDb === undefined || residualDb < -15)
+/**
+ * Separation-quality gate (all hosts). htdemucs does not enforce that its stems sum back to the mix:
+ * on 8 mastered tracks the aligned reconstruction residual was −12.1…−14.3 dB, so −10 dB keeps a margin
+ * for normal output while rejecting failed separations. Heuristic, not a listening-validated threshold.
+ */
+export const RESIDUAL_GATE_DB = -10
+export const stemsClean = (bleed: number, residualDb: number | undefined) => bleed < 0.25 && (residualDb === undefined || residualDb < RESIDUAL_GATE_DB)
 
 export function stemInfoFromService(s: StemServiceInfo, a: TrackAnalysis): StemInfo {
   const barSec = a.barSec

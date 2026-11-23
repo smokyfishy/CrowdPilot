@@ -113,11 +113,12 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   // Learned-DJ diagnostics come from the manifest's inference trace.
   const diag = page.getByTestId('ml-diagnostics')
   await diag.locator(':scope > summary').click()
-  for (const model of ['mixgraph_quality', 'critic_quality']) {
-    await expect(diag.getByRole('row').filter({ hasText: model }).getByText('used', { exact: true })).toBeVisible()
+  // every model runs: these always produce output that is used in a mix ...
+  for (const model of ['beat_this_small0', 'mixgraph_quality', 'critic_quality', 'critic_artifact', 'transitionnet_v2', 'demucs_htdemucs']) {
+    await expect(diag.getByRole('row').filter({ hasText: model }).getByText('used', { exact: true }), model).toBeVisible()
   }
-  // the global planner does not execute TransitionNet v1 trajectories, and says so
-  await expect(diag.getByRole('row').filter({ hasText: /^transitionnet/ }).first().getByText('used', { exact: true })).toHaveCount(0)
+  // ... and these are loaded and propose closed-loop candidates whenever the mix offers them a slot
+  for (const model of ['transitionnet', 'mixgraph_human_cue']) await expect(diag.getByRole('row').filter({ hasText: model }).first()).toBeVisible()
   await expect(diag).toContainText('Set planning')
   await expect(diag).toContainText('Long-form performance')
   await expect(diag).toContainText('Closed-loop evaluation')

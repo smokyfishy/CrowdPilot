@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from
 import { join } from 'node:path'
 import type { TrackAnalysis } from '../../src/dsp/analyze'
 import type { StemInfo, StemPcm } from '../../src/mixgen/techniques'
+import { stemsClean } from '../../src/mixgen/stems-shared'
 import { decodePcm, ffmpegPath } from './ffmpeg'
 import { dir } from './storage'
 
@@ -46,7 +47,7 @@ export async function separate(audioPath: string, sha: string): Promise<StemFile
   const dec = await run(ffmpegPath(), ['-hide_banner', '-v', 'error', '-y', '-i', audioPath, '-ac', '2', '-ar', '44100', tmp])
   if (dec.code !== 0) throw new Error(`stem prep failed: ${dec.err.slice(0, 200)}`)
   const work = join(out, 'work')
-  const r = await run(process.env.PYTHON ?? 'python', ['-m', 'demucs', '-n', 'htdemucs', '-o', work, '--filename', '{stem}.{ext}', tmp])
+  const r = await run(process.env.PYTHON ?? 'python', ['-m', 'demucs', '-n', 'htdemucs', '--float32', '-o', work, '--filename', '{stem}.{ext}', tmp])
   if (r.code !== 0) throw new Error(`demucs failed: ${r.err.split(/\r?\n/).filter((l) => /error/i.test(l)).slice(-2).join(' | ').slice(0, 300) || r.err.slice(-300)}`)
   const found = (name: string): string | null => {
     const walk = (d: string): string | null => {
@@ -139,6 +140,17 @@ export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis,
         bestLag = lag
       }
     }
+    // refine at full resolution around the decimated estimate (aliasing can shift it by a few samples)
+    const coarse = bestLag
+    best = -Infinity
+    for (let lag = coarse - 8; lag <= coarse + 8; lag++) {
+      let c = 0
+      for (let i = c0; i < c1; i++) c += mix[i] * sum(i + lag)
+      if (c > best) {
+        best = c
+        bestLag = lag
+      }
+    }
     let e = 0
     let m = 0
     for (let i = Math.max(0, -bestLag); i < n - Math.max(0, bestLag); i += 4) {
@@ -148,7 +160,7 @@ export function stemInfo(vocals: Float32Array[], rate: number, a: TrackAnalysis,
     }
     residualDb = Math.round(10 * Math.log10(e / Math.max(1e-12, m) + 1e-12) * 10) / 10
   }
-  const clean = bleed < 0.25 && (residualDb === undefined || residualDb < -15)
+  const clean = stemsClean(bleed, residualDb)
   return { vocalDb, barStartSec: start, barSec, clean, bleed: Math.round(bleed * 1000) / 1000, elements, ...(residualDb !== undefined ? { residualDb } : {}) }
 }
 

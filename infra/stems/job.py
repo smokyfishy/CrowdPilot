@@ -32,7 +32,7 @@ QUEUE = os.environ.get("STEMS_QUEUE", "stems")
 CONTAINER = os.environ.get("STEMS_CONTAINER", "stems")
 ALLOWED_HOST = re.compile(r"(^|\.)jamendo\.com$")
 SR = 44100
-VERSION = "htdemucs-4stem-v1"
+VERSION = "htdemucs-4stem-v3"
 
 
 def safe_key(key: str) -> str:
@@ -73,9 +73,16 @@ def measures(mix: np.ndarray, stems: dict[str, np.ndarray]) -> dict:
         c = float(np.dot(m[a0:a1:8], s[a0 + d:a1 + d:8]))
         if c > best:
             best, lag = c, d
+    # refine at full resolution (the decimated search can alias by a few samples)
+    coarse = lag
+    for d in range(coarse - 8, coarse + 9):
+        a0, a1 = max(c0, -d), min(c1, L - max(0, d))
+        c = float(np.dot(m[a0:a1].astype(np.float64), s[a0 + d:a1 + d]))
+        if d == coarse - 8 or c > best:
+            best, lag = c, d
     a0, a1 = max(0, -lag), L - max(0, lag)
-    e = float(np.sum((m[a0:a1] - s[a0 + lag:a1 + lag]) ** 2))
-    p = float(np.sum(m[a0:a1] ** 2))
+    e = float(np.sum((m[a0:a1].astype(np.float64) - s[a0 + lag:a1 + lag]) ** 2))
+    p = float(np.sum(m[a0:a1].astype(np.float64) ** 2))
     residual = round(10 * np.log10(e / max(1e-12, p) + 1e-12), 1)
     return {"vocalRmsDb": env, "envRateHz": 20, "bleed": round(bleed, 4), "residualDb": residual, "durationSec": round(len(v) / SR, 2)}
 
@@ -99,7 +106,7 @@ def process(msg: dict, blobs) -> None:
         wav = os.path.join(tmp, "in.wav")
         run(["ffmpeg", "-v", "error", "-y", "-i", src, "-ac", "2", "-ar", str(SR), wav])
         out = os.path.join(tmp, "out")
-        run([sys.executable, "-m", "demucs", "-n", "htdemucs", "-o", out, "--filename", "{stem}.{ext}", wav])
+        run([sys.executable, "-m", "demucs", "-n", "htdemucs", "--float32", "-o", out, "--filename", "{stem}.{ext}", wav])
         found = {}
         for root, _d, files in os.walk(out):
             for fn in files:
