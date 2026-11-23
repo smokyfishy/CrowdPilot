@@ -28,6 +28,7 @@ import { energyContinuity, localGrid, MIN_SOLO_BARS, musicEnd, musicStart, pairO
 import { genrePreference } from './techniques'
 import { cueCandidates, grooveSimilarity, overlapCompat, type OverlapCompat, type TrackProfile } from './profile'
 import { longformEligible } from './longform'
+import { gridAlignment } from './audio-quality'
 import type { TechniquePlan } from './techniques'
 import type { ResolvedSpec } from './spec'
 
@@ -259,7 +260,16 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
         const sev = opts.learnedSeverity(plan, a, b)
         if (sev !== undefined && Number.isFinite(sev)) learned = learnedWeight * sev
       }
-      list.push({ plan, cost: rule + compatCost + prior + learned, parts: { rule, compat: compatCost, prior, learned, measured: 0 }, compat: c, kind, sig: edgeSig(a.key, b.key, plan) })
+      // beat alignment predicted from the Beat This! grids through the edge's cue/tempo controls
+      let align = 0
+      if (BEATMATCHED.has(plan.style) && plan.durationSec > 1) {
+        const g = gridAlignment(plan, a.netBeats, b.netBeats)
+        if (Number.isFinite(g.medianMs)) {
+          if (g.medianMs > 60) return // would audibly flam: not a candidate
+          align = 2 * Math.min(1, Math.max(0, (g.medianMs - 12) / 40)) + Math.min(1, Math.max(0, (g.p90Ms - 30) / 60))
+        }
+      }
+      list.push({ plan, cost: rule + compatCost + prior + learned + align, parts: { rule, compat: compatCost + align, prior, learned, measured: 0 }, compat: c, kind, sig: edgeSig(a.key, b.key, plan) })
     }
     // legacy candidate family (all styles/techniques; position-neutral scoring)
     for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, { ...opts.pairOpts, rankCandidates: undefined, candidatesPerPair: 14 })) push(p, p.costs.total, 'pair')

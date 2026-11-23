@@ -34,7 +34,7 @@ it('TransitionNet v2 held-out rendered comparison', async () => {
   const model = JSON.parse(readFileSync(join(process.cwd(), 'public', 'models', 'ml', 'transitionnet_v2.json'), 'utf8')) as MlpModel
   const tracks = JSON.parse(readFileSync(join(ML, 'cache', 'analysis_full_v2.json'), 'utf8'), (_k, v) => (v && typeof v === 'object' && '__f64' in v ? Float64Array.from(v.__f64) : v)) as Array<{ key: string; split: string; wav: string; analysis: TrackAnalysis }>
   const rows: Array<{ window: string; split: string; score: number; hardFail: boolean }> = []
-  for (const f of readdirSync(join(ML, 'synth_v2')).filter((x) => x.endsWith('.jsonl'))) for (const l of readFileSync(join(ML, 'synth_v2', f), 'utf8').split('\n')) if (l) rows.push(JSON.parse(l))
+  for (const f of readdirSync(join(ML, process.env.V2_DIR ?? 'synth_v2')).filter((x) => x.endsWith('.jsonl'))) for (const l of readFileSync(join(ML, process.env.V2_DIR ?? 'synth_v2', f), 'utf8').split('\n')) if (l) rows.push(JSON.parse(l))
   const split = process.env.V2_SPLIT ?? 'test'
   const windows = [...new Set(rows.filter((r) => r.split === split).map((r) => r.window))]
   const oracle = new Map<string, number>()
@@ -71,7 +71,7 @@ it('TransitionNet v2 held-out rendered comparison', async () => {
     const feas = feasibleStrategies(win.compat, { dropAtEnd: win.plan.incomingDropSec !== undefined })
     const measure = async (plan: ReturnType<typeof buildPerformance>) => {
       const r = await renderPreview(plan, a, b, { audio })
-      const q = evaluateTransition(r, { plan, pa: a.profile, pb: b.profile })
+      const q = evaluateTransition(r, { plan, pa: a.profile, pb: b.profile, beatsA: a.netBeats, beatsB: b.netBeats })
       const c = criticFromMix(critic, plan, r.mix, r.rate, r.t0, r.t1)
       return { score: Math.round(q.score * 1000) / 1000, hardFail: q.hardFail, critic: Math.round(c.quality * 10000) / 10000, artifact: Math.round(c.artifact * 1000) / 1000 }
     }

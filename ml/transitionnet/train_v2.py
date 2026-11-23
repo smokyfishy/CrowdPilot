@@ -11,7 +11,7 @@ Targets per window (imitation of the render-verified best controls):
   params    the controls of the best render (neutral or randomised)
   cueShift  soft distribution over the tried incoming cue shifts {−8, 0, +8 bars}
 
-Model: 2×64 ReLU trunk, heads strategy (7, linear), params (12, sigmoid), cueShift (3, linear).
+Model: 2×32 ReLU trunk (weight decay 3e-2), heads strategy (7, linear), params (12, sigmoid), cueShift (3, linear).
 Selection by validation loss; the held-out TEST verdict comes from actually rendering the proposals
 (evaluation/ml/v2_holdout.eval.ts), not from this script.
 
@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 
 ROOT = os.environ.get("CP_DATA_ROOT", r"C:\crowdpilot-data")
-DATA = os.path.join(ROOT, "ml", "synth_v2")
+DATA = os.path.join(ROOT, "ml", os.environ.get("V2_DIR", "synth_v2"))
 OUT = os.path.join(ROOT, "ml", "models", "transitionnet_v2")
 PUBLIC = os.path.join(os.path.dirname(__file__), "..", "..", "public", "models", "ml")
 STRATEGIES = ["layered_blend", "percussion_build", "vocal_handoff", "filter_ride", "echo_handoff", "stem_mashup", "drop_lock"]
@@ -100,7 +100,7 @@ def build(rows):
 
 
 class Net(nn.Module):
-    def __init__(self, d_in, hid=64):
+    def __init__(self, d_in, hid=32):
         super().__init__()
         self.trunk = nn.Sequential(nn.Linear(d_in, hid), nn.ReLU(), nn.Linear(hid, hid), nn.ReLU())
         self.strategy = nn.Linear(hid, len(STRATEGIES))
@@ -139,7 +139,7 @@ def main():
     tr = tensors(split["train"])
     va = tensors(split["val"]) if split["val"] else tr
     net = Net(Xtr.shape[1])
-    opt = torch.optim.AdamW(net.parameters(), lr=3e-3, weight_decay=1e-3)
+    opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=3e-2)
 
     def loss_of(t):
         x, p, tried, par, ps = t
@@ -148,10 +148,10 @@ def main():
         l_s = -(p * torch.log_softmax(lg, -1).clamp_min(-1e4)).sum(-1).mean()
         l_p = ((pp - par) ** 2).mean()
         l_c = -(ps * torch.log_softmax(sl, -1)).sum(-1).mean()
-        return l_s + 0.5 * l_p + 0.3 * l_c, (l_s.item(), l_p.item(), l_c.item())
+        return l_s + 0.2 * l_p + 0.3 * l_c, (l_s.item(), l_p.item(), l_c.item())
 
     best = (1e9, None, 0)
-    for ep in range(600):
+    for ep in range(3000):
         net.train()
         opt.zero_grad()
         l, _ = loss_of(tr)
@@ -162,7 +162,7 @@ def main():
             lv, parts = loss_of(va)
         if lv.item() < best[0] - 1e-4:
             best = (lv.item(), {k: v.clone() for k, v in net.state_dict().items()}, ep)
-        if ep - best[2] > 80:
+        if ep - best[2] > 300:
             break
     net.load_state_dict(best[1])
     net.eval()

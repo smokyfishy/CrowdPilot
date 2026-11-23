@@ -222,7 +222,7 @@ export async function closedLoop(tracks: SetTrack[], spec: ResolvedSpec, setOpts
     await new Promise((res) => setTimeout(res, 0))
     const r = await renderPreview(p, a, b, host)
     const critic = opts.critic?.(p, r.mix, r.rate, r.t0, r.t1) ?? undefined
-    const q = evaluateTransition(r, { plan: p, pa: a.profile, pb: b.profile, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }, critic })
+    const q = evaluateTransition(r, { plan: p, pa: a.profile, pb: b.profile, beatsA: a.netBeats, beatsB: b.netBeats, stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) }, critic })
     cache.set(k, q)
     return q
   }

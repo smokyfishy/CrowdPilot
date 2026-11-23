@@ -216,7 +216,7 @@ it('professional DJ upgrade: controlled comparison on real recordings', async ()
       const ts = r.transitionStartSample
       const te = ts + Math.round(p.durationSec * R)
       const mono = r.channels.length > 1 ? r.channels[0].map((x, k) => (x + r.channels[1][k]) / 2) : r.channels[0]
-      const q = evaluateTransition({ mix: mono, stemA: r.stemA!, stemB: r.stemB!, rate: R, t0: ts, t1: te, clippedSamples: r.clippedSamples, peak: r.peak, limiterGainReductionDb: r.limiterGainReductionDb }, { plan: p, pa: profiles.get(ka), pb: profiles.get(kb), stems: { a: stems.get(ka), b: stems.get(kb) } })
+      const q = evaluateTransition({ mix: mono, stemA: r.stemA!, stemB: r.stemB!, rate: R, t0: ts, t1: te, clippedSamples: r.clippedSamples, peak: r.peak, limiterGainReductionDb: r.limiterGainReductionDb }, { plan: p, pa: profiles.get(ka), pb: profiles.get(kb), beatsA: byKey.get(ka)!.analysis.netBeats, beatsB: byKey.get(kb)!.analysis.netBeats, stems: { a: stems.get(ka), b: stems.get(kb) } })
       const m = transitionMetrics(r.stemA!, r.stemB!, r.channels, R, ts, Math.round(p.durationSec * R), p.beatSec)
       const tA = ts / R
       const tB = tA + Math.max(p.durationSec, 2)

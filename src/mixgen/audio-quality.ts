@@ -6,7 +6,8 @@
  * bars after. This module measures it. These are EXPLICIT, documented signal measurements with
  * conservative thresholds — not a model of human taste:
  *
- *   beat alignment        kick-band onset cross-correlation lag between the two post-fader decks
+ *   beat alignment        Beat This! beats of both tracks mapped through the executed cue/tempo controls
+ *                         (analysis-based; the rendered-deck cross-correlation is kept as a diagnostic only)
  *   phrase alignment      cue offsets from each track's analysed phrase/bar grid (analysis-level)
  *   harmonic clash        chroma correlation of the two post-fader decks over the overlap
  *   vocal clash           per-bar vocal-band (300 Hz–3 kHz) level of each deck × its vocal activity
@@ -48,7 +49,11 @@ export interface PreviewRender {
 }
 
 export interface QualityMetrics {
+  /** Grid-based alignment (Beat This! beats through the executed controls): median / 90th percentile. */
   beatOffsetMs: number
+  beatOffsetP90Ms: number
+  /** Rendered-deck onset cross-correlation (diagnostic only — unreliable, not scored). */
+  xcorrOffsetMs: number
   phraseErrBeats: number
   harmonicCorr: number
   vocalClash: number
@@ -246,6 +251,9 @@ export interface QualityContext {
   plan: TransitionPlan
   pa?: TrackProfile
   pb?: TrackProfile
+  /** Beat This! beat times (track seconds) of both tracks, for the grid-based alignment check. */
+  beatsA?: number[]
+  beatsB?: number[]
   stems?: { a?: StemInfo; b?: StemInfo }
   critic?: { quality: number; artifact: number }
 }
@@ -264,12 +272,70 @@ function barBandDb(x: Float32Array, rate: number, t0: number, barSamples: number
   return out
 }
 
+
+/**
+ * Beat alignment from the tracks' Beat This! beats mapped through the EXECUTED controls: an outgoing
+ * beat at track time b plays at output time b − outCue; an incoming beat at track time c plays at the
+ * output time where the incoming playback position (cue + ∫ tempo lane) reaches c. Median and 90th
+ * percentile |offset| (ms, folded to ±½ beat) over the outgoing beats where both decks are audible.
+ * This replaced an onset cross-correlation on the rendered decks, which disagreed with Beat This! run
+ * on the same renders (evaluation/ml/align_check.eval.ts).
+ */
+export function gridAlignment(plan: TransitionPlan, beatsA: number[] | undefined, beatsB: number[] | undefined): { medianMs: number; p90Ms: number; n: number } {
+  const none = { medianMs: NaN, p90Ms: NaN, n: 0 }
+  if (!beatsA?.length || !beatsB?.length || plan.durationSec < 1) return none
+  const dur = plan.durationSec
+  const ratioAt = (t: number) => (plan.tempo?.length ? curveAt(plan.tempo, t / plan.beatSec, 1) : plan.tempoRatio)
+  // incoming track position at output time t (piecewise integration, 10 ms steps)
+  const step = 0.01
+  const posB: number[] = []
+  let pos = plan.inCueSec
+  for (let t = 0; t <= dur + step; t += step) {
+    posB.push(pos)
+    pos += ratioAt(t) * step
+  }
+  const outTimeOfB = (c: number): number => {
+    if (c < posB[0] || c > posB[posB.length - 1]) return NaN
+    let lo = 0
+    let hi = posB.length - 1
+    while (hi - lo > 1) {
+      const m = (lo + hi) >> 1
+      if (posB[m] <= c) lo = m
+      else hi = m
+    }
+    const f = (c - posB[lo]) / Math.max(1e-9, posB[hi] - posB[lo])
+    return (lo + f) * step
+  }
+  const tb = beatsB.map(outTimeOfB).filter(Number.isFinite).sort((x, y) => x - y)
+  if (tb.length < 4) return none
+  const offs: number[] = []
+  for (const b of beatsA) {
+    const t = b - plan.outCueSec
+    if (t < 0 || t > dur) continue
+    const beat = t / plan.beatSec
+    if (curveAt(plan.out.gain, beat) < 0.15 || curveAt(plan.in.gain, beat) < 0.15) continue
+    let lo = 0
+    let hi = tb.length - 1
+    while (hi - lo > 1) {
+      const m = (lo + hi) >> 1
+      if (tb[m] <= t) lo = m
+      else hi = m
+    }
+    const d = Math.min(Math.abs(tb[lo] - t), Math.abs(tb[hi] - t))
+    if (d <= plan.beatSec / 2 + 0.005) offs.push(d * 1000)
+  }
+  if (offs.length < 4) return none
+  offs.sort((x, y) => x - y)
+  return { medianMs: offs[Math.floor(offs.length / 2)], p90Ms: offs[Math.floor(offs.length * 0.9)], n: offs.length }
+}
+
 export function evaluateTransition(r: PreviewRender, ctx: QualityContext): QualityResult {
   const { plan } = ctx
   const rate = r.rate
   const slam = SLAM.has(plan.style) || plan.style === 'cut'
   const matched = BEATMATCHED.has(plan.style)
   const dm = deckMetrics(r.stemA, r.stemB, r.mix, rate, r.t0, Math.max(r.t1, r.t0 + Math.round(rate * 0.5)), plan.beatSec)
+  const grid = gridAlignment(plan, ctx.beatsA, ctx.beatsB)
   // DJCritic features only read 8 s before/after the transition window: crop (same values, less work)
   const c0 = Math.max(0, r.t0 - Math.round(8.5 * rate))
   const c1 = Math.min(r.mix.length, Math.max(r.t1, r.t0 + rate) + Math.round(8.5 * rate))
@@ -367,7 +433,9 @@ export function evaluateTransition(r: PreviewRender, ctx: QualityContext): Quali
   }
   const levelChange8Db = rmsDb(r.t1, r.t1 + 8 * bar) - rmsDb(r.t0 - 8 * bar, r.t0)
   const metrics: QualityMetrics = {
-    beatOffsetMs: dm.beatOffsetMs,
+    beatOffsetMs: grid.medianMs,
+    beatOffsetP90Ms: grid.p90Ms,
+    xcorrOffsetMs: dm.beatOffsetMs,
     phraseErrBeats,
     harmonicCorr,
     vocalClash,
@@ -393,7 +461,7 @@ export function evaluateTransition(r: PreviewRender, ctx: QualityContext): Quali
     overlapBars: plan.overlapBars,
   }
   // ── penalties (0 = clean); weights are conservative engineering choices, documented in docs/PRO_DJ_REPORT.md ──
-  const beatPen = matched && Number.isFinite(dm.beatOffsetMs) ? clamp01((dm.beatOffsetMs - 15) / 35) : 0
+  const beatPen = matched && Number.isFinite(grid.medianMs) ? clamp01((grid.medianMs - 10) / 30) + 0.5 * clamp01((grid.p90Ms - 25) / 40) : 0
   const components: Record<string, number> = {
     beat: 1.5 * beatPen,
     phrase: 0.25 * clamp01(phraseErrBeats / 4),
@@ -418,7 +486,7 @@ export function evaluateTransition(r: PreviewRender, ctx: QualityContext): Quali
   if (r.clippedSamples > 0 || r.peak >= 0.999) failures.push('clipping')
   if (r.limiterGainReductionDb > 6) failures.push('limiter reduction > 6 dB')
   if (!slam && cf.silenceSec >= 0.5) failures.push(`silence ${cf.silenceSec.toFixed(1)} s`)
-  if (matched && Number.isFinite(dm.beatOffsetMs) && dm.beatOffsetMs > 50) failures.push(`beat offset ${dm.beatOffsetMs.toFixed(0)} ms`)
+  if (matched && Number.isFinite(grid.medianMs) && grid.medianMs > 40) failures.push(`beat offset ${grid.medianMs.toFixed(0)} ms (Beat This! grids)`)
   if (dm.bassDoubling > 0.2) failures.push(`bass doubling ${dm.bassDoubling.toFixed(2)}`)
   if (vocalClash > 0.45) failures.push(`vocal clash ${vocalClash.toFixed(2)}`)
   // a drop-locked handoff is allowed the energy jump of the incoming drop

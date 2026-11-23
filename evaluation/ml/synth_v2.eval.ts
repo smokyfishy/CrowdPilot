@@ -75,7 +75,7 @@ it('TransitionNet v2 synthetic known-control data', async () => {
   const pairsPerSplit: Record<string, number> = { train: Number(process.env.V2_PAIRS ?? 110), val: 18, test: 30 }
   const tracks = loadTracks()
   const spec = resolveSpec(MixSpec.parse({ genres: ['house'], song_count: 8, target_duration_minutes: 30, transition_style: 'smooth' }))
-  const outDir = join(ML, 'synth_v2')
+  const outDir = join(ML, process.env.V2_DIR ?? 'synth_v2')
   mkdirSync(outDir, { recursive: true })
   const outFile = join(outDir, `shard${shard}.jsonl`)
   const done = new Set<string>()
@@ -149,7 +149,7 @@ it('TransitionNet v2 synthetic known-control data', async () => {
           const plan = buildPerformance({ base, pa: a.profile, pb: b.profile, strategy: v.strategy as never, params: v.params, compat })
           if (!validPlan(plan)) continue
           const prev = await renderPreview(plan, a, b, { audio })
-          const q = evaluateTransition(prev, { plan, pa: a.profile, pb: b.profile })
+          const q = evaluateTransition(prev, { plan, pa: a.profile, pb: b.profile, beatsA: a.netBeats, beatsB: b.netBeats })
           out.push(JSON.stringify({
             split, window: wkey, pair: `${a.key}|${b.key}`, bars: plan.overlapBars,
             x: longformFeatures(a.summary, b.summary, w.plan, w.compat),
