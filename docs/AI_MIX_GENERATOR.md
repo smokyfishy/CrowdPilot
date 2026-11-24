@@ -3,7 +3,9 @@
 Describe a DJ set in plain language; CrowdPilot discovers music, acquires audio from sources
 that permit mixing, analyzes every track, chooses and orders the set, plans transitions, renders
 **one continuous audio file**, and shows it with a waveform of the rendered audio, a tracklist and
-a transition inspector. The live collaborative rooms are unchanged and remain a separate feature.
+a transition inspector. (The collaborative rooms were removed on 2026-11-22; the generator is the whole product. See ARCHITECTURE.md for the current system.)
+
+> **Current house rules (2026-11-23):** every transition is beat-matched within ±8 % (key lock) and lasts at least 16 bars. Loop rolls, cuts, scratches, brakes and spin-backs are no longer planned; if a request names them, they are dropped and the drop is reported. Sections below that describe shorter techniques record earlier behaviour.
 
 ## Pipeline
 
@@ -19,7 +21,7 @@ prompt ──▶ /api/mixgen/interpret (LLM → zod-validated MixSpec; labelled 
 
 | Stage | Code | Notes |
 |---|---|---|
-| Spec | `src/mixgen/spec.ts` | `MixSpec` zod schema. Unstated fields stay `null`; `resolveSpec` applies documented defaults and records which values were defaulted. LLM: `claude-sonnet-5-5` via DeepSpace AI, billed to the signed-in user. |
+| Spec | `src/mixgen/spec.ts` | `MixSpec` zod schema. Unstated fields stay `null`; `resolveSpec` applies documented defaults and records which values were defaulted. Interpreter chain: `openai/gpt-oss-120b` → `openai/gpt-oss-20b` on Groq's free tier (`GROQ_API_KEY`; any OpenAI-compatible endpoint via `OPEN_LLM_BASE_URL`) → `claude-sonnet-5-5` via DeepSpace AI, billed to the signed-in user → labelled heuristic. A deterministic guard makes stated values win. |
 | Discovery | `src/mixgen/discovery.ts` | Query plan from songs / artists / genres / moods / similar artists. Jamendo (tags, text, popularity, vocal filter, 2 × 200-row pages), Audius (search, genre trending), YouTube Data API (search + `videos.list` for duration, views, licence). |
 | Identity | `src/mixgen/identity.ts` | Normalized artist / base title / version tag / featured artists; `sameRecording` requires identical version tags and duration within 4 s, so an original is never swapped for a remix, sped-up edit, cover or live recording. |
 | Policy | `src/mixgen/policy.ts` | One `decideAccess()` for every acquire / analyze / mix / persist / export decision (see below). |
@@ -134,8 +136,8 @@ Every technique is a set of time-stamped controls on top of a base TransitionPla
 
 **Stems.**
 
-- Model: Demucs htdemucs, two stems, run on the CPU at about 0.6× real time.
-- Availability: local research worker only; there are no stems in the browser or in production.
+- Model: Demucs htdemucs. Production: 4 stems (vocals, drums, bass, other) from the Azure stem service (`infra/stems`), requested during analysis, with parts separated in parallel. Local research worker: CPU at about 0.6× real time.
+- Availability: production (browser → `/api/mixgen/stems` → Azure Container Apps Job) and the local research worker. Without `STEMS_QUEUE_URL` the site falls back to EQ-based element control.
 - Cache: `<data>/mixgen/stems/<sha256>/`.
 - Artifact check: if bass bleeds into the vocal stem (low-band share ≥ 0.25), layering is disabled for that track.
 - Default: on for sets of 8 songs or fewer. Override with `--stems` / `--no-stems`, or with the selector on /research.

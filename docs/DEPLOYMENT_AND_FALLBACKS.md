@@ -3,21 +3,36 @@
 ## Deploy
 
 ```bash
-cd C:\dev\CrowdPilot          # phase2 branch
+# from a clean checkout of main (GitHub-latched: deploy ships the checkout as it is, including uncommitted bytes)
 npm run type-check && npm run lint && npx vitest run -c vitest.pure.config.ts
-npx deepspace test run all    # smoke + API + all E2E, including real-audio DJ tests (needs network)
-npx deepspace deploy          # GitHub-latched: ships the current checkout → https://crowdpilot.app.space
-npx deepspace releases        # rollback target for Phase 1: rel_01M80X7E9SKQ6070B0HKPBEBW3
+npx playwright test -c tests/playwright.config.ts   # smoke, API and browser E2E (real audio needs network + test account)
+npx deepspace deploy          # → https://crowdpilot.app.space
+npx deepspace releases        # every release is listed with its id; roll back with: npx deepspace rollback <release-id>
 ```
 
-Secrets (server-side only):
+Secrets (server-side only, `npx deepspace secrets`):
 
-- `YOUTUBE_API_KEY` and `GUEST_TOKEN_SECRET` (Phase 1)
-- `JAMENDO_CLIENT_ID` and `JAMENDO_CLIENT_SECRET` (Phase 2; the secret is stored but not needed by the read-only API)
+- `JAMENDO_CLIENT_ID`: the mixable catalog (required).
+- `GROQ_API_KEY`: primary prompt interpreter (gpt-oss-120b / gpt-oss-20b). Optional `OPEN_LLM_BASE_URL`, `OPEN_LLM_MODEL`. Without it, Claude through DeepSpace AI interprets.
+- `YOUTUBE_API_KEY`: discovery metadata only.
+- `STEMS_QUEUE_URL`, `STEMS_BLOB_BASE`, `STEMS_BLOB_SAS`: Azure stem service (optional).
+- `GUEST_TOKEN_SECRET`, `JAMENDO_CLIENT_SECRET`: left over from the removed rooms / not needed by the read-only API.
 
-Production check without a local server: `cd tests && npx playwright test -c playwright.prod.config.ts`. It runs the real-audio DJ Lab test against the live site.
+Production check without a local server: `npx playwright test -c tests/playwright.prod-mixgen.config.ts`. It runs the real-audio generation test against the live site.
 
-## Fallbacks (nothing here can stop the music)
+## Generator fallbacks
+
+| Failure | Behaviour |
+|---|---|
+| Interpreter model fails or returns invalid JSON | One repair round, then the next model in the chain; finally the labelled heuristic. |
+| Requested song or artist has no permitted source | Listed as unavailable, with the catalogs searched and the reason. |
+| Acquisition or analysis fails | The track is marked failed; reserve candidates are pulled in. |
+| Too few reliable beat grids | More reserve candidates are analysed. If no beat-matched order exists, one flagged 16+-bar fade is used. |
+| Stem service unavailable or slow | The wait is capped (90 s after analysis); the plan uses EQ-based element control and the diagnostics say stems were not used. |
+| A candidate transition fails its checks | It is rejected in the closed loop; unvalidated plans are never shipped. |
+| Tab reload | Analyses resume from IndexedDB; the render restarts. |
+
+## Phase 1 / live-room fallbacks (historical; that platform was removed on 2026-11-22)
 
 | Failure | Behaviour |
 |---|---|
