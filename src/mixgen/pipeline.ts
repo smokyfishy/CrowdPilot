@@ -391,7 +391,9 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       return hit
     }
     // load every candidate's preview audio (and stems) up front, in parallel, instead of one by one inside the loop
-    await pool(entries.map((e) => e.key), 4, async (k, i) => {
+    // (skipped when this pass keeps the order the review pass already measured: nothing is rendered again)
+    const reuse = !!(fixed && host.closedLoopMemory?.result && host.closedLoopMemory.result.set.order.join('|') === fixed.join('|'))
+    if (!reuse) await pool(entries.map((e) => e.key), 4, async (k, i) => {
       await audio(k).catch(() => undefined)
       if (i < count + 2) await stemsAt(k).catch(() => undefined)
     })
