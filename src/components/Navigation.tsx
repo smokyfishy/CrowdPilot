@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AuthOverlay, useAuthProfileReady, signOut } from 'deepspace'
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
 import { Logo } from './brand/Logo'
@@ -33,6 +33,19 @@ export default function Navigation() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const navigate = useNavigate()
+  // signing in from the menu goes straight to the mix generator
+  const [signInStarted, setSignInStarted] = useState(false)
+  useEffect(() => {
+    if (showAuthModal) setSignInStarted(true)
+  }, [showAuthModal])
+  useEffect(() => {
+    if (signInStarted && isSignedIn) {
+      setSignInStarted(false)
+      setShowAuthModal(false)
+      if (!location.pathname.startsWith('/mix')) navigate('/mix')
+    }
+  }, [signInStarted, isSignedIn, location.pathname, navigate])
 
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const userRole = (user?.role ?? 'anonymous') as Role | 'anonymous'
