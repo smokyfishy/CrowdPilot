@@ -4,6 +4,7 @@ Describe the DJ mix you want. CrowdPilot finds recordings that allow mixing, ana
 
 Built with React and [DeepSpace](https://docs.deep.space) on Cloudflare Workers and Durable Objects.
 
+- [System architecture: request flow, DeepSpace primitives, security](docs/ARCHITECTURE.md)
 - [Mix generator architecture, provider policies and research mode](docs/AI_MIX_GENERATOR.md)
 - [DJ engine and planning](docs/DJ_AI_ARCHITECTURE.md)
 - [Research corpus and rights](docs/PROFESSIONAL_DJ_CORPUS_STATUS.md)
@@ -18,7 +19,7 @@ npx deepspace auth login
 npx deepspace dev start
 ```
 
-The live catalog flow uses Jamendo. Configure `JAMENDO_CLIENT_ID` through DeepSpace secrets. See the [mix generator documentation](docs/AI_MIX_GENERATOR.md) for provider and test setup.
+The live catalog flow uses Jamendo. Configure secrets with `npx deepspace secrets`: `JAMENDO_CLIENT_ID` (required), `GROQ_API_KEY` (primary prompt interpreter; Claude through DeepSpace AI is the backup), `YOUTUBE_API_KEY` (discovery metadata), and `STEMS_QUEUE_URL` / `STEMS_BLOB_BASE` / `STEMS_BLOB_SAS` (optional Azure stem service, see `infra/stems`). See the [mix generator documentation](docs/AI_MIX_GENERATOR.md) for provider and test setup.
 
 ```sh
 npm run type-check
