@@ -20,7 +20,7 @@
  *                 + MEASURED closed-loop quality when the edge was rendered (src/mixgen/closedloop.ts)
  * The search returns several complete-set arrangements; the closed loop renders and re-plans.
  */
-import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, DEFAULT_WEIGHTS, transitionAllowed, type TransitionPlan } from '../dj/transitions'
+import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, DEFAULT_WEIGHTS, transitionAllowed, steadyBpm, BEATMATCH_MAX_DEVIATION, type TransitionPlan } from '../dj/transitions'
 import { camelotDistance } from '../dsp/key'
 import { refineWithLocalBeats } from '../dj/phase'
 import { energyDirection, targetEnergy } from './energy'
@@ -59,6 +59,8 @@ export interface Edge {
 
 export interface SetPlanOptions {
   count: number
+  /** Last resort (set by planSet itself): allow a 16+-bar non-beat-matched fade when no beat-matched order exists. */
+  allowUnmatched?: boolean
   fixedOrder?: string[]
   beamWidth?: number
   topN?: number
@@ -99,6 +101,8 @@ export interface SetPlanResult {
   explored: number
   pairsEvaluated: number
   edgeLists: Map<string, Edge[]>
+  /** True when no fully beat-matched arrangement existed and a fade had to be allowed. */
+  relaxed?: boolean
 }
 
 /** Genres where long phrase-based blends are the norm (32-bar default). */
@@ -172,33 +176,78 @@ function lengthPrior(bars: number, compatCost: number, longGenre: boolean, spec:
 export function windowCandidates(a: SetTrack, b: SetTrack, spec: ResolvedSpec, maxOut = 7, maxIn = 6): Array<{ plan: TransitionPlan; compat: OverlapCompat }> {
   const sa = localGrid(a.summary, a.netBeats, 'out')
   const sb = localGrid(b.summary, b.netBeats, 'in')
-  if (!beatmatchable(sa) || !beatmatchable(sb)) return []
-  const { ratio } = tempoMatch(sa.bpm, sb.bpm)
-  if (Math.abs(ratio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) return []
-  const beatSec = 60 / sa.bpm
+  // whole-track grids beat-match directly; otherwise each window is beat-matched on the steady beats
+  // inside it (as a DJ mixes on a section with a steady drum pattern), or not offered at all
+  const wholeGrid = beatmatchable(sa) && beatmatchable(sb)
+  if (!wholeGrid && (!a.netBeats?.length || !b.netBeats?.length)) return []
+  const globalRatio = wholeGrid ? tempoMatch(sa.bpm, sb.bpm).ratio : 1
+  if (wholeGrid && Math.abs(globalRatio - 1) > BEATMATCH_MAX_DEVIATION + 1e-9) return []
   const short = isShortSet(spec)
-  const outs = cueCandidates(a.profile, 'out', short ? maxOut + 4 : maxOut, short ? { outFrom: 0.2 } : undefined)
-  const ins = cueCandidates(b.profile, 'in', short ? maxIn + 4 : maxIn, short ? { inTo: 0.7 } : undefined)
+  const outs0 = cueCandidates(a.profile, 'out', short ? maxOut + 4 : maxOut, short ? { outFrom: 0.2 } : undefined)
+  // likewise, an outgoing track without a steady whole-track grid is mixed out of a steady drum section
+  const outs = !beatmatchable(sa) && a.netBeats?.length
+    ? [...outs0, ...a.profile.phraseBars
+        .map((k) => ({ k, sec: a.profile.barStart + k * a.profile.barSec }))
+        .filter(({ sec }) => sec >= (short ? 0.2 : 0.4) * sa.durationSec && !outs0.some((c) => Math.abs(c.sec - sec) < 1) && steadyBpm(a.netBeats, sec, sec + 16 * a.profile.barSec) !== null)
+        .map(({ k, sec }) => ({ sec, bar: k, region: a.profile.region[k] ?? 'body', vocal: 0, score: 0 }) as (typeof outs0)[number])]
+    : outs0
+  // an incoming track whose early part has no steady beat (half-time intro, beatless vocal section)
+  // is brought in later, on its steady section — as a DJ would
+  const lateIn = !beatmatchable(sb) || !steadyBpm(b.netBeats, b.summary.durationSec * 0.1, b.summary.durationSec * 0.45)
+  const ins0 = cueCandidates(b.profile, 'in', short || lateIn ? maxIn + 6 : maxIn, short || lateIn ? { inTo: lateIn ? 0.75 : 0.7 } : undefined)
+  // a track without a steady whole-track grid: also offer every phrase start inside a steady drum
+  // section (16 bars of steady beats from the cue), where a DJ would bring it in
+  const ins = !beatmatchable(sb) && b.netBeats?.length
+    ? [...ins0, ...b.profile.phraseBars
+        .map((k) => ({ k, sec: b.profile.barStart + k * b.profile.barSec }))
+        .filter(({ sec }) => sec <= 0.75 * sb.durationSec && !ins0.some((c) => Math.abs(c.sec - sec) < 1) && steadyBpm(b.netBeats, sec, sec + 16 * b.profile.barSec) !== null)
+        .map(({ k, sec }) => ({ sec, bar: k, region: b.profile.region[k] ?? 'body', vocal: 0, score: 0 }) as (typeof ins0)[number])]
+    : ins0
   const tailA = musicEnd(sa)
   const leadB = Math.max(0, (sb.silentLeadSec ?? 0) - 0.05)
   const keyDist = sa.keyConf >= 0.1 && sb.keyConf >= 0.1 ? camelotDistance(sa.camelot, sb.camelot) : 3
   const res: Array<{ plan: TransitionPlan; compat: OverlapCompat }> = []
+  const dbg = { outs: outs.length, ins: ins.length, noOutBpm: 0, noInBpm: 0, tempo: 0, tooLate: 0, other: 0 }
   for (const bars of short ? [16, 32] : [16, 32, 48, 64]) {
     const beats = bars * 4
-    const overlapSec = beats * beatSec
     for (const o of outs) {
+      // outgoing tempo in this window (whole-track grid, or the steady beats inside the window)
+      const outBpm = wholeGrid ? sa.bpm : steadyBpm(a.netBeats, o.sec, o.sec + beats * (60 / sa.bpm))
+      if (!outBpm) {
+        dbg.noOutBpm++
+        continue
+      }
+      const beatSec = 60 / outBpm
+      const overlapSec = beats * beatSec
       // allow up to 8 bars past the outgoing's end (bridged by an outgoing loop), never more
       if (o.sec + overlapSec > tailA + 8 * 4 * beatSec) continue
       if (o.sec < sa.durationSec * (short ? 0.15 : 0.35)) continue
       for (const i of ins) {
         if (i.sec < leadB) continue
-        if (i.sec + overlapSec * ratio > sb.durationSec * 0.8) continue
+        let ratio = globalRatio
+        if (!wholeGrid) {
+          const guess = tempoMatch(outBpm, sb.bpm || outBpm).ratio
+          const inBpm = steadyBpm(b.netBeats, i.sec, i.sec + overlapSec * guess)
+          if (!inBpm) {
+            dbg.noInBpm++
+            continue
+          }
+          ratio = tempoMatch(outBpm, inBpm).ratio
+          if (Math.abs(ratio - 1) > BEATMATCH_MAX_DEVIATION + 1e-9) {
+            dbg.tempo++
+            continue
+          }
+        }
+        if (i.sec + overlapSec * ratio > (lateIn ? 0.95 : 0.8) * sb.durationSec) {
+          dbg.tooLate++
+          continue
+        }
         const compat = overlapCompat(a.profile, b.profile, o.sec, i.sec, bars)
         if (compat.outRunsOut > 8) continue
         const auto = automationFor('long_blend', beats)
         const tempo = 0.25 * Math.abs(ratio - 1) * 100
         const key = 1.0 * Math.min(1.5, bars / 16 + 0.3) * Math.max(0, keyDist - 1) * 0.6
-        const conf = 0.6 * (1 - Math.min(1, Math.min(sa.bpmConf, sb.bpmConf) / 0.6)) + 0.35 * (1 - Math.min(1, Math.min(sa.downbeatConf, sb.downbeatConf) / 0.3)) * Math.min(1, bars / 16)
+        const conf = 0.6 * (1 - Math.min(1, (wholeGrid ? Math.min(sa.bpmConf, sb.bpmConf) : 0.4) / 0.6)) + 0.35 * (1 - Math.min(1, Math.min(sa.downbeatConf, sb.downbeatConf) / 0.3)) * Math.min(1, bars / 16)
         let plan: TransitionPlan = {
           fromItemId: a.key,
           toItemId: b.key,
@@ -215,12 +264,12 @@ export function windowCandidates(a: SetTrack, b: SetTrack, spec: ResolvedSpec, m
           in: auto.in,
           costs: { tempo, key, energy: 0, vocals: 0, confidence: conf, truncation: 0, variety: 0, total: tempo + key + conf },
           risks: keyDist >= 3 ? [`key clash risk (${sa.camelot} → ${sb.camelot})`] : [],
-          reasons: [`${bars}-bar window: out ${o.region} (bar ${o.bar}), in ${b.profile.region[i.bar] ?? 'body'} (bar ${i.bar})`, `beat-matched at ${sa.bpm.toFixed(1)} BPM (${((ratio - 1) * 100).toFixed(1)}%)`],
+          reasons: [`${bars}-bar window: out ${o.region} (bar ${o.bar}), in ${b.profile.region[i.bar] ?? 'body'} (bar ${i.bar})`, `beat-matched at ${outBpm.toFixed(1)} BPM (${((ratio - 1) * 100).toFixed(1)}%)${wholeGrid ? '' : ' on the steady beats of both windows'}`],
         }
         // incoming drop exactly at the window end → drop-locked candidate
         const drop = (sb.dropsSec ?? []).find((d) => Math.abs(d - (i.sec + overlapSec * ratio)) < beatSec * 0.6)
         if (drop !== undefined && sb.downbeatConf >= 0.3) plan.incomingDropSec = drop
-        const r = refineWithLocalBeats(plan, a.netBeats, b.netBeats, DEFAULT_OPTIONS.maxTempoDeviation)
+        const r = refineWithLocalBeats(plan, a.netBeats, b.netBeats, BEATMATCH_MAX_DEVIATION)
         if (r.localRefined) {
           const { localRefined: _l, ...rest } = r
           plan = rest
@@ -229,6 +278,8 @@ export function windowCandidates(a: SetTrack, b: SetTrack, spec: ResolvedSpec, m
       }
     }
   }
+  if (typeof process !== 'undefined' && process.env?.WINDOW_DEBUG) process.stderr.write(`WIN ${a.key}->${b.key} whole=${wholeGrid} lateIn=${lateIn} ${JSON.stringify(dbg)} windows=${res.length}
+`)
   return res
 }
 
@@ -248,6 +299,17 @@ interface State {
 }
 
 export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOptions): SetPlanResult {
+  const res = planSetOnce(tracks, spec, opts)
+  // every transition must be beat-matched; only when no fully beat-matched arrangement exists at all
+  // (e.g. a requested song has no steady beat anywhere) is a 16+-bar fade allowed, with a high cost
+  if (!res.sets.length && !opts.allowUnmatched) {
+    const relaxed = planSetOnce(tracks, spec, { ...opts, allowUnmatched: true })
+    return { ...relaxed, relaxed: true }
+  }
+  return res
+}
+
+function planSetOnce(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOptions): SetPlanResult {
   const n = Math.min(opts.count, tracks.length)
   const W = opts.beamWidth ?? 40
   const topN = opts.topN ?? 5
@@ -274,8 +336,9 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       const sig = edgeSig(a.key, b.key, plan) + `|${plan.style}|${(plan as TechniquePlan).tech?.technique ?? ''}`
       if (seen.has(sig)) return
       seen.add(sig)
-      // house rules (≥ 16-bar overlap, no loop rolls), then techniques the user named: never an avoided one
-      if (!transitionAllowed(plan)) return
+      // house rules (beat-matched, ≥ 16-bar overlap, no loop rolls), then techniques the user named: never an avoided one.
+      // Last resort only (no fully beat-matched order exists): a 16+-bar fade, flagged.
+      if (!transitionAllowed(plan) && !(opts.allowUnmatched && plan.style === 'unmatched_fade' && plan.overlapBars >= 16)) return
       if (avoided(plan, spec.techniques.avoid)) return
       const wanted = spec.techniques.prefer
       const request = wanted.length ? (matchesAny(plan, wanted) ? -5 : 0.6) : 0
@@ -293,7 +356,11 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       if (BEATMATCHED.has(plan.style) && plan.durationSec > 1) {
         const g = gridAlignment(plan, a.netBeats, b.netBeats)
         if (Number.isFinite(g.medianMs)) {
-          if (g.medianMs > 60) return // would audibly flam: not a candidate
+          if (g.medianMs > 60) {
+            if (typeof process !== 'undefined' && process.env?.WINDOW_DEBUG) process.stderr.write(`ALIGN-REJECT ${a.key}->${b.key} ${plan.style} ${plan.overlapBars} median=${g.medianMs.toFixed(0)}ms
+`)
+            return // would audibly flam: not a candidate
+          }
           align = 2 * Math.min(1, Math.max(0, (g.medianMs - 12) / 40)) + Math.min(1, Math.max(0, (g.p90Ms - 30) / 60))
         }
       }

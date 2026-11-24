@@ -13,7 +13,7 @@
  *  - an exact mix timeline (track entry/exit in each track's own time and in mix time,
  *    including the tempo-recovery ramp after beat-matched blends).
  */
-import { transitionAllowed } from '../dj/transitions'
+import { transitionAllowed, BEATMATCH_MAX_DEVIATION } from '../dj/transitions'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, tempoMatch, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
 import { energyDirection } from './energy'
@@ -383,7 +383,8 @@ export function pairOptions(a: PlannedTrack, b: PlannedTrack, i: number, n: numb
   const pt = (t: PlannedTrack, s = t.summary): PlanTrack => ({ itemId: t.key, trackKey: t.key, title: t.title, mixable: true, summary: s, durationSec: s.durationSec })
   // Energetic/creative sets may ride the tempo further for SHORT transitions (as DJs ride the pitch
   // fader with key lock); long blends stay inside ±6 % (see the post-filter below).
-  const ride = spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : DEFAULT_OPTIONS.maxTempoDeviation
+  // house rule: every transition is beat-matched within a DJ pitch fader's ±8 % (key lock)
+  const ride = Math.min(BEATMATCH_MAX_DEVIATION, spec.transitionStyle === 'energetic' || spec.transitionStyle === 'creative' ? RIDE_LIMIT : BEATMATCH_MAX_DEVIATION)
   const popt: PlannerOptions = {
     ...DEFAULT_OPTIONS,
     maxTempoDeviation: ride,
@@ -400,7 +401,7 @@ export function pairOptions(a: PlannedTrack, b: PlannedTrack, i: number, n: numb
     ...candidateTransitions(pt(a, sa), pt(b, sb), popt),
     ...candidateTransitions(pt(a, withEarlyOuts(sa)), pt(b, withLateIns(sb)), popt),
     ...candidateTransitions(pt(a, withLateOuts(sa)), pt(b, sb), popt),
-  ].filter((p) => !BEATMATCHED.has(p.style) || Math.abs(p.tempoRatio - 1) <= DEFAULT_OPTIONS.maxTempoDeviation + 1e-9 || p.overlapBars <= 8)
+  ].filter((p) => !BEATMATCHED.has(p.style) || Math.abs(p.tempoRatio - 1) <= BEATMATCH_MAX_DEVIATION + 1e-9 || p.overlapBars <= 8)
   for (const p of raw) if (BEATMATCHED.has(p.style) && Math.abs(p.tempoRatio - 1) > DEFAULT_OPTIONS.maxTempoDeviation + 1e-9) p.risks = [...p.risks, `tempo ride ${((p.tempoRatio - 1) * 100).toFixed(1)}% over ${p.overlapBars} bars (key lock)`]
   // Local refinement with the tracks' Beat This! beats (cue snap + local tempo ratio), as the
   // learned models were trained on refined plans and it tightens beat alignment for everyone.

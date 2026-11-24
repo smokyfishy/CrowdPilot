@@ -447,9 +447,30 @@ export function automationFor(style: TransitionStyle, beats: number, p: StylePar
 export const MIN_TRANSITION_BARS = 16
 /** House rule: styles that are never planned, rendered or offered (loop rolls are eradicated). */
 export const BANNED_STYLES: ReadonlySet<TransitionStyle> = new Set<TransitionStyle>(['loop_roll'])
-/** True when a plan obeys the house rules (≥ 16-bar overlap, no banned style). */
+/** House rule: a DJ's pitch fader range with key lock — every transition is beat-matched within ±8 %. */
+export const BEATMATCH_MAX_DEVIATION = 0.08
+/** True when a plan obeys the house rules (beat-matched, ≥ 16-bar overlap, no banned style). */
 export function transitionAllowed(p: { style: TransitionStyle; overlapBars: number }): boolean {
-  return !BANNED_STYLES.has(p.style) && p.overlapBars >= MIN_TRANSITION_BARS
+  return !BANNED_STYLES.has(p.style) && p.overlapBars >= MIN_TRANSITION_BARS && BEATMATCHED.has(p.style)
+}
+
+/**
+ * Tempo of the beats inside [t0, t1] when they are steady enough to beat-match on (a DJ mixes on a
+ * section with a steady drum pattern): enough beats, and ≥ 85 % of beat intervals within ±5 % of the
+ * median. Returns BPM, or null for beatless / irregular sections.
+ */
+export function steadyBpm(beats: number[] | undefined, t0: number, t1: number): number | null {
+  if (!beats?.length || t1 - t0 < 4) return null
+  const seg = beats.filter((t) => t >= t0 - 0.05 && t <= t1 + 0.05)
+  if (seg.length < 16) return null
+  const ibi = seg.slice(1).map((t, k) => t - seg[k])
+  const med = [...ibi].sort((x, y) => x - y)[Math.floor(ibi.length / 2)]
+  if (!(med > 0)) return null
+  if (seg.length < 0.85 * ((t1 - t0) / med)) return null
+  const inside = ibi.filter((x) => Math.abs(x / med - 1) <= 0.05).length / ibi.length
+  if (inside < 0.85) return null
+  const bpm = 60 / med
+  return bpm >= 70 && bpm <= 200 ? bpm : null
 }
 
 export const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
@@ -671,7 +692,8 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
   }
   if (!plans.length) return [sequentialPlan(a, b, 'No feasible cue pair inside the tracks.')]
   plans.sort((p, q) => p.costs.total - q.costs.total || p.outCueSec - q.outCueSec)
-  return plans.filter(transitionAllowed)
+  // length + banned-style rules here; the set planner enforces beat-matching (with its last-resort fade)
+  return plans.filter((p) => !BANNED_STYLES.has(p.style) && p.overlapBars >= MIN_TRANSITION_BARS)
 }
 
 function energyAt(s: AnalysisSummary, t: number): number | null {

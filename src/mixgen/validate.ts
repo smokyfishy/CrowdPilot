@@ -38,6 +38,9 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   add('no clipped samples', met.clippedSamples === 0, String(met.clippedSamples), '0')
   // house rules: every transition overlaps ≥ 16 bars, and no loop rolls
   const shortOnes = m.transitions.filter((t) => t.overlapBars < 16 || t.style === 'loop_roll')
+  const BEATMATCHED_STYLES = new Set(['long_blend', 'bass_swap', 'percussion_led', 'drop_swap', 'filter_sweep', 'staged_blend'])
+  const unmatched = m.transitions.filter((t) => !BEATMATCHED_STYLES.has(t.style))
+  add('every transition beat-matched', unmatched.length === 0, unmatched.map((t) => `#${t.index + 1} ${t.style}`).join(', ') || 'all beat-matched', 'all')
   add('every transition ≥ 16 bars, no loop rolls', shortOnes.length === 0, shortOnes.map((t) => `#${t.index + 1} ${t.overlapBars}-bar ${t.style}`).join(', ') || 'all ≥ 16 bars', '≥ 16 bars')
   add('sample peak ≤ −0.9 dBFS', met.samplePeakDb <= -0.9, `${met.samplePeakDb} dBFS`, '−0.9 dBFS')
   // Mix-induced level problems: (a) second-to-second jumps inside each transition window,

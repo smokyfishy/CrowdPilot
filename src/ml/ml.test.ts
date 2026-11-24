@@ -1,3 +1,5 @@
+import { steadyBpm } from '../dj/transitions'
+import { constantGrid } from '../dj/phase'
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { candidateTransitions, DEFAULT_OPTIONS, type PlanTrack, type TransitionPlan } from '../dj/transitions'
@@ -42,6 +44,31 @@ describe('controls', () => {
     }
     const uncertain = candidateTransitions(track('a'), track('b', { dropsSec: [drop], downbeatConf: 0.1 }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
     expect(uncertain.some((p) => p.reasons.includes('incoming drop lands at the end of the blend'))).toBe(false)
+  })
+
+  it('constantGrid: fits one grid when only beatless parts drift, refuses a real tempo change', () => {
+    const P = 60 / 140
+    // constant 140 BPM; the tracker scrambles beats 40–80 (a beatless breakdown)
+    const drift = Array.from({ length: 160 }, (_, k) => 2 + k * P + (k >= 40 && k < 80 ? Math.sin(k) * 0.12 : 0))
+    const g = constantGrid(drift, 2 + 160 * P)
+    expect(g).not.toBeNull()
+    expect(g!.bpm).toBeCloseTo(140, 1)
+    // every fitted beat (including through the scrambled section) sits on the true grid
+    for (const t of g!.beats) {
+      const k = Math.round((t - 2) / P)
+      expect(Math.abs(t - (2 + k * P))).toBeLessThan(0.01)
+    }
+    // real change: 140 → 120 BPM halfway (two lines, not one)
+    const change = [...Array.from({ length: 80 }, (_, k) => 2 + k * P), ...Array.from({ length: 80 }, (_, k) => 2 + 80 * P + (k + 1) * (60 / 120))]
+    expect(constantGrid(change, 80)).toBeNull()
+  })
+
+  it('steadyBpm: beat-matches on a steady drum section, refuses a beatless/irregular one', () => {
+    const steady = Array.from({ length: 80 }, (_, k) => 10 + k * (60 / 140))
+    const messy = Array.from({ length: 80 }, (_, k) => 10 + k * (60 / 140) + (k % 3 === 0 ? 0.11 : 0))
+    expect(steadyBpm(steady, 12, 30)).toBeCloseTo(140, 0)
+    expect(steadyBpm(messy, 12, 30)).toBeNull()
+    expect(steadyBpm(steady, 60, 80)).toBeNull() // no beats there (beatless)
   })
 
   it('house rules: never offers a loop roll or anything shorter than 16 bars, even when asked', () => {

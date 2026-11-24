@@ -20,6 +20,7 @@ const CHECK_NAME: Array<[RegExp, string]> = [
   [/^no unintended abrupt cuts/, 'No accidental cuts'],
   [/^transitions pass rendered-audio checks/, 'Transitions pass audio checks'],
   [/^every transition ≥ 16 bars/, 'Every transition 16+ bars, no loop rolls'],
+  [/^every transition beat-matched/, 'Every transition beat-matched'],
 ]
 export function checkLabel(raw: string): string {
   const hit = CHECK_NAME.find(([re]) => re.test(raw))

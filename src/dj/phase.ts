@@ -145,3 +145,56 @@ export function refineWithLocalBeats<T extends { outCueSec: number; inCueSec: nu
   if (anchoredCue < 0) return { ...plan, localRefined: false }
   return { ...plan, outCueSec: outCue, inCueSec: anchoredCue, ...(plan.incomingDropSec !== undefined ? { incomingDropOffsetSec: dropOffset } : {}), beatSec: pa, tempoRatio: ratio, durationSec, localRefined: true }
 }
+
+/**
+ * Constant-tempo grid for a track whose beat tracker drifts in beatless / sparse sections (as DJ
+ * software does): the steady sections (16-beat runs, ≥ 14 intervals within ±6 % of their median) must
+ * all sit on ONE straight line t = a + b·k (≥ 85 % of their beats within 30 ms) and span ≥ 40 % of the
+ * track. Returns the regular grid over the whole track, or null when the tempo really changes.
+ */
+export function constantGrid(beats: number[] | undefined, durationSec: number): { beats: number[]; bpm: number; fitMs: number } | null {
+  if (!beats || beats.length < 48) return null
+  const steady = new Set<number>()
+  for (let s = 0; s + 16 < beats.length; s++) {
+    const ibi = beats.slice(s + 1, s + 17).map((t, k) => t - beats[s + k])
+    const med = [...ibi].sort((x, y) => x - y)[8]
+    // tracker timing jitter: ≥ 14 of 16 intervals within ±6 % of the median counts as a steady drum section
+    if (ibi.filter((x) => Math.abs(x / med - 1) <= 0.06).length >= 14) for (let k = s; k <= s + 16; k++) if (Math.abs((beats[k + 1] ?? Infinity) - beats[k] - med) / med <= 0.06 || k === s + 16) steady.add(k)
+  }
+  const idx = [...steady].sort((x, y) => x - y)
+  if (idx.length < 32) return null
+  const ts = idx.map((k) => beats[k])
+  if (ts[ts.length - 1] - ts[0] < 0.4 * durationSec) return null
+  // the MEAN interval of consecutive steady beats (beat times come on a 20 ms frame grid, so intervals
+  // alternate e.g. 0.44 / 0.46 s and the median is biased; the mean is not)
+  const ibis = idx.slice(1).filter((k, j) => k === idx[j] + 1).map((k) => beats[k] - beats[k - 1])
+  const m0 = [...ibis].sort((x, y) => x - y)[Math.floor(ibis.length / 2)]
+  const clean = ibis.filter((x) => Math.abs(x / m0 - 1) <= 0.06)
+  let b = clean.reduce((p, q) => p + q, 0) / Math.max(1, clean.length)
+  let a = ts[0]
+  for (let iter = 0; iter < 3; iter++) {
+    const ks = ts.map((t) => Math.round((t - a) / b))
+    const n = ks.length
+    const mk = ks.reduce((p, q) => p + q, 0) / n
+    const mt = ts.reduce((p, q) => p + q, 0) / n
+    let sxy = 0
+    let sxx = 0
+    for (let j = 0; j < n; j++) {
+      sxy += (ks[j] - mk) * (ts[j] - mt)
+      sxx += (ks[j] - mk) ** 2
+    }
+    if (!(sxx > 0)) return null
+    b = sxy / sxx
+    a = mt - b * mk
+  }
+  const res = ts.map((t) => Math.abs(t - (a + b * Math.round((t - a) / b))))
+  const within = res.filter((r) => r <= 0.03).length / res.length
+  if (within < 0.85) return null
+  const bpm = 60 / b
+  if (bpm < 70 || bpm > 200) return null
+  const k0 = Math.ceil(-a / b)
+  const grid: number[] = []
+  for (let k = k0; a + k * b <= durationSec; k++) grid.push(a + k * b)
+  const sorted = [...res].sort((x, y) => x - y)
+  return { beats: grid, bpm, fitMs: sorted[Math.floor(sorted.length / 2)] * 1000 }
+}

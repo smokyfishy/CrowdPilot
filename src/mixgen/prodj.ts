@@ -9,6 +9,7 @@
  *   longform    staged 16–64-bar performances (src/mixgen/longform.ts) for eligible transitions
  *   closedLoop  render/evaluate/refine/re-plan (src/mixgen/closedloop.ts)
  */
+import { constantGrid } from '../dj/phase'
 import { summarize, type TrackAnalysis } from '../dsp/analyze'
 import { beatmatchable, type TransitionPlan } from '../dj/transitions'
 import { energyScores, type EnergyDescriptor } from './energy'
@@ -99,13 +100,23 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
   const log = input.log ?? (() => {})
   const scores = energyScores(input.entries.map((e) => e.energy))
   const tracks: SetTrack[] = input.entries.map((e, i) => {
-    const s = summarize(e.analysis)
+    let s = summarize(e.analysis)
+    let netBeats = e.analysis.netBeats
+    // a track whose tracker drifts only in beatless/sparse parts gets one constant-tempo grid (DJ software style)
+    if (!beatmatchable(s)) {
+      const g = constantGrid(netBeats, s.durationSec)
+      if (g) {
+        s = { ...s, bpm: Math.round(g.bpm * 100) / 100, bpmConf: 0.4, stable: true, firstBeat: g.beats[0], flags: [...s.flags, `constant-tempo grid ${g.bpm.toFixed(2)} BPM fitted to its steady sections (median fit ${g.fitMs.toFixed(0)} ms)`] }
+        netBeats = g.beats
+        log(`grid: ${e.title}: constant ${g.bpm.toFixed(2)} BPM fitted to its steady sections (median fit ${g.fitMs.toFixed(0)} ms)`)
+      }
+    }
     return {
       key: e.key,
       title: e.title,
       summary: s,
       trimDb: e.trimDb,
-      netBeats: e.analysis.netBeats,
+      netBeats,
       profile: buildProfile(e.analysis, input.stems?.get(e.key)),
       energy: scores[i],
       dropStrength: e.energy.dropStrength,

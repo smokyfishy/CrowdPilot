@@ -579,6 +579,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       const a = byKey.get(e.plan.fromItemId)!
       const b = byKey.get(e.plan.toItemId)!
       const v = variantsOf(e, a, b)[0]
+      if (!v) continue // a last-resort edge outside the house rules keeps its predicted cost
       const q = await evaluate(v, a, b)
       if (!q) continue
       scores.push(q.score)
