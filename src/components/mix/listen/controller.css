@@ -43,14 +43,14 @@
 /* ─────────────── deck ─────────────── */
 .cp-deck {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
+  grid-template-columns: minmax(0, 1fr) 40px;
   grid-template-rows: auto auto auto auto auto;
   align-content: space-between;
   gap: 12px 14px;
   padding: 18px 18px 20px;
   min-width: 0;
 }
-.cp-deck[data-deck='B'] { grid-template-columns: 30px minmax(0, 1fr); }
+.cp-deck[data-deck='B'] { grid-template-columns: 40px minmax(0, 1fr); }
 .cp-deck[data-deck='B'] > .cp-span { grid-column: 1 / -1; }
 .cp-deck > .cp-span { grid-column: 1 / -1; }
 .cp-deck[data-deck='B'] .cp-tempo { grid-column: 1; grid-row: 4; }
@@ -116,7 +116,9 @@
   background: linear-gradient(#4a453f, #2a2724); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
 .cp-tempo-cap::after { content: ''; position: absolute; left: 3px; right: 3px; top: 50%; height: 1px; background: var(--bone); opacity: 0.7; }
 .cp-tempo[data-live='1'] .cp-tempo-cap::after { background: var(--amber); opacity: 1; box-shadow: 0 0 6px var(--amber-glow); }
-.cp-tempo-val { font-size: 10px; color: var(--silk); }
+.cp-tempo-val { font-size: 10px; color: var(--silk); white-space: nowrap; }
+/* the label stays on one line (it wrapped to TEMP / O in the narrow column) */
+.cp-tempo .cp-silk { white-space: nowrap; }
 .cp-tempo[data-live='1'] .cp-tempo-val, .cp-tempo[data-shifted='1'] .cp-tempo-val { color: var(--amber); }
 
 .cp-controls { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: end; }
