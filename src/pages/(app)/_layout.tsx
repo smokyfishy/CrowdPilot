@@ -31,9 +31,11 @@ export default function AppLayout() {
           when <Seo> unmounts, so every route without <Seo> sets its own. */}
       <title>{APP_NAME}</title>
       <AuthBoot>
-        <div className="flex h-screen flex-col bg-background overflow-hidden">
+        {/* `relative` on the frame and <main>: absolutely positioned descendants (e.g. sr-only labels)
+            anchor inside the scroll area instead of stretching the page (a second scrollbar) */}
+        <div className="relative flex h-screen flex-col bg-background overflow-hidden">
           <Navigation />
-          <main className="flex-1 overflow-y-auto min-h-0">
+          <main className="relative flex-1 overflow-y-auto min-h-0">
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground">Loading...</div>}>
               <Outlet />
             </Suspense>

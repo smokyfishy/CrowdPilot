@@ -129,6 +129,8 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await expect.poll(fitsViewport).toBe(0)
+    // one scrollbar only: the page itself never scrolls, <main> does
+    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight - innerHeight)).toBeLessThanOrEqual(1)
   }
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Show whole mix' })).toBeVisible()
