@@ -16,7 +16,7 @@ import { buildTimeline, planMix, type MixPlan, type PlannedTrack } from './mixpl
 import { buildProfile, overlapCompat } from './profile'
 import { planSet, narrativeFor, type Edge, type SetTrack } from './setplan'
 import { buildPerformance, feasibleStrategies, longformEligible } from './longform'
-import { closedLoop, type ClosedLoopMemory, type ClosedLoopResult, type PreviewAudioHost, type Proposal } from './closedloop'
+import { closedLoop, type ClosedLoopMemory, type ClosedLoopResult, type PreviewAudioHost, type PreviewEvaluator, type Proposal } from './closedloop'
 import { orderSet, type OrderTrack } from './select'
 import { rankCandidatesWith, validPlan, type MlDecision, type MlRuntime } from './ml'
 import { applyTransitionNet, criticFromMix, mixgraphRank, transitionNetPredict } from '../ml/dj-brain'
@@ -61,6 +61,8 @@ export interface ProDjInput {
   progress?: (done: number, total: number, detail: string) => void
   signal?: AbortSignal
   memory?: ClosedLoopMemory
+  /** Parallel off-thread preview measurement (browser worker pool). */
+  evaluator?: PreviewEvaluator
 }
 
 export interface ProDjTrace {
@@ -186,6 +188,7 @@ export async function planProDj(input: ProDjInput): Promise<ProDjResult> {
         progress: input.progress,
         signal: input.signal,
         memory: input.memory,
+        evaluator: input.evaluator,
       })
       order = loop.set.order
       edges = loop.set.edges

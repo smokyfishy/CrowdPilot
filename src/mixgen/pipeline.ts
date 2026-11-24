@@ -72,6 +72,8 @@ export interface PipelineHost {
   stemsPrefetch?: boolean
   /** Longest extra wait for stems once planning is ready (ms); tracks not ready by then use EQ element control. */
   stemsWaitMs?: number
+  /** Closed-loop preview measurement off the main thread (browser worker pool). */
+  previewEvaluator?: import('./closedloop').PreviewEvaluator
   /** Closed-loop preview budget (rendered candidate transitions per mix). */
   previewBudget?: number
   /** Closed-loop measurements shared across calls of the same job (review → render). */
@@ -388,6 +390,12 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       }
       return hit
     }
+    // load every candidate's preview audio (and stems) up front, in parallel, instead of one by one inside the loop
+    await pool(entries.map((e) => e.key), 4, async (k, i) => {
+      await audio(k).catch(() => undefined)
+      if (i < count + 2) await stemsAt(k).catch(() => undefined)
+    })
+    lap('preview_audio')
     host.progress({ stage: 'ordering', done: 0, total: 1, detail: 'global set planning (order × cues × overlap)' })
     const res = await planProDj({
       entries,
@@ -400,6 +408,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       modes,
       budget: host.previewBudget ?? 64,
       propose: host.propose,
+      evaluator: host.previewEvaluator,
       memory: host.closedLoopMemory ?? newClosedLoopMemory(),
       log,
       progress: (d, t, detail) => host.progress({ stage: 'transitions', done: d, total: t, detail }),

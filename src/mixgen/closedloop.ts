@@ -70,6 +70,8 @@ export interface ClosedLoopOptions {
   signal?: AbortSignal
   /** Measurements shared across calls (browser: review step → render step of the same job). */
   memory?: ClosedLoopMemory
+  /** Parallel off-thread preview measurement (browser worker pool). */
+  evaluator?: PreviewEvaluator
 }
 
 export interface ClosedLoopMemory {
@@ -131,17 +133,31 @@ interface Measured {
 const labelOf = (p: TransitionPlan) =>
   p.performance ? `${p.overlapBars}-bar ${p.performance.strategy}${p.performance.source === 'transitionnet-v2' ? ' (TN v2)' : ''}` : `${p.overlapBars}-bar ${p.style}${(p as TechniquePlan).tech ? ` + ${(p as TechniquePlan).tech!.technique}` : ''}${(p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet' ? ' (TN v1)' : ''}`
 
-/** Renders a candidate preview with the production renderer (stems/deck edits/reverb applied like renderMix). */
-export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTrack, host: PreviewAudioHost) {
+type StemSet = { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }
+
+/** The audio a preview needs: both decks (and stems) cropped to the window, with crop offsets (samples). */
+export interface PreviewCrops {
+  A: Float32Array
+  B: Float32Array
+  /** Sample offset of A / B in their tracks. */
+  ca0: number
+  cb0: number
+  o0: number
+  o1: number
+  i0: number
+  i1: number
+  sa?: StemSet
+  sb?: StemSet
+}
+
+/** Crops what a preview of `plan` reads (deck edits read anywhere in the track, so those keep the full track). */
+export async function previewCrops(plan: TransitionPlan, a: SetTrack, b: SetTrack, host: PreviewAudioHost): Promise<PreviewCrops> {
   const rate = PREVIEW_RATE
-  const barA = a.summary.barSec
-  const pre = 8 * barA
-  const post = 8 * barA
+  const pre = 8 * a.summary.barSec
+  const post = 8 * a.summary.barSec
   const tech = (plan as TechniquePlan).tech
   const fullA = await host.audio(a.key)
   const fullB = await host.audio(b.key)
-  // crop both decks to what the preview needs BEFORE stem routing (keeps the render cheap);
-  // deck edits may read source audio from anywhere in the track, so they work on the full track
   const o0 = Math.max(0, Math.floor((plan.outCueSec - pre - 1) * rate))
   const o1 = Math.min(fullA.length, Math.ceil((plan.outCueSec + plan.durationSec + post + 1) * rate))
   const i0 = Math.max(0, Math.floor((plan.inCueSec - 1) * rate))
@@ -149,30 +165,42 @@ export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTra
   const editsA = !!tech?.deckEdits?.out?.length
   const editsB = !!tech?.deckEdits?.in?.length
   const [ca0, ca1, cb0, cb1] = [editsA ? 0 : o0, editsA ? fullA.length : o1, editsB ? 0 : i0, editsB ? fullB.length : i1]
-  let A = [fullA.subarray(ca0, ca1)]
-  let Bd = [fullB.subarray(cb0, cb1)]
+  const crops: PreviewCrops = { A: fullA.subarray(ca0, ca1), B: fullB.subarray(cb0, cb1), ca0, cb0, o0, o1, i0, i1 }
   if (tech?.stems && host.stems) {
     const [sa, sb] = [await host.stems(a.key), await host.stems(b.key)]
-    const arr = (x: { vocals: Float32Array; inst: Float32Array; drums?: Float32Array; bass?: Float32Array; other?: Float32Array }, c0: number, c1: number) => {
-      const cut = (y: Float32Array) => [y.subarray(c0, c1)]
-      return { vocals: cut(x.vocals), inst: cut(x.inst), ...(x.drums && x.bass && x.other ? { drums: cut(x.drums), bass: cut(x.bass), other: cut(x.other) } : {}) }
-    }
+    const cut = (x: StemSet, c0: number, c1: number): StemSet => ({ vocals: x.vocals.subarray(c0, c1), inst: x.inst.subarray(c0, c1), ...(x.drums && x.bass && x.other ? { drums: x.drums.subarray(c0, c1), bass: x.bass.subarray(c0, c1), other: x.other.subarray(c0, c1) } : {}) })
     if (sa && sb) {
-      const sA = ca0 / rate
-      const sB = cb0 / rate
-      A = routeStems(A, arr(sa, ca0, ca1), rate, plan.outCueSec - 0.1 - sA, plan.outCueSec + plan.durationSec + 0.1 - sA, (t) => (t + sA - plan.outCueSec) / plan.beatSec, tech.stems.out)
-      Bd = routeStems(Bd, arr(sb, cb0, cb1), rate, plan.inCueSec - 0.1 - sB, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1 - sB, (t) => (t + sB - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
+      crops.sa = cut(sa, ca0, ca1)
+      crops.sb = cut(sb, cb0, cb1)
     }
   }
-  if (editsA) A = applyDeckEdits(A, rate, tech!.deckEdits!.out!)
-  if (editsB) Bd = applyDeckEdits(Bd, rate, tech!.deckEdits!.in!)
-  const outCrop = A[0].subarray(o0 - ca0, o1 - ca0)
-  const inCrop = Bd[0].subarray(i0 - cb0, i1 - cb0)
+  return crops
+}
+
+/** Renders a preview from crops (pure: runs on the page or in a preview worker). */
+export function renderPreviewCropped(plan: TransitionPlan, a: { trimDb: number; summary: { barSec: number } }, b: { trimDb: number }, c: PreviewCrops) {
+  const rate = PREVIEW_RATE
+  const pre = 8 * a.summary.barSec
+  const post = 8 * a.summary.barSec
+  const tech = (plan as TechniquePlan).tech
+  let A = [c.A]
+  let Bd = [c.B]
+  if (tech?.stems && c.sa && c.sb) {
+    const arr = (x: StemSet) => ({ vocals: [x.vocals], inst: [x.inst], ...(x.drums && x.bass && x.other ? { drums: [x.drums], bass: [x.bass], other: [x.other] } : {}) })
+    const sA = c.ca0 / rate
+    const sB = c.cb0 / rate
+    A = routeStems(A, arr(c.sa), rate, plan.outCueSec - 0.1 - sA, plan.outCueSec + plan.durationSec + 0.1 - sA, (t) => (t + sA - plan.outCueSec) / plan.beatSec, tech.stems.out)
+    Bd = routeStems(Bd, arr(c.sb), rate, plan.inCueSec - 0.1 - sB, plan.inCueSec + plan.durationSec * plan.tempoRatio + 0.1 - sB, (t) => (t + sB - plan.inCueSec) / (plan.beatSec * plan.tempoRatio), tech.stems.in)
+  }
+  if (tech?.deckEdits?.out?.length) A = applyDeckEdits(A, rate, tech.deckEdits.out)
+  if (tech?.deckEdits?.in?.length) Bd = applyDeckEdits(Bd, rate, tech.deckEdits.in)
+  const outCrop = A[0].subarray(c.o0 - c.ca0, c.o1 - c.ca0)
+  const inCrop = Bd[0].subarray(c.i0 - c.cb0, c.i1 - c.cb0)
   const local: TransitionPlan = {
     ...plan,
-    outCueSec: plan.outCueSec - o0 / rate,
-    inCueSec: plan.inCueSec - i0 / rate,
-    incomingDropSec: plan.incomingDropSec === undefined ? undefined : plan.incomingDropSec - i0 / rate,
+    outCueSec: plan.outCueSec - c.o0 / rate,
+    inCueSec: plan.inCueSec - c.i0 / rate,
+    incomingDropSec: plan.incomingDropSec === undefined ? undefined : plan.incomingDropSec - c.i0 / rate,
   }
   const r = renderTransition({ rate, out: [outCrop], in: [inCrop], plan: local, outTrimDb: a.trimDb, inTrimDb: b.trimDb, preRollSec: pre, postRollSec: post, stems: true })
   if (tech?.reverb) applyReverbWash(r, plan.beatSec, tech.reverb)
@@ -192,6 +220,24 @@ export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTra
     rawIn: inCrop.subarray(Math.min(inCrop.length, rawStart), Math.min(inCrop.length, rawStart + 6 * rate)),
   }
 }
+
+/** Renders a candidate preview with the production renderer (stems/deck edits/reverb applied like renderMix). */
+export async function renderPreview(plan: TransitionPlan, a: SetTrack, b: SetTrack, host: PreviewAudioHost) {
+  return renderPreviewCropped(plan, a, b, await previewCrops(plan, a, b, host))
+}
+
+/**
+ * Off-thread preview measurement (browser worker pool): renders the crops and measures them exactly
+ * like the in-page path. Returns null when it cannot (the page then measures it itself).
+ */
+export type PreviewEvaluator = (job: {
+  plan: TransitionPlan
+  a: { key: string; trimDb: number; summary: { barSec: number }; profile: SetTrack['profile']; netBeats?: SetTrack['netBeats'] }
+  b: { key: string; trimDb: number; summary: { barSec: number }; profile: SetTrack['profile']; netBeats?: SetTrack['netBeats'] }
+  crops: PreviewCrops
+  stems: { a?: StemInfo; b?: StemInfo }
+  critic: boolean
+}) => Promise<QualityResult | null>
 
 /** Reshape a beat-matched candidate: shift cues by whole phrases and/or change its overlap length. */
 function reshape(p: TransitionPlan, a: SetTrack, b: SetTrack, d: { outBars?: number; inBars?: number; bars?: number }): TransitionPlan | null {
@@ -262,14 +308,45 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   /** Preview index the current edge may not pass (fair share of the budget per transition). */
   let edgeBudgetEnd = Infinity
   const timing = { audioMs: 0, renderMs: 0, measureMs: 0, totalMs: 0 }
-  const evaluate = async (p: TransitionPlan, a: SetTrack, b: SetTrack): Promise<QualityResult | null> => {
+  const inflight = new Map<string, Promise<QualityResult | null>>()
+  const evaluate = (p: TransitionPlan, a: SetTrack, b: SetTrack): Promise<QualityResult | null> => {
     const k = ctlKey(p)
     const hit = cache.get(k)
-    if (hit) return hit
-    if (previews >= budget || previews >= edgeBudgetEnd || opts.signal?.aborted) return null
-    if (!validPlan(p)) return null
+    if (hit) return Promise.resolve(hit)
+    const running = inflight.get(k)
+    if (running) return running
+    if (previews >= budget || previews >= edgeBudgetEnd || opts.signal?.aborted) return Promise.resolve(null)
+    if (!validPlan(p)) return Promise.resolve(null)
     previews++
     mem.previews++
+    const job = measure(p, a, b, k).finally(() => inflight.delete(k))
+    inflight.set(k, job)
+    return job
+  }
+  const measure = async (p: TransitionPlan, a: SetTrack, b: SetTrack, k: string): Promise<QualityResult | null> => {
+    if (opts.evaluator) {
+      const tA = Date.now()
+      const crops = await previewCrops(p, a, b, host)
+      const tR = Date.now()
+      const q = await opts.evaluator({
+        plan: p,
+        a: { key: a.key, trimDb: a.trimDb, summary: { barSec: a.summary.barSec }, profile: a.profile, netBeats: a.netBeats },
+        b: { key: b.key, trimDb: b.trimDb, summary: { barSec: b.summary.barSec }, profile: b.profile, netBeats: b.netBeats },
+        crops,
+        stems: { a: opts.stems?.get(a.key), b: opts.stems?.get(b.key) },
+        critic: !!opts.critic,
+      })
+      if (q) {
+        timing.audioMs += tR - tA
+        timing.renderMs += Date.now() - tR
+        if (q.critic) modelUse.critic.scored++
+        if (isV2(p)) modelUse.transitionnetV2.rendered++
+        if (isV1(p)) modelUse.transitionnetV1.rendered++
+        if (humanSigs.has(edgeSig(p.fromItemId, p.toItemId, p))) modelUse.humanCue.rendered++
+        cache.set(k, q)
+        return q
+      }
+    }
     // yield between previews so the page (browser host) keeps repainting progress
     await new Promise((res) => setTimeout(res, 0))
     const tA = Date.now()
@@ -373,10 +450,16 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       if (!has(human)) picks.push(human)
     }
     let best: { q: QualityResult; plan: TransitionPlan; edge: Edge } | null = null
-    for (const cand of picks) {
+    // every candidate rendering of this transition is dispatched at once (parallel with a worker pool;
+    // results are then read in the same order as before, so the choice is deterministic)
+    const jobs = picks.map((cand) => {
+      const vs = variantsOf(cand, a, b)
+      return { cand, vs, qs: vs.map((v) => evaluate(v, a, b)) }
+    })
+    for (const { cand, vs, qs } of jobs) {
       let candBest: { q: QualityResult; plan: TransitionPlan } | null = null
-      for (const v of variantsOf(cand, a, b)) {
-        const q = await evaluate(v, a, b)
+      for (const [vi, v] of vs.entries()) {
+        const q = await qs[vi]
         if (!q) continue
         scores.push(q.score)
         evaluated.push({ pair: pairLabel, sig: cand.sig, label: labelOf(v), score: round3(q.score), hardFail: q.hardFail, failures: q.failures, components: roundAll(q.components), overlapBars: v.overlapBars, strategy: v.performance?.strategy, source: v.performance ? v.performance.source : isV1(v) ? 'transitionnet-v1' : 'legacy', round, refined: false, critic: q.critic })

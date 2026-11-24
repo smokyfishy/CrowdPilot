@@ -8,7 +8,7 @@ import { buildProfile, cueCandidates, overlapCompat, type TrackProfile } from '.
 import { buildPerformance, feasibleStrategies } from './longform'
 import { planSet, narrativeFor, edgeSig, type SetTrack } from './setplan'
 import { evaluateTransition } from './audio-quality'
-import { closedLoop, PREVIEW_RATE } from './closedloop'
+import { closedLoop, renderPreviewCropped, type PreviewEvaluator, PREVIEW_RATE } from './closedloop'
 import { validPlan, monoAt } from './ml'
 import { resolveSpec, MixSpec } from './spec'
 import { avoided, matchesAny } from './technique-match'
@@ -290,6 +290,24 @@ describe('global set planning + closed loop on synthetic recordings', () => {
     expect(pairs).not.toContain(`${e.plan.fromItemId}|${e.plan.toItemId}`)
     expect(edgeSig('a', 'b', e.plan)).toContain('a|b|')
   })
+  it('off-thread preview measurement (worker pool path) picks exactly what the in-page path picks', async () => {
+    const mono = new Map(set.map((t, i) => [t.key, monoAt(tracks[i].t.channels, RATE, PREVIEW_RATE)]))
+    const opts = { budget: 24, rounds: 2, candidatesPerEdge: 2, strategiesPerCandidate: 2, refinements: 1 }
+    const local = await closedLoop(set, spec, { count: 3 }, { audio: async (k) => mono.get(k)! }, opts)
+    let calls = 0
+    const evaluator: PreviewEvaluator = async (job) => {
+      calls++
+      // what a worker does: structured copies of everything, render from crops, measure
+      const j = structuredClone(job)
+      const r = renderPreviewCropped(j.plan, j.a, j.b, j.crops)
+      return evaluateTransition(r, { plan: j.plan, pa: j.a.profile, pb: j.b.profile, beatsA: j.a.netBeats, beatsB: j.b.netBeats, stems: j.stems })
+    }
+    const pooled = await closedLoop(set, spec, { count: 3 }, { audio: async (k) => mono.get(k)! }, { ...opts, evaluator })
+    expect(calls).toBeGreaterThan(0)
+    expect(pooled.set.order).toEqual(local.set.order)
+    expect(pooled.chosen.map((c) => [c.label, c.score])).toEqual(local.chosen.map((c) => [c.label, c.score]))
+    expect(pooled.previews).toBe(local.previews)
+  }, 60_000)
   it('closed loop renders candidates, rejects/refines, and returns a measured set', async () => {
     const mono = new Map(set.map((t, i) => [t.key, monoAt(tracks[i].t.channels, RATE, PREVIEW_RATE)]))
     const r = await closedLoop(set, spec, { count: 3 }, { audio: async (k) => mono.get(k)! }, { budget: 24, rounds: 2, candidatesPerEdge: 2, strategiesPerCandidate: 2, refinements: 1 })

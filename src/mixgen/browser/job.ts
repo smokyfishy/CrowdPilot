@@ -9,6 +9,9 @@
  * Audio bytes are never persisted in the browser (provider terms); derived analyses are
  * cached in IndexedDB by content hash so regeneration skips re-analysis.
  */
+import type { PreviewWorkerIn, PreviewWorkerOut } from './preview.worker'
+import type { PreviewEvaluator } from '../closedloop'
+import type { DjModels } from '../../ml/dj-brain'
 import { ANALYZER_VERSION, type TrackAnalysis } from '../../dsp/analyze'
 import type { WorkerRequest, WorkerResponse } from '../../dj/engine/analysis.worker'
 import { decideAccess, mixPermissions } from '../policy'
@@ -225,6 +228,7 @@ export class BrowserMixJob {
       previous: { pool, analyses },
       concurrency: 3,
       previewBudget: 64,
+      previewEvaluator: job.previewEvaluator(ml.models.critic ?? null),
       closedLoopMemory: job.loopMemory,
       async acquire(c, access): Promise<AcquiredAudio> {
         if (!access.acquire) throw new AcquisitionError(access.reason, 'not_permitted')
@@ -286,6 +290,8 @@ export class BrowserMixJob {
       render: (plan, load, onProgress, loadStems) => job.renderInWorker(plan, load, onProgress, loadStems),
       // Demucs htdemucs 4-stem separation on the Azure stem service (infra/stems), all tracks in parallel
       stemsConcurrency: 12,
+      // separation starts while tracks are analysed; a track still not ready 90 s after analysis uses EQ element control
+      stemsWaitMs: 90_000,
       stems: async (audio, analysis) => {
         if (!/^jamendo:\d+$/.test(audio.trackKey)) return null
         const res = await job.requestStems(audio.trackKey)
@@ -366,6 +372,50 @@ export class BrowserMixJob {
       if (p?.ok) r = (await p.json()) as R
     }
     return r.status === 'ready' ? r : null
+  }
+
+  private previewWorkers: Worker[] = []
+  private previewPending = new Map<number, (r: PreviewWorkerOut) => void>()
+  private previewReq = 0
+  /** Closed-loop previews measured in parallel worker threads (one per spare core, at most 4). */
+  previewEvaluator(critic: NonNullable<DjModels['critic']> | null): PreviewEvaluator | undefined {
+    if (typeof Worker === 'undefined') return undefined
+    const size = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1))
+    if (!this.previewWorkers.length) {
+      for (let i = 0; i < size; i++) {
+        const w = new Worker(new URL('./preview.worker.ts', import.meta.url), { type: 'module' })
+        w.onmessage = (ev: MessageEvent<PreviewWorkerOut>) => {
+          const cb = this.previewPending.get(ev.data.id)
+          this.previewPending.delete(ev.data.id)
+          cb?.(ev.data)
+        }
+        w.onerror = () => undefined
+        w.postMessage({ type: 'init', critic } satisfies PreviewWorkerIn)
+        this.previewWorkers.push(w)
+      }
+    }
+    const busy = this.previewWorkers.map(() => 0)
+    return async (job) => {
+      // copies of the cropped windows (transferring a view would detach the cached whole-track audio)
+      const c = job.crops
+      const copy = (x?: Float32Array) => (x ? x.slice() : undefined)
+      const st = (x?: typeof c.sa) => (x ? { vocals: x.vocals.slice(), inst: x.inst.slice(), ...(x.drums && x.bass && x.other ? { drums: x.drums.slice(), bass: x.bass.slice(), other: x.other.slice() } : {}) } : undefined)
+      const crops = { ...c, A: copy(c.A)!, B: copy(c.B)!, sa: st(c.sa), sb: st(c.sb) }
+      const bufs = [crops.A, crops.B, ...Object.values(crops.sa ?? {}), ...Object.values(crops.sb ?? {})].map((x) => (x as Float32Array).buffer)
+      let k = 0
+      for (let i = 1; i < busy.length; i++) if (busy[i] < busy[k]) k = i
+      busy[k]++
+      const id = ++this.previewReq
+      try {
+        const r = await new Promise<PreviewWorkerOut>((resolve) => {
+          this.previewPending.set(id, resolve)
+          this.previewWorkers[k].postMessage({ type: 'measure', id, plan: job.plan, a: job.a, b: job.b, crops, stems: job.stems, critic: job.critic } satisfies PreviewWorkerIn, bufs)
+        })
+        return r.q ?? null
+      } finally {
+        busy[k]--
+      }
+    }
   }
 
   private renderBlob: { blob: Blob; mime: string } | null = null
