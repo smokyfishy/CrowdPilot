@@ -94,8 +94,8 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(page.getByRole('slider', { name: /Mix timeline/ })).toBeVisible()
   await expect(page.locator('[data-testid^="track-seek-"]')).toHaveCount(TRACKS)
   await expect(page.getByRole('region', { name: 'AI DJ performance' })).toBeVisible()
-  await page.getByText('Audio checks, licences and downloads', { exact: true }).click()
-  await expect(page.getByText('continuous audio (no silence > 1 s)')).toBeVisible()
+  await page.getByTestId('mix-quality').locator(':scope > summary').click()
+  await expect(page.getByTestId('mix-quality').getByText('No gaps or silence')).toBeVisible()
 
   // Playback actually advances, seeking and track navigation move the playhead.
   const now = () => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime ?? 0)

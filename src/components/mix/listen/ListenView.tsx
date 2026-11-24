@@ -17,6 +17,7 @@ import { fmtTime } from './mapping'
 import { Timeline, type TimelineHandle } from './Timeline'
 import { TransitionInspector } from '../TransitionInspector'
 import { MlDiagnostics } from '../MlDiagnostics'
+import { QualityPanel } from '../QualityPanel'
 
 interface Coarse {
   decks: DeckAssignment
@@ -314,45 +315,7 @@ export function ListenView({ manifest: m, audioSrc, downloadUrl, footer }: { man
       {/* ── details ── */}
       <section aria-label="Mix details" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 text-sm text-muted-foreground">
         {footer}
-        <details className="group rounded-xl bg-card px-5 py-4">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-foreground">
-            Audio checks, licences and downloads
-            <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="mt-4 grid gap-4">
-            <ul className="grid gap-1 sm:grid-cols-2">
-              {m.validation?.checks.map((c) => (
-                <li key={c.name}>
-                  <span className={c.ok ? 'text-emerald-400' : 'text-destructive'}>{c.ok ? '✓' : '✗'}</span> {c.name}: <span className="tabular-nums text-foreground">{c.value}</span>
-                </li>
-              ))}
-            </ul>
-            {m.unavailable.length > 0 && (
-              <div>
-                <p className="font-medium text-foreground">Requested but not available for mixing</p>
-                <ul className="mt-1 list-disc pl-5">
-                  {m.unavailable.map((u) => (
-                    <li key={u.request}><span className="text-foreground">{u.request}</span>: {u.reason}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              {downloadUrl && m.permissions.export ? (
-                <a href={downloadUrl} download={`${m.title}.opus`} className="inline-flex h-10 items-center rounded-full bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90">Download mix</a>
-              ) : null}
-              <span>{m.permissions.reason}</span>
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Attribution</p>
-              <ul className="mt-1 grid gap-1">
-                {m.attribution.map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </details>
+        <QualityPanel m={m} downloadUrl={downloadUrl} />
         <MlDiagnostics m={m} />
       </section>
     </div>

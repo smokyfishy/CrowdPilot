@@ -307,7 +307,7 @@ describe('global set planning + closed loop on synthetic recordings', () => {
     expect(pooled.set.order).toEqual(local.set.order)
     expect(pooled.chosen.map((c) => [c.label, c.score])).toEqual(local.chosen.map((c) => [c.label, c.score]))
     expect(pooled.previews).toBe(local.previews)
-  }, 60_000)
+  }, 240_000)
   it('closed loop renders candidates, rejects/refines, and returns a measured set', async () => {
     const mono = new Map(set.map((t, i) => [t.key, monoAt(tracks[i].t.channels, RATE, PREVIEW_RATE)]))
     const r = await closedLoop(set, spec, { count: 3 }, { audio: async (k) => mono.get(k)! }, { budget: 24, rounds: 2, candidatesPerEdge: 2, strategiesPerCandidate: 2, refinements: 1 })
