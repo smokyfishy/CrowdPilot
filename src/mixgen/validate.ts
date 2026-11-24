@@ -36,6 +36,9 @@ export function validateMix(m: MixManifest, r: RenderResult): ValidationReport {
   warnings.push(...inSource)
   add('continuous audio (no silence > 1 s)', gaps.length === 0, gaps.map((s) => `${s.startSec.toFixed(1)}s+${s.durationSec.toFixed(1)}s`).join(', ') || 'none', 'none')
   add('no clipped samples', met.clippedSamples === 0, String(met.clippedSamples), '0')
+  // house rules: every transition overlaps ≥ 16 bars, and no loop rolls
+  const shortOnes = m.transitions.filter((t) => t.overlapBars < 16 || t.style === 'loop_roll')
+  add('every transition ≥ 16 bars, no loop rolls', shortOnes.length === 0, shortOnes.map((t) => `#${t.index + 1} ${t.overlapBars}-bar ${t.style}`).join(', ') || 'all ≥ 16 bars', '≥ 16 bars')
   add('sample peak ≤ −0.9 dBFS', met.samplePeakDb <= -0.9, `${met.samplePeakDb} dBFS`, '−0.9 dBFS')
   // Mix-induced level problems: (a) second-to-second jumps inside each transition window,
   // (b) loudness mismatch between the outgoing and incoming tracks around each transition.

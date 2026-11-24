@@ -34,7 +34,8 @@ describe('creative transition styles', () => {
   const sb = summarize(analyzeTrack({ channels: B.channels, sampleRate: RATE }))
   const ta: PlanTrack = { itemId: 'a', trackKey: 'audius:a', title: 'A', mixable: true, summary: sa, durationSec: sa.durationSec }
   const tb: PlanTrack = { itemId: 'b', trackKey: 'audius:b', title: 'B', mixable: true, summary: sb, durationSec: sb.durationSec }
-  const styles: TransitionStyle[] = ['echo_out', 'loop_roll', 'brake', 'scratch_cut', 'filter_sweep', 'drop_swap']
+  // house rules: only ≥ 16-bar styles are generated (echo-out / loop roll / brake / scratch cut never are)
+  const styles: TransitionStyle[] = ['filter_sweep', 'drop_swap', 'bass_swap', 'long_blend']
   for (const style of styles) {
     it(`${style}: valid plan, renders without clipping, has a distinct shape`, () => {
       const plans = candidateTransitions(ta, tb, { maxTempoDeviation: 0.06, weights: { tempo: 0.25, key: 1, energy: 0.08, vocals: 1.2, confidence: 1, truncation: 0.02, variety: 0.8 }, recentStyles: [], energyDirection: 0, allowedStyles: [style] })

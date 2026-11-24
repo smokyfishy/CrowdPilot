@@ -137,6 +137,8 @@ export interface ResolvedSpec {
   features: MixSpec['features']
   /** Named techniques to prefer / avoid. */
   techniques: { prefer: TechniqueName[]; avoid: TechniqueName[] }
+  /** Requested techniques the house rules exclude (≥ 16-bar transitions only, no loop rolls). */
+  droppedTechniques?: TechniqueName[]
   allowReordering: boolean
   allowSubstitutions: boolean
   /** Which values came from defaults (for honest display). */
@@ -153,6 +155,12 @@ export const DEFAULTS = {
   popularity: 'mixed' as const,
   vocals: 'mixed' as const,
   intensity: 0.6,
+}
+
+/** Techniques that can never be a ≥ 16-bar overlap (or are banned outright): dropped from requests. */
+export const UNPLANNABLE_TECHNIQUES: readonly TechniqueName[] = ['loop_roll', 'cut', 'scratch', 'brake', 'spinback']
+function houseTechniques(t: { prefer: TechniqueName[]; avoid: TechniqueName[] }): { prefer: TechniqueName[]; avoid: TechniqueName[] } {
+  return { prefer: t.prefer.filter((x) => !UNPLANNABLE_TECHNIQUES.includes(x)), avoid: [...new Set([...t.avoid, 'loop_roll' as TechniqueName])] }
 }
 
 export function resolveSpec(spec: MixSpec): ResolvedSpec {
@@ -202,7 +210,9 @@ export function resolveSpec(spec: MixSpec): ResolvedSpec {
         : spec.energy_curve === 'constant_high' || spec.energy_curve === 'festival_climax' || (spec.intensity ?? 0) >= 0.8 || spec.features.includes('drop_sections') ? 'energetic' : DEFAULTS.transitionStyle,
     ),
     features: spec.features,
-    techniques: spec.techniques ?? { prefer: [], avoid: [] },
+    // house rules: loop rolls never; techniques that cannot be a ≥ 16-bar transition are not planned
+    techniques: houseTechniques(spec.techniques ?? { prefer: [], avoid: [] }),
+    droppedTechniques: (spec.techniques?.prefer ?? []).filter((x) => UNPLANNABLE_TECHNIQUES.includes(x)),
     allowReordering: d('allow_reordering', spec.allow_reordering, true),
     allowSubstitutions: d('allow_song_substitutions', spec.allow_song_substitutions, true),
     defaulted,

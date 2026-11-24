@@ -16,6 +16,7 @@
  *      overlap, technique, neighbours or the order itself).
  * Bounded by a preview budget; previews are cached by (slot, controls).
  */
+import { transitionAllowed } from '../dj/transitions'
 import { renderTransition } from '../dj/render'
 import type { TransitionPlan } from '../dj/transitions'
 import { applyDeckEdits, applyReverbWash, routeStems, type StemInfo, type TechniquePlan } from './techniques'
@@ -299,6 +300,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   const humanSigs = new Set<string>()
   // a technique the user named is binding: it wins whenever a rendering of it passes every hard check
   const rankP = (q: QualityResult, p: TransitionPlan) => rank(q) - (!q.hardFail && matchesAny(p, spec.techniques.prefer) ? 3 : 0)
+  const WANTABLE = ['echo_handoff', 'filter_ride', 'drop_lock', 'stem_mashup', 'vocal_handoff'] as const
   const strategyWanted = (st: string) => spec.techniques.prefer.length > 0 && techniquesOfStrategy(st).some((t) => spec.techniques.prefer.includes(t))
   const isV1 = (p: TransitionPlan) => (p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet'
   const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
@@ -390,7 +392,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   }
 
   /** All performance variants of one candidate slot. */
-  const variantsOf = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => variantsAll(e, a, b).filter((v) => !avoided(v, spec.techniques.avoid))
+  const variantsOf = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => variantsAll(e, a, b).filter((v) => transitionAllowed(v) && !avoided(v, spec.techniques.avoid))
   const variantsAll = (e: Edge, a: SetTrack, b: SetTrack): TransitionPlan[] => {
     const p = e.plan
     if (!longformEligible(p)) {
@@ -415,7 +417,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       if (shifted) out.push(buildPerformance({ base: shifted, pa: a.profile, pb: b.profile, strategy: proposal.strategy, params: proposal.params, stems, source: 'transitionnet-v2' }))
     }
     // strategies that perform a requested technique are tried first (never crowded out by the strategy limit)
-    const feasible = feasibleStrategies(compat, { stems, dropAtEnd })
+    const feasible = feasibleStrategies(compat, { stems, dropAtEnd, want: WANTABLE.filter(strategyWanted) })
     for (const st of [...feasible.filter(strategyWanted), ...feasible.filter((x) => !strategyWanted(x))]) {
       if (out.length >= S + (proposal ? 1 : 0)) break
       if (proposal && st === proposal.strategy) continue

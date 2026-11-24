@@ -443,15 +443,24 @@ export function automationFor(style: TransitionStyle, beats: number, p: StylePar
   }
 }
 
+/** House rule: every transition overlaps the two tracks for at least this many bars. */
+export const MIN_TRANSITION_BARS = 16
+/** House rule: styles that are never planned, rendered or offered (loop rolls are eradicated). */
+export const BANNED_STYLES: ReadonlySet<TransitionStyle> = new Set<TransitionStyle>(['loop_roll'])
+/** True when a plan obeys the house rules (≥ 16-bar overlap, no banned style). */
+export function transitionAllowed(p: { style: TransitionStyle; overlapBars: number }): boolean {
+  return !BANNED_STYLES.has(p.style) && p.overlapBars >= MIN_TRANSITION_BARS
+}
+
 export const OVERLAP_BARS: Record<TransitionStyle, number[]> = {
   cut: [0],
   sequential: [0],
   short_fade: [4],
-  unmatched_fade: [2],
+  unmatched_fade: [16],
   long_blend: [16, 32],
-  bass_swap: [8, 16],
+  bass_swap: [16, 32],
   percussion_led: [16],
-  drop_swap: [8, 16],
+  drop_swap: [16, 32],
   filter_sweep: [16],
   echo_out: [2],
   loop_roll: [2],
@@ -533,11 +542,11 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
   const inBeat = sb.bpm > 0 ? 60 / sb.bpm : beatSec
   const drops = (sb.dropsSec ?? []).filter((d) => d > 8 * inBeat && d < sb.durationSec * 0.7)
   const styles = (opts.allowedStyles ?? ALL_STYLES).filter(
-    (s) => s !== 'sequential' && (BEATMATCHED.has(s) ? canMatch : true),
+    (s) => s !== 'sequential' && !BANNED_STYLES.has(s) && (BEATMATCHED.has(s) ? canMatch : true),
   )
   const plans: TransitionPlan[] = []
   for (const style of styles) {
-    for (const bars of OVERLAP_BARS[style]) {
+    for (const bars of OVERLAP_BARS[style].filter((b) => b >= MIN_TRANSITION_BARS)) {
       const beats = bars * 4
       const overlapSec = beats * beatSec
       for (const outCue of outs.slice(0, 6)) {
@@ -662,7 +671,7 @@ export function candidateTransitions(a: PlanTrack, b: PlanTrack, opts: PlannerOp
   }
   if (!plans.length) return [sequentialPlan(a, b, 'No feasible cue pair inside the tracks.')]
   plans.sort((p, q) => p.costs.total - q.costs.total || p.outCueSec - q.outCueSec)
-  return plans
+  return plans.filter(transitionAllowed)
 }
 
 function energyAt(s: AnalysisSummary, t: number): number | null {

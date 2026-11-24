@@ -107,7 +107,7 @@ class Lane {
 const snap = (x: number, q = 2) => Math.round(x / q) * q
 
 /** Strategies the music supports for this window, best-first by rules (the closed loop renders several). */
-export function feasibleStrategies(compat: OverlapCompat, ctx: { stems?: { a?: StemInfo; b?: StemInfo }; dropAtEnd: boolean }): Strategy[] {
+export function feasibleStrategies(compat: OverlapCompat, ctx: { stems?: { a?: StemInfo; b?: StemInfo }; dropAtEnd: boolean; want?: readonly Strategy[] }): Strategy[] {
   const out: Strategy[] = []
   const stemsClean = !!(ctx.stems?.a?.clean && ctx.stems?.b?.clean)
   const vocalsInPlay = compat.perBar.some((x) => x.vocA >= 0.5) && compat.perBar.some((x) => x.vocB >= 0.5)
@@ -121,7 +121,10 @@ export function feasibleStrategies(compat: OverlapCompat, ctx: { stems?: { a?: S
   if (compat.harmonicClash >= 0.35) out.push('filter_ride')
   else out.push('filter_ride')
   if (!out.includes('echo_handoff') && (compat.outRunsOut > 0 || compat.vocalClash > 0.4)) out.push('echo_handoff')
-  return [...new Set(out)]
+  // a strategy the user asked for (echo handoff, filter ride) works on any window; it leads the list
+  // (drop locks still need a drop, stem mashups clean stems)
+  const want = (ctx.want ?? []).filter((w) => (w !== 'drop_lock' || ctx.dropAtEnd) && (w !== 'stem_mashup' || stemsClean) && (w !== 'vocal_handoff' || compat.vocalHandoffBar !== null))
+  return [...new Set([...want, ...out])]
 }
 
 /**

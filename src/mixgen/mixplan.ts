@@ -13,6 +13,7 @@
  *  - an exact mix timeline (track entry/exit in each track's own time and in mix time,
  *    including the tempo-recovery ramp after beat-matched blends).
  */
+import { transitionAllowed } from '../dj/transitions'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { BEATMATCHED, candidateTransitions, DEFAULT_OPTIONS, SLAM, tempoMatch, type PlannerOptions, type PlanTrack, type TransitionPlan, type TransitionStyle } from '../dj/transitions'
 import { energyDirection } from './energy'
@@ -261,7 +262,7 @@ export function planMix(tracks: PlannedTrack[], spec: ResolvedSpec, opts: PlanMi
     const a = tracks[i]
     const b = tracks[i + 1]
     const keep = pairOptions(a, b, i, n, spec, opts, recent, recentTech)
-    options.push(opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep)
+    options.push((opts.rankCandidates && keep.length > 1 ? opts.rankCandidates(keep, a.summary, b.summary, i).slice(0, K) : keep).filter(transitionAllowed))
     if (options[i][0]) {
       recent.unshift(options[i][0].style)
       recentTech.unshift((options[i][0] as TechniquePlan).tech?.technique ?? '')

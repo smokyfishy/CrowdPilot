@@ -15,6 +15,7 @@
  * that is stored in the mix manifest. When a model is unavailable or fails, the rule-based path
  * runs and the fallback is logged in the trace — never silently.
  */
+import { transitionAllowed } from '../dj/transitions'
 import type { AnalysisSummary } from '../dsp/analyze'
 import { resample } from '../dsp/resample'
 import { automationFor, BEATMATCHED, OVERLAP_BARS, type TransitionPlan } from '../dj/transitions'
@@ -416,7 +417,8 @@ export function traceAutomation(rt: MlRuntime, p: TransitionPlan, pairLabel: str
  * timeline is unchanged): other techniques of the same family at this overlap, their TransitionNet
  * versions, and the hand-template version of a TransitionNet-controlled plan.
  */
-export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: AnalysisSummary, b: AnalysisSummary, allow: (s: TransitionPlan['style']) => boolean): TransitionPlan[] {
+export function buildAlternatives(rt: MlRuntime, chosen: ScoredPlan, a: AnalysisSummary, b: AnalysisSummary, allow0: (s: TransitionPlan['style']) => boolean): TransitionPlan[] {
+  const allow = (st: TransitionPlan['style']) => allow0(st) && transitionAllowed({ style: st, overlapBars: chosen.overlapBars })
   const B = chosen.overlapBars * 4
   const fam: TransitionPlan['style'][] = BEATMATCHED.has(chosen.style) ? ['long_blend', 'bass_swap', 'percussion_led', 'short_fade', 'filter_sweep'] : ['echo_out', 'loop_roll', 'unmatched_fade', 'brake', 'scratch_cut']
   const out: ScoredPlan[] = []

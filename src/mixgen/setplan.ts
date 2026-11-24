@@ -20,7 +20,7 @@
  *                 + MEASURED closed-loop quality when the edge was rendered (src/mixgen/closedloop.ts)
  * The search returns several complete-set arrangements; the closed loop renders and re-plans.
  */
-import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, DEFAULT_WEIGHTS, type TransitionPlan } from '../dj/transitions'
+import { tempoMatch, BEATMATCHED, automationFor, beatmatchable, DEFAULT_OPTIONS, DEFAULT_WEIGHTS, transitionAllowed, type TransitionPlan } from '../dj/transitions'
 import { camelotDistance } from '../dsp/key'
 import { refineWithLocalBeats } from '../dj/phase'
 import { energyDirection, targetEnergy } from './energy'
@@ -274,7 +274,8 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       const sig = edgeSig(a.key, b.key, plan) + `|${plan.style}|${(plan as TechniquePlan).tech?.technique ?? ''}`
       if (seen.has(sig)) return
       seen.add(sig)
-      // techniques the user named: never an avoided one; a preferred one wherever the music allows
+      // house rules (≥ 16-bar overlap, no loop rolls), then techniques the user named: never an avoided one
+      if (!transitionAllowed(plan)) return
       if (avoided(plan, spec.techniques.avoid)) return
       const wanted = spec.techniques.prefer
       const request = wanted.length ? (matchesAny(plan, wanted) ? -5 : 0.6) : 0
@@ -338,9 +339,11 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
   }
 
   const pairKey = (a: string, b: string) => `${a}|${b}`
+  // an energy shape the user asked for weighs as much as a requested technique (a −5 edge bonus)
+  const energyWeight = spec.defaulted?.includes('energy_curve') === false ? 9 : 3
   const slotCost = (t: SetTrack, pos: number): number => {
     const nv = narrative[pos]
-    let c = 3 * Math.abs(t.energy - nv.energy)
+    let c = energyWeight * Math.abs(t.energy - nv.energy)
     if (nv.role === 'peak' || (nv.role === 'finale' && spec.features.includes('festival_closer'))) c -= Math.min(1.2, t.dropStrength / 5)
     if (nv.role === 'opening') c += 0.5 * Math.max(0, t.energy - 0.6) + 0.3 * avgVocal(t)
     if (nv.role === 'recovery') c += 0.5 * Math.max(0, t.energy - nv.energy - 0.1)

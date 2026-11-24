@@ -90,6 +90,8 @@ export function requestFidelity(spec: ResolvedSpec, explicit: string[], order: s
     if (spec.transitionStyle === 'smooth' || spec.transitionStyle === 'minimal') add('transition style', spec.transitionStyle, `${blends}/${tr.length} beat-matched blends`, blends / n >= 0.7)
     else add('transition style', spec.transitionStyle.replace('_', ' '), `${creative}/${tr.length} creative transitions, ${blends}/${tr.length} blends`, creative >= 1)
   }
+  const dropped = spec.droppedTechniques ?? []
+  if (dropped.length) add('house rules', dropped.join(', ').replace(/_/g, ' '), 'not used: every transition is a ≥ 16-bar blend and loop rolls are never used', true)
   if (spec.techniques.prefer.length) {
     const tr = plan.transitions.map((t) => t.plan)
     const used = tr.filter((p) => matchesAny(p, spec.techniques.prefer)).length

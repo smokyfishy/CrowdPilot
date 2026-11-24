@@ -33,27 +33,27 @@ const load = <T>(dir: Record<string, unknown>, f: string): T | null => (Object.e
 describe('controls', () => {
   it('offers drop-aligned landings at both short and long blend lengths', () => {
     const drop = 94
-    const styles = ['short_fade', 'long_blend'] as const
+    const styles = ['bass_swap', 'long_blend'] as const
     const plans = candidateTransitions(track('a'), track('b', { dropsSec: [drop] }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
     for (const style of styles) {
       const plan = plans.find((p) => p.style === style && p.reasons.includes('incoming drop lands at the end of the blend'))
       expect(plan, style).toBeDefined()
       expect(plan!.inCueSec + plan!.durationSec * plan!.tempoRatio).toBeCloseTo(drop, 5)
     }
-    const direct = candidateTransitions(track('a'), track('b', { dropsSec: [drop] }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: ['cut'] })
-    expect(direct.some((p) => p.inCueSec === drop && p.incomingDropSec === drop)).toBe(true)
     const uncertain = candidateTransitions(track('a'), track('b', { dropsSec: [drop], downbeatConf: 0.1 }), { ...DEFAULT_OPTIONS, preferDropLandings: true, allowedStyles: [...styles] })
     expect(uncertain.some((p) => p.reasons.includes('incoming drop lands at the end of the blend'))).toBe(false)
   })
 
-  it('reveals drop cues on the outgoing clock for loop rolls and echo-outs', () => {
+  it('house rules: never offers a loop roll or anything shorter than 16 bars, even when asked', () => {
     const drop = 94
-    for (const style of ['loop_roll', 'echo_out'] as const) {
-      const plans = candidateTransitions(track('a', { bpm: 128 }), track('b', { bpm: 111, dropsSec: [drop] }), { ...DEFAULT_OPTIONS, allowedStyles: [style] })
-      const plan = plans.find((candidate) => candidate.incomingDropSec === drop)
-      expect(plan, style).toBeDefined()
-      expect(plan!.incomingDropOffsetSec).toBeCloseTo(plan!.handoffBeat * plan!.beatSec, 10)
-      expect(plan!.inCueSec + plan!.incomingDropOffsetSec!).toBeCloseTo(drop, 10)
+    const asked = candidateTransitions(track('a', { bpm: 128 }), track('b', { bpm: 126, dropsSec: [drop] }), { ...DEFAULT_OPTIONS, allowedStyles: ['loop_roll', 'echo_out', 'cut', 'short_fade', 'brake', 'scratch_cut'] })
+    // nothing playable under the rules: only the emergency sequential join comes back, which the set planner rejects
+    expect(asked.every((p) => p.style === 'sequential')).toBe(true)
+    const all = candidateTransitions(track('a'), track('b', { dropsSec: [drop] }), DEFAULT_OPTIONS)
+    expect(all.length).toBeGreaterThan(0)
+    for (const p of all) {
+      expect(p.style).not.toBe('loop_roll')
+      expect(p.overlapBars).toBeGreaterThanOrEqual(16)
     }
   })
 
@@ -73,10 +73,11 @@ describe('controls', () => {
   })
 
   it('round-trips template automation through beat-aligned trajectories', () => {
-    for (const p of candidateTransitions(track('a'), track('b'), DEFAULT_OPTIONS).filter((q) => ['bass_swap', 'long_blend', 'short_fade'].includes(q.style)).slice(0, 3)) {
+    for (const p of candidateTransitions(track('a'), track('b'), DEFAULT_OPTIONS).filter((q) => ['bass_swap', 'long_blend'].includes(q.style) && q.overlapBars === 16).slice(0, 3)) {
       const t = planToTrajectories(p)
       const back = planToTrajectories(applyTrajectories(p, t))
-      for (const c of CTRL_CHANNELS) for (let k = 0; k < CTRL_POINTS; k++) expect(Math.abs(back[c][k] - t[c][k])).toBeLessThan(0.02)
+      // 16-bar templates (the house minimum) have sharper steps per trajectory point than the old 4–8-bar ones
+      for (const c of CTRL_CHANNELS) for (let k = 0; k < CTRL_POINTS; k++) expect(Math.abs(back[c][k] - t[c][k])).toBeLessThan(0.03)
     }
   })
 
@@ -128,15 +129,15 @@ describe('critic features', () => {
   it('measures level continuity and gaps around the transition', () => {
     const rate = 16000
     const a = synthTrack({ bpm: 124, bars: 31, sampleRate: rate, seed: 3 }).channels
-    const p = candidateTransitions(track('a', { durationSec: 60 }), track('b', { durationSec: 60 }), { ...DEFAULT_OPTIONS, allowedStyles: ['short_fade'] })[0]
+    const p = candidateTransitions(track('a', { durationSec: 60 }), track('b', { durationSec: 60 }), { ...DEFAULT_OPTIONS, allowedStyles: ['bass_swap'] })[0]
     const render = (plan: TransitionPlan) => {
       const r = renderTransition({ rate, out: a, in: a, plan })
       return criticFeatures({ mix: r.channels[0], rate, t0: r.transitionStartSample, t1: r.transitionStartSample + Math.round(plan.durationSec * rate), beatSec: plan.beatSec })
     }
     const clean = render(p)
-    // a 2.5-beat hole in the middle of the blend (both faders down) must show as a dip and a gap
+    // a 6-beat hole in the middle of the blend (both faders down) must show as a dip and a gap
     const B = p.overlapBars * 4
-    const holedPlan = { ...p, out: { ...p.out, gain: [{ beat: 0, value: 1 }, { beat: B / 2 - 2, value: 1 }, { beat: B / 2 - 1.98, value: 0 }, { beat: B, value: 0 }] }, in: { ...p.in, gain: [{ beat: 0, value: 0 }, { beat: B / 2 + 0.5, value: 0 }, { beat: B / 2 + 0.52, value: 1 }, { beat: B, value: 1 }] } }
+    const holedPlan = { ...p, out: { ...p.out, gain: [{ beat: 0, value: 1 }, { beat: B / 2 - 4, value: 1 }, { beat: B / 2 - 3.98, value: 0 }, { beat: B, value: 0 }] }, in: { ...p.in, gain: [{ beat: 0, value: 0 }, { beat: B / 2 + 2, value: 0 }, { beat: B / 2 + 2.02, value: 1 }, { beat: B, value: 1 }] } }
     const holed = render(holedPlan)
     expect(clean.silenceSec).toBeLessThan(0.2)
     expect(holed.silenceSec).toBeGreaterThan(0.4)
