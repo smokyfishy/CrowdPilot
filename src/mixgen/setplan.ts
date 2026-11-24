@@ -30,6 +30,7 @@ import { cueCandidates, grooveSimilarity, overlapCompat, type OverlapCompat, typ
 import { longformEligible } from './longform'
 import { gridAlignment } from './audio-quality'
 import { avoided, matchesAny } from './technique-match'
+import type { TechniqueName } from './spec'
 import type { TechniquePlan } from './techniques'
 import type { ResolvedSpec } from './spec'
 
@@ -143,6 +144,12 @@ function genreJaccard(a: string[], b: string[]): number {
 }
 
 /** Overlap-length prior (planner units): 32 bars default for house/techno/EDM; 48–64 only when compatible. */
+/** Transition styles that perform the named techniques (staged performances are matched separately). */
+const STYLE_FOR: Partial<Record<TechniqueName, TransitionPlan['style']>> = { cut: 'cut', echo_out: 'echo_out', filter_sweep: 'filter_sweep', bass_swap: 'bass_swap', drop_swap: 'drop_swap', loop_roll: 'loop_roll', long_blend: 'long_blend', scratch: 'scratch_cut', brake: 'brake' }
+function requestedStyles(prefer: readonly TechniqueName[]): TransitionPlan['style'][] {
+  return [...new Set(prefer.map((t) => STYLE_FOR[t]).filter((x): x is TransitionPlan['style'] => !!x))]
+}
+
 /** Short sets (little time per track): wide cue windows, short overlaps, early endings allowed. */
 export function isShortSet(spec: ResolvedSpec): boolean {
   return spec.targetDurationSec / Math.max(1, spec.songCount) < 150
@@ -294,7 +301,14 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
     // legacy candidate family (all styles/techniques; position-neutral scoring)
     // short sets: leaving a track early is the point, so no truncation cost and a wider shortlist
     const shortSet = isShortSet(spec)
-    for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, { ...opts.pairOpts, rankCandidates: undefined, candidatesPerPair: shortSet ? 28 : 14, ...(shortSet ? { planner: { weights: { ...DEFAULT_WEIGHTS, truncation: 0 } } } : {}) })) push(p, p.costs.total, 'pair')
+    const pairBase = { ...opts.pairOpts, rankCandidates: undefined, candidatesPerPair: shortSet ? 28 : 14, ...(shortSet ? { planner: { weights: { ...DEFAULT_WEIGHTS, truncation: 0 } } } : {}) }
+    for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, pairBase)) push(p, p.costs.total, 'pair')
+    // requested techniques get their own shortlist, so a costly style the user asked for (a hard cut)
+    // is never pruned before its request bonus applies
+    const wantedStyles = requestedStyles(spec.techniques.prefer)
+    if (wantedStyles.length) {
+      for (const p of pairOptions(a, b, Math.floor(n / 2), n, spec, { ...pairBase, candidatesPerPair: 6, planner: { ...(pairBase.planner ?? {}), allowedStyles: wantedStyles } })) push(p, p.costs.total, 'pair')
+    }
     // long-form windows (16–64 bars)
     if (opts.longform !== false) {
       const wins = windowCandidates(a, b, spec)

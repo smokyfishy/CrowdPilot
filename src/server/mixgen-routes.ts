@@ -23,7 +23,7 @@ import { ccLabel } from '../providers/catalog/jamendo'
 import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery, discover, relevant } from '../mixgen/discovery'
 import { decideAccess, POLICY_VERSION, type PolicyContext } from '../mixgen/policy'
 import { EditOp, extractJson, guardSpec, heuristicSpec, INTERPRET_SYSTEM, MIX_SPEC_JSON_SCHEMA, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
-import { openLlmClient, type LlmCall } from './llm'
+import { OPEN_LLM_SECOND_MODEL, openLlmClient, type LlmCall } from './llm'
 import { STAGES } from '../mixgen/types'
 import { appScope, createRoomTools } from './room-tools'
 import type { VerifyResult } from 'deepspace/worker'
@@ -202,7 +202,11 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const jwt = c.req.header('Authorization')!.slice(7)
     // open-weight gpt-oss-120b on Groq's free tier interprets the request; Claude (visitor's DeepSpace credits) backs it up; the heuristic is last
     const chain: LlmCall[] = []
-    if (c.env.GROQ_API_KEY) chain.push(openLlmClient({ apiKey: c.env.GROQ_API_KEY, baseUrl: c.env.OPEN_LLM_BASE_URL, model: c.env.OPEN_LLM_MODEL }))
+    if (c.env.GROQ_API_KEY) {
+      chain.push(openLlmClient({ apiKey: c.env.GROQ_API_KEY, baseUrl: c.env.OPEN_LLM_BASE_URL, model: c.env.OPEN_LLM_MODEL }))
+      // the free tier's per-minute token quota is per model: the smaller open model takes the overflow
+      if (!c.env.OPEN_LLM_MODEL) chain.push(openLlmClient({ apiKey: c.env.GROQ_API_KEY, baseUrl: c.env.OPEN_LLM_BASE_URL, model: OPEN_LLM_SECOND_MODEL }))
+    }
     try {
       const model = createDeepSpaceAI(c.env, 'anthropic', { authToken: jwt })(MIXGEN_MODEL)
       chain.push({ name: MIXGEN_MODEL, call: async (system, p) => (await generateText({ model, system, prompt: p, maxOutputTokens: 2500, temperature: 0 })).text })

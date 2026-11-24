@@ -259,12 +259,14 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   const ctlKey = (p: TransitionPlan) => JSON.stringify([edgeSig(p.fromItemId, p.toItemId, p), p.style, p.out, p.in, p.filter, p.echo, p.echoIn, p.crossfader, p.outLoop, p.outPerf, (p as TechniquePlan).tech?.stems, (p as TechniquePlan).tech?.deckEdits])
 
   const tStart = Date.now()
+  /** Preview index the current edge may not pass (fair share of the budget per transition). */
+  let edgeBudgetEnd = Infinity
   const timing = { audioMs: 0, renderMs: 0, measureMs: 0, totalMs: 0 }
   const evaluate = async (p: TransitionPlan, a: SetTrack, b: SetTrack): Promise<QualityResult | null> => {
     const k = ctlKey(p)
     const hit = cache.get(k)
     if (hit) return hit
-    if (previews >= budget || opts.signal?.aborted) return null
+    if (previews >= budget || previews >= edgeBudgetEnd || opts.signal?.aborted) return null
     if (!validPlan(p)) return null
     previews++
     mem.previews++
@@ -338,7 +340,7 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
     // strategies that perform a requested technique are tried first (never crowded out by the strategy limit)
     const feasible = feasibleStrategies(compat, { stems, dropAtEnd })
     for (const st of [...feasible.filter(strategyWanted), ...feasible.filter((x) => !strategyWanted(x))]) {
-      if (out.length >= S + (proposal ? 1 : 0) && !strategyWanted(st)) break
+      if (out.length >= S + (proposal ? 1 : 0)) break
       if (proposal && st === proposal.strategy) continue
       out.push(buildPerformance({ base: p, pa: a.profile, pb: b.profile, strategy: st, params: NEUTRAL, stems, source: 'rules', compat }))
     }
@@ -356,8 +358,11 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       const alt = list.find((x) => x.plan.overlapBars === bars && longformEligible(x.plan) && !has(x))
       if (alt && picks.length < M) picks.push(alt)
     }
-    // the user named a technique: two slots always hold the best candidates that perform it
-    for (const w of spec.techniques.prefer.length ? list.filter((x) => matchesAny(x.plan, spec.techniques.prefer) && !has(x)).slice(0, 2) : []) picks.splice(1, 0, w)
+    // the user named a technique: the two best candidates that perform it are measured right after the
+    // planned slot (the per-edge budget share cuts the tail of the list, never these)
+    const wanted = spec.techniques.prefer.length ? list.filter((x) => matchesAny(x.plan, spec.techniques.prefer) && !has(x)).slice(0, 2) : []
+    if (wanted.length) picks.splice(1, 0, ...wanted.filter((w) => !has(w)))
+    if (wanted.length) picks.splice(M + 1)
     const shortAlt = list.find((x) => !longformEligible(x.plan) && !has(x))
     if (shortAlt && picks.length < M + 1) picks.push(shortAlt)
     // MixGraph's human cue prior proposes the most DJ-like cue/overlap slot of this pair (rendered and measured like any other)
@@ -457,11 +462,17 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       break
     }
     let k = 0
+    // every transition gets a fair share of what is left (20 % kept for final verification), so the
+    // budget never runs out before the last transitions of the set are measured
+    const todo = set.edges.filter((e) => !measured.has(e.sig) || poorPairs.includes(`${e.plan.fromItemId}|${e.plan.toItemId}`))
+    let left = todo.length
     for (const e of set.edges) {
       opts.progress?.(k++, set.edges.length, `closed loop round ${round + 1}: rendering candidates for transition ${k}/${set.edges.length}`)
       if (measured.has(e.sig) && !poorPairs.includes(`${e.plan.fromItemId}|${e.plan.toItemId}`)) continue
+      edgeBudgetEnd = previews + Math.max(3, Math.floor((budget * 0.8 - previews) / Math.max(1, left--)))
       await optimiseEdge(e, res.edgeLists.get(`${e.plan.fromItemId}|${e.plan.toItemId}`) ?? [e], round, `${set.order.indexOf(e.plan.fromItemId) + 1}→${set.order.indexOf(e.plan.toItemId) + 1}`)
     }
+    edgeBudgetEnd = Infinity
     log(`closed loop: round ${round}: ${previews} previews so far, ${pairPenalty.size} penalised pair(s)`)
   }
   // Final plan + verification: render every transition of the final set that was never rendered;

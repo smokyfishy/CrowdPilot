@@ -12,7 +12,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { it } from 'vitest'
 import { interpretPrompt } from '../src/server/mixgen-routes'
-import type { LlmCall } from '../src/server/llm'
+import { OPEN_LLM_SECOND_MODEL, openLlmClient, type LlmCall } from '../src/server/llm'
 import { extractJson, heuristicSpec, MixSpec, parseSpec } from '../src/mixgen/spec'
 
 import { CASES, score } from './interpret-cases'
@@ -29,8 +29,8 @@ Schema (all keys required; use null or [] when the user did not say it — NEVER
  "allow_reordering": boolean|null, "allow_song_substitutions": boolean|null, "explicit": string[], "summary": string }`
 
 it('request interpretation accuracy (real LLM)', async () => {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) throw new Error('set ANTHROPIC_API_KEY')
+  const key = process.env.ANTHROPIC_API_KEY ?? ''
+  if (!key && !process.env.GROQ_API_KEY) throw new Error('set GROQ_API_KEY (free open-weight interpreter) or ANTHROPIC_API_KEY')
   const model = process.env.MIXGEN_MODEL ?? 'claude-sonnet-5-5'
   const g: LlmCall = {
     name: model,
@@ -41,13 +41,25 @@ it('request interpretation accuracy (real LLM)', async () => {
       return (j.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('')
     },
   }
-  const systems: Record<string, (p: string) => Promise<MixSpec>> = {
+  let llmFallbacks = 0
+  const only = process.env.INTERP_SYSTEMS?.split(',')
+  const open = process.env.GROQ_API_KEY ? openLlmClient({ apiKey: process.env.GROQ_API_KEY, baseUrl: process.env.OPEN_LLM_BASE_URL, model: process.env.OPEN_LLM_MODEL }) : null
+  const systems: Record<string, (p: string) => Promise<MixSpec>> = !key && open ? {
+    'open+guard': async (p) => {
+      // production chain: gpt-oss-120b, then gpt-oss-20b (separate free quota)
+      const r = await interpretPrompt([open, openLlmClient({ apiKey: process.env.GROQ_API_KEY!, model: OPEN_LLM_SECOND_MODEL })], { prompt: p })
+      if (r.source !== 'llm') llmFallbacks++
+      return r.spec
+    },
+    'open-old': async (p) => parseSpec(extractJson(await open.call(OLD_SYSTEM, p))),
+    heuristic: async (p) => heuristicSpec(p),
+  } : {
     'claude+guard': async (p) => (await interpretPrompt([g], { prompt: p })).spec,
     'claude-old': async (p) => parseSpec(extractJson(await g.call(OLD_SYSTEM, p))),
     heuristic: async (p) => heuristicSpec(p),
   }
   const report: Record<string, { ok: number; total: number; failures: number; misses: string[] }> = {}
-  for (const [name, run] of Object.entries(systems)) {
+  for (const [name, run] of Object.entries(systems).filter(([n]) => !only || only.includes(n))) {
     const r = { ok: 0, total: 0, failures: 0, misses: [] as string[] }
     for (const c of CASES) {
       try {
@@ -61,7 +73,7 @@ it('request interpretation accuracy (real LLM)', async () => {
         r.total += Object.keys(c.exp).length
         r.misses.push(`"${c.prompt.slice(0, 50)}…" FAILED: ${(e as Error).message.slice(0, 100)}`)
       }
-      await new Promise((res) => setTimeout(res, 400)) // stay under free-tier rate limits
+      await new Promise((res) => setTimeout(res, name === 'heuristic' ? 0 : Number(process.env.INTERP_PACE_MS ?? 400))) // stay under free-tier rate limits
     }
     report[name] = r
     process.stderr.write(`INTERPRET ${name}: ${r.ok}/${r.total} fields correct (${Math.round((100 * r.ok) / Math.max(1, r.total))}%), ${r.failures} failed calls\n`)

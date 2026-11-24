@@ -359,6 +359,33 @@ export function guardSpec(prompt: string, spec: MixSpec): { spec: MixSpec; corre
     s.songs = h.songs
     mark('songs')
   }
+  // details the model left empty (never overrides a value it gave)
+  if (s.intensity == null) {
+    const hi = /\b(peak[- ]time|banging|hard[- ]hitting|high[- ]energy|rave|festival)\b/.test(p)
+    const lo = /\b(chill|chilled|warm[- ]?up|sunday|relax(?:ed|ing)?|laid[- ]back|mellow|lounge|background|study|working)\b/.test(p)
+    if (hi !== lo) {
+      s.intensity = hi ? 0.85 : 0.35
+      corrections.push(`intensity from "${hi ? 'peak-time / high-energy' : 'chill / warm-up'}" wording`)
+      mark('intensity')
+    }
+  }
+  const addFeature = (f: MixSpec['features'][number], re: RegExp, why: string) => {
+    if (!s.features.includes(f) && re.test(p)) {
+      s.features = [...s.features, f]
+      corrections.push(`feature ${f} (${why})`)
+      mark('features')
+    }
+  }
+  addFeature('long_blends', /\blong (?:smooth )?(?:blends?|transitions?|mixes)\b|smooth long blends?/, '"long blends"')
+  addFeature('drop_sections', /\b(?:only the drops|drops only|just the drops|drop[- ]to[- ]drop)\b/, '"only the drops"')
+  if (s.song_count == null && cntRange) {
+    const m = /(\d+)\s*(?:-|–|to)\s*(\d+)\s+(?:[a-z]+\s+)?(?:tracks|songs|records)/.exec(p)
+    if (m) {
+      s.song_count = Math.round((Number(m[1]) + Number(m[2])) / 2)
+      corrections.push(`track count ${s.song_count} (middle of the requested range)`)
+      mark('song_count')
+    }
+  }
   return { spec: MixSpec.parse(s), corrections }
 }
 
