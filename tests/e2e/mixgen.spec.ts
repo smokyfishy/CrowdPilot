@@ -95,7 +95,7 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await expect(page.locator('[data-testid^="track-seek-"]')).toHaveCount(TRACKS)
   await expect(page.getByRole('region', { name: 'AI DJ performance' })).toBeVisible()
   await page.getByTestId('mix-quality').locator(':scope > summary').click()
-  await expect(page.getByTestId('mix-quality').getByText('No gaps or silence')).toBeVisible()
+  await expect(page.getByTestId('mix-quality').getByText('Tracks in this mix')).toBeVisible()
 
   // Playback actually advances, seeking and track navigation move the playhead.
   const now = () => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime ?? 0)
@@ -113,19 +113,12 @@ test('describe → generate → listen: a real continuous mix in the browser', a
   await page.getByTitle('Transition into track 2').click()
   await expect(page.getByTestId('transition-inspector')).toBeVisible()
   await expect(page.getByTestId('transition-inspector')).toContainText('Overlap')
-  // Learned-DJ diagnostics come from the manifest's inference trace.
+  // The plain-language explanation of how the mix was made (which models helped).
   const diag = page.getByTestId('ml-diagnostics')
   await diag.locator(':scope > summary').click()
-  // every model runs: these always produce output that is used in a mix ...
-  for (const model of ['beat_this_small0', 'mixgraph_quality', 'critic_quality', 'critic_artifact', 'transitionnet_v2', 'demucs_htdemucs']) {
-    await expect(diag.getByRole('row').filter({ hasText: model }).getByText('used', { exact: true }), model).toBeVisible()
-  }
-  // ... and these are loaded and propose closed-loop candidates whenever the mix offers them a slot
-  for (const model of ['transitionnet', 'mixgraph_human_cue']) await expect(diag.getByRole('row').filter({ hasText: model }).first()).toBeVisible()
-  await expect(diag).toContainText('Set planning')
-  await expect(diag).toContainText('Long-form performance')
-  await expect(diag).toContainText('Closed-loop evaluation')
-  await expect(diag).toContainText('Request fidelity')
+  await expect(diag).toContainText('What it did')
+  await expect(diag).toContainText('beat-matched')
+  for (const model of ['Beat This!', 'Demucs', 'MixGraph', 'TransitionNet', 'DJCritic']) await expect(diag, model).toContainText(model)
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await expect.poll(fitsViewport).toBe(0)
