@@ -20,6 +20,8 @@
  *   [PRODJ_VARIANTS=existing,full] [PRODJ_TAG=x] [PRODJ_FULLMIX=existing,full] [PRODJ_BUDGET=160] \
  *   npx vitest run -c vitest.eval.config.ts evaluation/mixgen.prodj.eval.ts
  */
+import { requestFidelity } from '../src/mixgen/fidelity'
+import type { AnalyzedEntry } from '../src/mixgen/pipeline'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { it } from 'vitest'
@@ -300,7 +302,12 @@ it('professional DJ upgrade: controlled comparison on real recordings', async ()
       meanCriticArtifact: mean('criticArtifact'),
       fullMix: fullMixFile,
     }
-    results.push({ ...summary, rows, prodjTrace: trace, mlTrace: { counts: ml.trace.counts, fallbacks: ml.trace.fallbacks, decisions: ml.trace.decisions.length } })
+    // request fidelity: what was asked vs what this variant delivered (same report the app shows)
+    const fakeAnalyses = new Map(entries.map((e) => [e.key, { candidate: { trackKey: e.key, title: e.title, artist: e.artist, identity: { artist: e.artist, title: e.title }, genres: [], tags: [] }, analysis: e.analysis, energy: e.energy } as unknown as AnalyzedEntry]))
+    const fid = requestFidelity(spec, (spec as ResolvedSpec & { explicit?: string[] }).explicit ?? ['target_duration_minutes', 'song_count'], order, fakeAnalyses, plan)
+    ;(summary as Record<string, unknown>).fidelity = `${fid.checks.filter((c) => c.ok).length}/${fid.checks.length}`
+    ;(summary as Record<string, unknown>).fidelityMisses = fid.checks.filter((c) => !c.ok).map((c) => `${c.field}: wanted ${c.requested}, got ${c.achieved}`).join('; ')
+    results.push({ ...summary, fidelityChecks: fid.checks, rows, prodjTrace: trace, mlTrace: { counts: ml.trace.counts, fallbacks: ml.trace.fallbacks, decisions: ml.trace.decisions.length } })
     process.stderr.write(`PRODJ ${v.name}: ${JSON.stringify({ ...summary, order: undefined })}\n`)
     writeFileSync(join(out, 'prodj.json'), JSON.stringify({ job: jobId, tag, spec: { genres: spec.genres, style: spec.transitionStyle, curve: spec.energyCurve, songCount, targetSec: spec.targetDurationSec }, note: 'quality/hardFail/vocalClash are the closed-loop metrics (optimised by variant full → circular for it); nnBeatOffsetMs, bassDoubling, maxLevelStepDb, levelChange8barDb, critic* are independent checks (critic partly circular for full). Listening is the real test.', results }, null, 1))
   }

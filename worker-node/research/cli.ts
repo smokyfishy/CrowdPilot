@@ -2,6 +2,8 @@
  * npm run mixgen -- "<prompt>" [--songs N] [--minutes M] [--job id]
  * Local research mode only (the launcher sets CP_RESEARCH_YOUTUBE=1 for this process).
  */
+import { interpretPrompt } from '../../src/server/mixgen-routes'
+import { museClient } from '../../src/server/llm'
 import { guardSpec, heuristicSpec, INTERPRET_SYSTEM, extractJson, parseSpec, type MixSpec } from '../../src/mixgen/spec'
 import { researchYouTubeEnabled } from '../mixgen/research'
 import { readFileSync } from 'node:fs'
@@ -30,8 +32,16 @@ function args(argv: string[]) {
   return out
 }
 
-/** Local LLM interpretation: Claude (ANTHROPIC_API_KEY), with the deterministic guard; otherwise the heuristic. */
+/** Local LLM interpretation: Muse (MUSE_API_KEY), then Claude (ANTHROPIC_API_KEY), with the deterministic guard; otherwise the heuristic. */
 async function interpret(prompt: string): Promise<{ spec: MixSpec; source: string }> {
+  if (process.env.MUSE_API_KEY) {
+    try {
+      const r = await interpretPrompt([museClient({ apiKey: process.env.MUSE_API_KEY, baseUrl: process.env.MUSE_BASE_URL, model: process.env.MUSE_MODEL })], { prompt })
+      if (r.source === 'llm') return { spec: r.spec, source: `${r.model} (Muse)` }
+    } catch {
+      /* fall through to Claude */
+    }
+  }
   const key = process.env.ANTHROPIC_API_KEY
   if (key) {
     try {
@@ -48,7 +58,7 @@ async function interpret(prompt: string): Promise<{ spec: MixSpec; source: strin
       console.warn(`LLM interpretation failed (${(e as Error).message}); using the basic interpreter.`)
     }
   }
-  return { spec: heuristicSpec(prompt), source: 'heuristic (no ANTHROPIC_API_KEY)' }
+  return { spec: heuristicSpec(prompt), source: 'heuristic (no MUSE_API_KEY / ANTHROPIC_API_KEY)' }
 }
 
 export async function cli(argv = process.argv.slice(2)): Promise<void> {

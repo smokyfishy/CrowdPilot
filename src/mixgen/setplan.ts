@@ -270,7 +270,7 @@ export function planSet(tracks: SetTrack[], spec: ResolvedSpec, opts: SetPlanOpt
       // techniques the user named: never an avoided one; a preferred one wherever the music allows
       if (avoided(plan, spec.techniques.avoid)) return
       const wanted = spec.techniques.prefer
-      const request = wanted.length ? (matchesAny(plan, wanted) ? -2.5 : 0.4) : 0
+      const request = wanted.length ? (matchesAny(plan, wanted) ? -5 : 0.6) : 0
       const beatmatched = BEATMATCHED.has(plan.style) && plan.overlapBars >= 8
       const c = compat ?? (beatmatched ? overlapCompat(a.profile, b.profile, plan.outCueSec, plan.inCueSec, plan.overlapBars) : undefined)
       const compatCost = c ? c.cost : 0

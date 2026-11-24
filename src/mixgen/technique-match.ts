@@ -38,6 +38,11 @@ const BY_STRATEGY: Record<string, TechniqueName[]> = {
   vocal_handoff: ['bass_swap', 'long_blend'],
 }
 
+/** Techniques a staged long-form strategy performs. */
+export function techniquesOfStrategy(strategy: string): TechniqueName[] {
+  return BY_STRATEGY[strategy] ?? []
+}
+
 /** Techniques a plan performs. A long-form window whose incoming drop lands at its end becomes a drop swap. */
 export function techniquesOf(p: TransitionPlan): TechniqueName[] {
   const out = new Set<TechniqueName>()

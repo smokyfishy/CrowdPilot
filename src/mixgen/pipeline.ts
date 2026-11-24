@@ -187,8 +187,10 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
   // stem separation requested as soon as a track is analysed (runs while the rest is analysed)
   const stemPrefetch = new Map<string, ReturnType<NonNullable<PipelineHost['stems']>>>()
   const prefetchStems = (key: string, e: AnalyzedEntry) => {
-    // the best-ranked analysed tracks (a few more than the set needs) are separated early
-    if (!host.stems || host.stemsPrefetch === false || (host.stemsConcurrency ?? 1) <= 1 || stemPrefetch.has(key) || stemPrefetch.size >= spec.songCount + 3) return
+    // every analysed candidate the planner may pick (≈1.5× the set) is separated early, in parallel
+    // a pass with a fixed order (render after review) only ever needs that order's stems
+    if (opts.fixedOrder && !opts.fixedOrder.includes(key)) return
+    if (!host.stems || host.stemsPrefetch === false || (host.stemsConcurrency ?? 1) <= 1 || stemPrefetch.has(key) || stemPrefetch.size >= Math.ceil(spec.songCount * 1.6) + 2) return
     stemPrefetch.set(key, host.stems(e.audio, e.analysis).catch(() => null))
   }
   for (const [k, e] of analyses) prefetchStems(k, e)
@@ -362,7 +364,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
       const pcm = await host.decode(analyses.get(k)!.audio)
       const m = monoAt(pcm.channels, pcm.rate, PREVIEW_RATE)
       mono.set(k, m)
-      if (mono.size > Math.min(14, Math.max(6, count + 2))) mono.delete(mono.keys().next().value!)
+      if (mono.size > Math.min(16, Math.max(8, entries.length))) mono.delete(mono.keys().next().value!)
       return m
     }
     const stemsAt = async (k: string) => {
@@ -382,7 +384,7 @@ export async function runPipeline(rawSpec: MixSpec, host: PipelineHost, opts: Ru
           }
         }
         stems16.set(k, hit)
-        if (stems16.size > Math.min(6, Math.max(4, count))) stems16.delete(stems16.keys().next().value!)
+        if (stems16.size > Math.min(8, Math.max(4, count + 2))) stems16.delete(stems16.keys().next().value!)
       }
       return hit
     }

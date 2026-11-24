@@ -25,7 +25,7 @@ import { overlapCompat } from './profile'
 import { edgeSig, planSet, type Edge, type PlannedSet, type SetPlanOptions, type SetTrack } from './setplan'
 import { validPlan } from './ml'
 import type { ResolvedSpec } from './spec'
-import { avoided, matchesAny } from './technique-match'
+import { avoided, matchesAny, techniquesOfStrategy } from './technique-match'
 
 export const PREVIEW_RATE = 16000
 
@@ -251,8 +251,9 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
   modelUse.transitionnetV1.final = 0
   modelUse.humanCue.final = 0
   const humanSigs = new Set<string>()
-  // a technique the user asked for wins unless it hard-fails or measures clearly worse (0.6)
-  const rankP = (q: QualityResult, p: TransitionPlan) => rank(q) - (!q.hardFail && matchesAny(p, spec.techniques.prefer) ? 0.6 : 0)
+  // a technique the user named is binding: it wins whenever a rendering of it passes every hard check
+  const rankP = (q: QualityResult, p: TransitionPlan) => rank(q) - (!q.hardFail && matchesAny(p, spec.techniques.prefer) ? 3 : 0)
+  const strategyWanted = (st: string) => spec.techniques.prefer.length > 0 && techniquesOfStrategy(st).some((t) => spec.techniques.prefer.includes(t))
   const isV1 = (p: TransitionPlan) => (p as TransitionPlan & { mlSource?: string }).mlSource === 'transitionnet'
   const isV2 = (p: TransitionPlan) => p.performance?.source === 'transitionnet-v2'
   const ctlKey = (p: TransitionPlan) => JSON.stringify([edgeSig(p.fromItemId, p.toItemId, p), p.style, p.out, p.in, p.filter, p.echo, p.echoIn, p.crossfader, p.outLoop, p.outPerf, (p as TechniquePlan).tech?.stems, (p as TechniquePlan).tech?.deckEdits])
@@ -334,8 +335,10 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       const shifted = proposal.cueShift ? reshape(p, a, b, { inBars: proposal.cueShift }) : null
       if (shifted) out.push(buildPerformance({ base: shifted, pa: a.profile, pb: b.profile, strategy: proposal.strategy, params: proposal.params, stems, source: 'transitionnet-v2' }))
     }
-    for (const st of feasibleStrategies(compat, { stems, dropAtEnd })) {
-      if (out.length >= S + (proposal ? 1 : 0)) break
+    // strategies that perform a requested technique are tried first (never crowded out by the strategy limit)
+    const feasible = feasibleStrategies(compat, { stems, dropAtEnd })
+    for (const st of [...feasible.filter(strategyWanted), ...feasible.filter((x) => !strategyWanted(x))]) {
+      if (out.length >= S + (proposal ? 1 : 0) && !strategyWanted(st)) break
       if (proposal && st === proposal.strategy) continue
       out.push(buildPerformance({ base: p, pa: a.profile, pb: b.profile, strategy: st, params: NEUTRAL, stems, source: 'rules', compat }))
     }
@@ -353,9 +356,8 @@ async function closedLoopSearch(tracks: SetTrack[], spec: ResolvedSpec, setOpts:
       const alt = list.find((x) => x.plan.overlapBars === bars && longformEligible(x.plan) && !has(x))
       if (alt && picks.length < M) picks.push(alt)
     }
-    // the user named a technique: one slot always holds the best candidate that performs it
-    const wantedAlt = spec.techniques.prefer.length ? list.find((x) => matchesAny(x.plan, spec.techniques.prefer) && !has(x)) : undefined
-    if (wantedAlt) picks.splice(1, 0, wantedAlt)
+    // the user named a technique: two slots always hold the best candidates that perform it
+    for (const w of spec.techniques.prefer.length ? list.filter((x) => matchesAny(x.plan, spec.techniques.prefer) && !has(x)).slice(0, 2) : []) picks.splice(1, 0, w)
     const shortAlt = list.find((x) => !longformEligible(x.plan) && !has(x))
     if (shortAlt && picks.length < M + 1) picks.push(shortAlt)
     // MixGraph's human cue prior proposes the most DJ-like cue/overlap slot of this pair (rendered and measured like any other)

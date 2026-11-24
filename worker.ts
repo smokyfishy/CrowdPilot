@@ -114,6 +114,10 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
    * calls always forward the signed-in caller's JWT instead.
    */
   APP_OWNER_JWT: string
+  /** Prompt interpreter: Meta Model API (Muse) key; optional base URL / model overrides. */
+  MUSE_API_KEY?: string
+  MUSE_BASE_URL?: string
+  MUSE_MODEL?: string
   /**
    * Enables /api/debug/* only when exactly "true". The route still requires
    * an authenticated app owner/admin. deepspace dev/test set it locally.
