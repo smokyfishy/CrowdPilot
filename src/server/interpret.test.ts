@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { interpretPrompt, stemParts } from './mixgen-routes'
-import { museClient, type LlmCall } from './llm'
+import { openLlmClient, type LlmCall } from './llm'
 import { detectTechniques, eraYears, guardSpec, heuristicSpec, MixSpec, resolveSpec } from '../mixgen/spec'
 
 const valid = (over: Partial<MixSpec> = {}) => JSON.stringify(MixSpec.parse({ genres: ['tech house'], song_count: 12, target_duration_minutes: 45, explicit: ['genres', 'song_count', 'target_duration_minutes'], summary: 's', ...over }))
@@ -90,26 +90,26 @@ describe('parallel stem parts', () => {
   })
 })
 
-describe('Muse client (Meta Model API, OpenAI-compatible)', () => {
+describe('open-weight LLM client (Groq free tier, OpenAI-compatible)', () => {
   it('sends a schema-constrained, low-reasoning chat completion and returns the content', async () => {
     let req: { url: string; body: Record<string, unknown>; auth: string } | null = null
     const fetchFn = (async (url: string, init: RequestInit) => {
       req = { url, body: JSON.parse(String(init.body)), auth: (init.headers as Record<string, string>).authorization }
       return new Response(JSON.stringify({ choices: [{ message: { content: '{"a":1}' }, finish_reason: 'stop' }] }), { status: 200 })
     }) as unknown as typeof fetch
-    const m = museClient({ apiKey: 'k', fetchFn })
-    expect(m.name).toBe('muse-spark-1.3')
+    const m = openLlmClient({ apiKey: 'k', fetchFn })
+    expect(m.name).toBe('openai/gpt-oss-120b')
     expect(await m.call('sys', 'p', { name: 'mix_spec', schema: { type: 'object' } })).toBe('{"a":1}')
-    expect(req!.url).toBe('https://api.meta.ai/v1/chat/completions')
+    expect(req!.url).toBe('https://api.groq.com/openai/v1/chat/completions')
     expect(req!.auth).toBe('Bearer k')
-    expect(req!.body).toMatchObject({ model: 'muse-spark-1.3', reasoning_effort: 'low', max_completion_tokens: 8192, response_format: { type: 'json_schema', json_schema: { name: 'mix_spec' } } })
+    expect(req!.body).toMatchObject({ model: 'openai/gpt-oss-120b', reasoning_effort: 'low', max_completion_tokens: 8192, response_format: { type: 'json_schema', json_schema: { name: 'mix_spec' } } })
   })
-  it('reports API errors (e.g. billing) so the chain falls back, and the next interpreter is used', async () => {
-    const fetchFn = (async () => new Response(JSON.stringify({ error: { code: 'billing_not_configured', message: 'Billing verification failed.' } }), { status: 402 })) as unknown as typeof fetch
-    const m = museClient({ apiKey: 'k', fetchFn })
-    await expect(m.call('s', 'p')).rejects.toThrow(/HTTP 402 billing_not_configured/)
+  it('reports API errors (e.g. free-tier rate limit) so the chain falls back, and the next interpreter is used', async () => {
+    const fetchFn = (async () => new Response(JSON.stringify({ error: { code: 'rate_limit_exceeded', message: 'Rate limit reached.' } }), { status: 429 })) as unknown as typeof fetch
+    const m = openLlmClient({ apiKey: 'k', fetchFn })
+    await expect(m.call('s', 'p')).rejects.toThrow(/HTTP 429 rate_limit_exceeded/)
     const r = await interpretPrompt([m, fake('backup-llm', [valid()])], { prompt: 'A 45-minute tech house mix with 12 tracks' })
     expect(r.model).toBe('backup-llm')
-    expect(r.attempts.join()).toMatch(/billing_not_configured/)
+    expect(r.attempts.join()).toMatch(/rate_limit_exceeded/)
   })
 })

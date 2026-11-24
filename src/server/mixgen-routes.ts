@@ -23,7 +23,7 @@ import { ccLabel } from '../providers/catalog/jamendo'
 import { createAudiusDiscovery, createJamendoDiscovery, createYouTubeDiscovery, discover, relevant } from '../mixgen/discovery'
 import { decideAccess, POLICY_VERSION, type PolicyContext } from '../mixgen/policy'
 import { EditOp, extractJson, guardSpec, heuristicSpec, INTERPRET_SYSTEM, MIX_SPEC_JSON_SCHEMA, MixSpec, parseSpec, REFINE_SYSTEM, resolveSpec } from '../mixgen/spec'
-import { museClient, type LlmCall } from './llm'
+import { openLlmClient, type LlmCall } from './llm'
 import { STAGES } from '../mixgen/types'
 import { appScope, createRoomTools } from './room-tools'
 import type { VerifyResult } from 'deepspace/worker'
@@ -200,9 +200,9 @@ export function registerMixgenRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     const edit = typeof b?.edit === 'string' ? b.edit.trim().slice(0, 1000) : undefined
     if (!prompt && !edit) return err(c, 400, 'INVALID', 'Describe the mix you want.')
     const jwt = c.req.header('Authorization')!.slice(7)
-    // Muse (Meta Model API) interprets the request; Claude (visitor's DeepSpace credits) backs it up; the heuristic is last
+    // open-weight gpt-oss-120b on Groq's free tier interprets the request; Claude (visitor's DeepSpace credits) backs it up; the heuristic is last
     const chain: LlmCall[] = []
-    if (c.env.MUSE_API_KEY) chain.push(museClient({ apiKey: c.env.MUSE_API_KEY, baseUrl: c.env.MUSE_BASE_URL, model: c.env.MUSE_MODEL }))
+    if (c.env.GROQ_API_KEY) chain.push(openLlmClient({ apiKey: c.env.GROQ_API_KEY, baseUrl: c.env.OPEN_LLM_BASE_URL, model: c.env.OPEN_LLM_MODEL }))
     try {
       const model = createDeepSpaceAI(c.env, 'anthropic', { authToken: jwt })(MIXGEN_MODEL)
       chain.push({ name: MIXGEN_MODEL, call: async (system, p) => (await generateText({ model, system, prompt: p, maxOutputTokens: 2500, temperature: 0 })).text })

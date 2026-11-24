@@ -1,20 +1,20 @@
 /**
- * LLM clients for prompt interpretation. Primary: Meta Model API ("Muse", OpenAI-compatible Chat
- * Completions, JSON-schema constrained decoding). Backup: Claude through DeepSpace AI (mixgen-routes.ts).
- * The conservative heuristic is the last fallback.
+ * LLM clients for prompt interpretation. Primary: an open-weight model on a free OpenAI-compatible
+ * endpoint — gpt-oss-120b (Apache-2.0) on Groq's free tier, JSON-schema output. Backup: Claude through
+ * DeepSpace AI (mixgen-routes.ts). The conservative heuristic is the last fallback.
  */
 export interface LlmCall {
   name: string
   call: (system: string, prompt: string, schema?: { name: string; schema: Record<string, unknown> }) => Promise<string>
 }
 
-export const MUSE_DEFAULT_BASE = 'https://api.meta.ai/v1'
-/** Meta's recommended text model; reasoning kept low (interpretation is extraction, not long reasoning). */
-export const MUSE_DEFAULT_MODEL = 'muse-spark-1.3'
+export const OPEN_LLM_DEFAULT_BASE = 'https://api.groq.com/openai/v1'
+/** Open-weight (Apache-2.0); reasoning kept low (interpretation is extraction, not long reasoning). */
+export const OPEN_LLM_DEFAULT_MODEL = 'openai/gpt-oss-120b'
 
-export function museClient(opts: { apiKey: string; baseUrl?: string; model?: string; timeoutMs?: number; fetchFn?: typeof fetch }): LlmCall {
-  const base = (opts.baseUrl ?? MUSE_DEFAULT_BASE).replace(/\/+$/, '')
-  const model = opts.model ?? MUSE_DEFAULT_MODEL
+export function openLlmClient(opts: { apiKey: string; baseUrl?: string; model?: string; timeoutMs?: number; fetchFn?: typeof fetch }): LlmCall {
+  const base = (opts.baseUrl ?? OPEN_LLM_DEFAULT_BASE).replace(/\/+$/, '')
+  const model = opts.model ?? OPEN_LLM_DEFAULT_MODEL
   const f = opts.fetchFn ?? fetch
   return {
     name: model,
