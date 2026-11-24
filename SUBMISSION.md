@@ -12,6 +12,7 @@
 2. Describe a **5-minute set with about 4–6 songs**, for example:
    - *"Make a 5-minute tech house set with 5 songs that builds gradually, with smooth long blends."*
    - *"A 5-minute melodic house mix, 4 songs, drop swaps into every drop, no loop rolls."*
+   The **Try:** buttons under the prompt box fill in prompts already sized this way.
 3. Press **Generate**. Expect about **6–7 minutes** for a new mix (3–4 if the songs were used before).
    The progress screen shows each stage while it runs.
 4. When it's ready, press play. You can seek by track, watch the DJ board show what each deck is
