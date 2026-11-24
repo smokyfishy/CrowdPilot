@@ -116,6 +116,6 @@ self.onmessage = (ev: MessageEvent<RenderWorkerIn>) => {
     return
   }
   if (m.type === 'render') {
-    render(m.plan, m.bitrate ?? 192000).catch((e: unknown) => post({ type: 'error', message: e instanceof Error ? e.message : String(e) }))
+    render(m.plan, m.bitrate ?? 160000) // 160 kb/s Opus stereo: transparent for music, about 17 % smaller than 192.catch((e: unknown) => post({ type: 'error', message: e instanceof Error ? e.message : String(e) }))
   }
 }

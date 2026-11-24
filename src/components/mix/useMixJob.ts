@@ -97,7 +97,8 @@ export function useMixJob(mixId: string, rec: { recordId: string; data: MixData 
         authHeaders,
         async upload(blob, key, onProgress) {
           const r = await upload(blob, key.split('/').pop(), { key, onProgress })
-          if (!r.success || !r.key) throw new Error(r.error ?? 'upload failed')
+          // a refused upload (e.g. the account's file storage is full) is named as such for the error screen
+          if (!r.success || !r.key) throw new Error(`Saving the mix failed: ${r.error ?? 'upload refused'}`)
           return { key: r.key, url: r.url }
         },
       },

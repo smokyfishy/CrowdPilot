@@ -104,6 +104,9 @@ export interface FriendlyError {
 /** Turns a raw pipeline error into something a listener can act on (the raw text stays in technical details). */
 export function friendlyError(raw: string): FriendlyError {
   const m = raw.toLowerCase()
+  // checked first: a storage refusal mentions "quota", which would otherwise read as a busy catalogue
+  if (/saving the mix|storage[_ ]quota|storage is full|\(409\)/.test(m))
+    return { title: 'Mix storage is full', hint: 'The mix was made, but there is no room left to save it. Delete a few older mixes from your library, then retry; tracks already analyzed are reused.', retryable: true }
   if (/\((401|403)\)|unauthori[sz]ed|not signed in|session expired/.test(m))
     return { title: 'Please sign in again', hint: 'Your session expired while the mix was being created. Sign in, then retry — nothing analyzed so far is lost.', retryable: true }
   if (/failed to fetch|network|load failed|timed? ?out|\(5\d\d\)/.test(m))

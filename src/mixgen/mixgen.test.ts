@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeTrack, summarize } from '../dsp/analyze'
 import { synthTrack } from '../dsp/synth'
+import { isContinuousMix } from './select'
 import { extractJson, heuristicSpec, MixSpec, parseSpec, resolveSpec } from './spec'
 import { decideAccess, mixPermissions, type PolicyContext } from './policy'
 import { makeIdentity, matchesSongRequest, sameRecording, versionClues, youtubeIdentity } from './identity'
@@ -287,4 +288,15 @@ describe('creativity defaults and local grids', () => {
     const irregular = beats.map((t, k) => t + (k % 3) * 0.06)
     expect(localGrid(failed, irregular, 'out').stable).toBe(false)
   }, 30_000) // synthesises + analyses a 64-bar track: slow on a loaded CPU
+})
+
+describe('continuous-mix filter (already-mixed uploads are never treated as tracks)', () => {
+  const c = (title: string, durationSec = 240) => ({ title, durationSec }) as unknown as Parameters<typeof isContinuousMix>[0]
+  it('rejects DJ mixes, podcasts and episodes even when short', () => {
+    for (const t of ['Summer DJ Mix', 'Club Podcast Episode 12', 'Mix: Friday', 'Live set at Ibiza', 'Mixtape vol 2']) expect(isContinuousMix(c(t)), t).toBe(true)
+    expect(isContinuousMix(c('Anything', 600))).toBe(true)
+  })
+  it('keeps normal tracks (including words that only contain "mix")', () => {
+    for (const t of ['Closure (Extended Mix)', 'Remixed Love', 'Episodic Dreams', 'Mixture']) expect(isContinuousMix(c(t)), t).toBe(false)
+  })
 })

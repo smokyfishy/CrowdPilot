@@ -53,7 +53,7 @@ function genreOverlap(spec: ResolvedSpec, c: TrackCandidate): number {
 /** Continuous DJ mixes / mixtapes / long-form uploads are not single recordings to mix. */
 export function isContinuousMix(c: TrackCandidate): boolean {
   if ((c.durationSec ?? 0) >= 540) return true
-  return /(dj[ -]?mix|mixtape|mix ?tape|megamix|continuous mix|live set|dj set|podcast|radio show|episode|full album|mixed by)|^mix/i.test(c.title)
+  return /\b(dj[ -]?mix|mixtape|mix ?tape|megamix|continuous mix|live set|dj set|podcast|radio show|episode|full album|mixed by)\b|^mix\b/i.test(c.title)
 }
 
 export function isExcluded(spec: ResolvedSpec, c: TrackCandidate): boolean {

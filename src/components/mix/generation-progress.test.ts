@@ -58,6 +58,11 @@ describe('friendlyError', () => {
     expect(e.title).toMatch(/enough/i)
     expect(e.retryable).toBe(true)
   })
+  it('explains a full mix storage (not a busy catalogue)', () => {
+    expect(friendlyError('Saving the mix failed: storage_quota_exceeded').title).toBe('Mix storage is full')
+    expect(friendlyError('upload (409) conflict').title).toBe('Mix storage is full')
+    expect(friendlyError('Jamendo quota reached (429)').title).toMatch(/busy/i)
+  })
   it('explains connection problems', () => {
     expect(friendlyError('Failed to fetch').title).toMatch(/connection/i)
   })
